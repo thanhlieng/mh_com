@@ -1,0 +1,29 @@
+import clsx from 'clsx';
+import Link from 'next/link';
+import React from 'react';
+interface ITextLink {
+  href: string;
+  label: string;
+  styleLabel?: string;
+  styleBody?: string;
+}
+
+const TextLink = ({
+  href,
+  label,
+  styleLabel,
+  styleBody,
+  ...props
+}: ITextLink) => {
+  return (
+    <div className={clsx('', styleBody)}>
+      <Link href={href} {...props}>
+        <a className={clsx(' leading-[17px] text-[#1464a9] ', styleLabel)}>
+          {label}
+        </a>
+      </Link>
+    </div>
+  );
+};
+
+export default TextLink;
