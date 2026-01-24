@@ -18,11 +18,12 @@ import { ResponsePagination } from "src/common/dto/response-pagination.dto";
 import { CommonPagination } from "src/common/helper/common-pagination";
 import { commonResponse } from "src/common/helper/common-response";
 import { CommonUpdate } from "src/common/helper/common-update";
-import { randomString, sendRawMessageToEmail } from "src/common/helper/helper";
+import { randomString } from "src/common/helper/helper";
+// import { sendRawMessageToEmail } from "src/common/helper/helper"; // Commented out - AWS SES removed
 import { generateHash } from "src/common/utils/bcrypt";
 import {
   acfConfig,
-  awsConfig,
+  // awsConfig, // Commented out - AWS config removed
   nodeEnvConfig,
 } from "src/configs/configs.constants";
 import { DeleteResult } from "typeorm";
@@ -288,16 +289,17 @@ export class UsersService {
       joinDate,
     });
 
-    const params = {
-      from: awsConfig.emailSend,
-      to: emails.filter((v) => v).join(","),
-      subject: `${
-        nodeEnvConfig === "develop" ? "[MH GREAT SUN-DEVELOP]" : "[MH GREAT SUN]"
-      } THÔNG TIN NHÂN VIÊN - ${username} - ${staffName}`,
-      html: html,
-    };
+    // Email sending commented out - AWS SES removed
+    // const params = {
+    //   from: awsConfig.emailSend,
+    //   to: emails.filter((v) => v).join(","),
+    //   subject: `${
+    //     nodeEnvConfig === "develop" ? "[MH GREAT SUN-DEVELOP]" : "[MH GREAT SUN]"
+    //   } THÔNG TIN NHÂN VIÊN - ${username} - ${staffName}`,
+    //   html: html,
+    // };
 
-    await sendRawMessageToEmail(params);
+    // await sendRawMessageToEmail(params);
   }
 
   async createStaff(

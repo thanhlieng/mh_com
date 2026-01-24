@@ -4,7 +4,7 @@ import dayjs from 'dayjs';
 import * as fs from 'fs';
 import JsBarcode from 'jsbarcode';
 import memoryStreams from 'memory-streams';
-import muhammara from 'muhammara';
+import { PDFDocument } from 'pdf-lib';
 import * as path from 'path';
 import puppeteer from 'puppeteer';
 import removeAccents from 'remove-accents';
@@ -43,15 +43,14 @@ export class GenerateBillService {
     const outStream = new memoryStreams.WritableStream();
 
     try {
-      const firstPDFStream = new muhammara.PDFRStreamForBuffer(buffers[0]);
-      const pdfWriter = muhammara.createWriterToModify(firstPDFStream, new muhammara.PDFStreamForResponse(outStream));
-
-      for (let i = 1; i < buffers.length; i++) {
-        const secondPDFStream = new muhammara.PDFRStreamForBuffer(buffers[i]);
-        pdfWriter.appendPDFPagesFromPDF(secondPDFStream);
+      const mergedPdf = await PDFDocument.create();
+      for (const buffer of buffers) {
+        const pdf = await PDFDocument.load(buffer);
+        const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
+        copiedPages.forEach((page) => mergedPdf.addPage(page));
       }
-
-      pdfWriter.end();
+      const mergedPdfBytes = await mergedPdf.save();
+      outStream.write(Buffer.from(mergedPdfBytes));
       const newBuffer = outStream.toBuffer();
       outStream.end();
 

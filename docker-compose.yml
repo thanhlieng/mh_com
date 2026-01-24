@@ -1,144 +1,51 @@
-version: '3.8'
+version: "3.8"
 
 services:
-  # PostgreSQL Database
-  db:
-    image: postgres:15-alpine
-    container_name: mh_postgres
-    environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASS}
-      POSTGRES_DB: ${DB_DATABASE}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
-    restart: unless-stopped
-    networks:
-      - mh_network
-    labels:
-      - "traefik.enable=false"
-
-  # Traefik Reverse Proxy
   traefik:
     image: traefik:v2.10
-    container_name: mh_traefik
     command:
       - "--api.insecure=true"
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
-      - "--entrypoints.websecure.address=:443"
-      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
-      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
-      - "--certificatesresolvers.letsencrypt.acme.email=${LETSENCRYPT_EMAIL}"
-      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
-      - "--log.level=INFO"
-      - "--accesslog=true"
-      - "--accesslog.filepath=/var/log/traefik/access.log"
     ports:
       - "80:80"
-      - "443:443"
-      - "8080:8080"  # Traefik dashboard
+      - "8080:8080" # Traefik dashboard
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./traefik/letsencrypt:/letsencrypt
-      - ./logs/traefik:/var/log/traefik
-    restart: unless-stopped
     networks:
-      - mh_network
-    depends_on:
-      - db
+      - proxy
 
-  # Backend API
-  api:
-    build:
-      context: ./MH-api
-      dockerfile: Dockerfile
-    container_name: mh_api
+  backend:
+    build: ./MH-api
     environment:
-      NODE_ENV: production
-      DB_HOST: db
-      DB_PORT: 5432
-      DB_TYPE: postgres
-      DB_DATABASE: ${DB_DATABASE}
-      DB_USER: ${DB_USER}
-      DB_PASS: ${DB_PASS}
-      APP_PORT: 3002
-      WEB_URL: ${WEB_URL}
-      JWT_SECRET: ${JWT_SECRET}
-      AWS_ACCESS_KEY: ${AWS_ACCESS_KEY}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-      AWS_S3_BUCKET: ${AWS_S3_BUCKET}
-      AWS_REGION: ${AWS_REGION}
-      AFTERSHIP_SECRET_KEY: ${AFTERSHIP_SECRET_KEY}
-      POSTCODE_DATA_PATH: /app/data
-      POSTCODE_FILE_NAME: postcode.csv
-      STORAGE_PROVIDER: local
-      LOCAL_STORAGE_PATH: /app/uploads
-      LOCAL_STORAGE_URL: https://${DOMAIN}/uploads
-    restart: unless-stopped
-    networks:
-      - mh_network
+      DATABASE_URL: postgresql://thanh:123456@host.docker.internal:5432/mhcom_db
+      NODE_ENV: local
     volumes:
-      - ./logs:/app/logs
-      - mh_data:/app/data
-      - mh_uploads:/app/uploads
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.api.rule=Host(`${DOMAIN}`) && (PathPrefix(`/api`) || PathPrefix(`/swagger`))"
-      - "traefik.http.routers.api.entrypoints=websecure"
-      - "traefik.http.routers.api.tls.certresolver=letsencrypt"
-      - "traefik.http.services.api.loadbalancer.server.port=3002"
-      - "traefik.http.routers.api.middlewares=api-stripprefix"
-      - "traefik.http.middlewares.api-stripprefix.stripprefix.prefixes=/api"
-    depends_on:
-      - db
-      - traefik
+      - ./uploads:/usr/src/app/uploads
+    # Backend is not publicly exposed; only accessible via internal network
+    networks:
+      - proxy
+    # No Traefik labels here to keep it internal
 
-  # Frontend
   frontend:
-    build:
-      context: ./MH
-      dockerfile: Dockerfile
-    container_name: mh_frontend
-    restart: unless-stopped
-    networks:
-      - mh_network
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.frontend.rule=Host(`${DOMAIN}`)"
-      - "traefik.http.routers.frontend.entrypoints=websecure"
-      - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
-      - "traefik.http.services.frontend.loadbalancer.server.port=8000"
+    build: ./MH
     depends_on:
-      - api
-      - traefik
-
-  # Nginx for static files (uploads)
-  nginx-static:
-    image: nginx:alpine
-    container_name: mh_nginx_static
-    volumes:
-      - mh_uploads:/usr/share/nginx/html/uploads:ro
-      - ./nginx-static.conf:/etc/nginx/conf.d/default.conf:ro
-    restart: unless-stopped
-    networks:
-      - mh_network
+      - backend
+    environment:
+      NEXT_PUBLIC_API_URL: http://backend:3000 # Frontend proxies to backend internally
+      NODE_ENV: development
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.uploads.rule=Host(`${DOMAIN}`) && PathPrefix(`/uploads`))"
-      - "traefik.http.routers.uploads.entrypoints=websecure"
-      - "traefik.http.routers.uploads.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.frontend.rule=Host(`localhost`)"
+      - "traefik.http.services.frontend.loadbalancer.server.port=3000"
+      - "traefik.http.routers.frontend.entrypoints=web"
+    networks:
+      - proxy
 
 volumes:
   postgres_data:
-    driver: local
-  mh_data:
-    driver: local
-  mh_uploads:
-    driver: local
 
 networks:
-  mh_network:
+  proxy:
     driver: bridge
-    external: false

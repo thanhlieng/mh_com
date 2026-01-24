@@ -9,10 +9,11 @@ import puppeteer from 'puppeteer';
 import { EPermissionKeyToServiceKey } from 'src/common/guards/permission';
 import { CommonPaginationRaw } from 'src/common/helper/common-pagination';
 import { commonResponse } from 'src/common/helper/common-response';
-import { sendRawMessageToEmail } from 'src/common/helper/helper';
+// import { sendRawMessageToEmail } from 'src/common/helper/helper'; // Commented out - AWS SES removed
 import { getFirstValueArray, removeAccents } from 'src/common/utils/util';
 import { zipFiles } from 'src/common/utils/zip-files';
-import { acfConfig, awsConfig } from 'src/configs/configs.constants';
+import { acfConfig } from 'src/configs/configs.constants';
+// import { awsConfig } from 'src/configs/configs.constants'; // Commented out - AWS config removed
 import IJwtPayload, { IHistoryInfo } from 'src/modules/auth/payloads/jwt-payload';
 import { CreateJapanAddressDto } from 'src/modules/categories/dto/create-japan-address.dto';
 import { JapanAddressService } from 'src/modules/categories/services/japan-address.service';
@@ -457,18 +458,19 @@ export class ManageManifestService {
     const buffer = xlsx.build([{ name: 'Xử lý manifest', data: data, options: null }]);
 
     const subject = `MANIFEST - ${dayjs().tz('asia/ho_chi_minh').format('YYYY/MM/DD HH:mm')}`;
-    const params = {
-      from: awsConfig.emailSend,
-      to: awsConfig.emailReceiveManifestYamato,
-      subject: subject,
-      attachments: [
-        {
-          filename: `${subject}.xlsx`,
-          content: buffer,
-        },
-      ],
-    };
-    sendRawMessageToEmail(params);
+    // Email sending commented out - AWS SES removed
+    // const params = {
+    //   from: awsConfig.emailSend,
+    //   to: awsConfig.emailReceiveManifestYamato,
+    //   subject: subject,
+    //   attachments: [
+    //     {
+    //       filename: `${subject}.xlsx`,
+    //       content: buffer,
+    //     },
+    //   ],
+    // };
+    // sendRawMessageToEmail(params);
 
     return {
       buffer,
@@ -565,23 +567,24 @@ export class ManageManifestService {
 
       invoiceFiles = [...invoiceFiles, ...partnerFile];
 
-      const bufferZipfile = await zipFiles(invoiceFiles);
+       const bufferZipfile = await zipFiles(invoiceFiles);
 
-      const subject = `MANIFEST - YAMATO - INVOICE ${dayjs().tz('asia/ho_chi_minh').format('YYYY/MM/DD HH:mm')}`;
-      const params = {
-        from: awsConfig.emailSend,
-        to: awsConfig.emailReceiveManifestYamato,
-        subject: subject,
-        attachments: [
-          {
-            filename: `${subject}.zip`,
-            content: bufferZipfile,
-          },
-        ],
-      };
-      sendRawMessageToEmail(params);
+       const subject = `MANIFEST - YAMATO - INVOICE ${dayjs().tz('asia/ho_chi_minh').format('YYYY/MM/DD HH:mm')}`;
+       // Email sending commented out - AWS SES removed
+       // const params = {
+       //   from: awsConfig.emailSend,
+       //   to: awsConfig.emailReceiveManifestYamato,
+       //   subject: subject,
+       //   attachments: [
+       //     {
+       //       filename: `${subject}.zip`,
+       //       content: bufferZipfile,
+       //     },
+       //   ],
+       // };
+       // sendRawMessageToEmail(params);
 
-      return {
+       return {
         buffer: bufferZipfile,
         filename: `MANIFEST - YAMATO - INVOICE ${dayjs().tz('asia/ho_chi_minh').format('YYYY/MM/DD HH:mm')}.zip`,
       };
@@ -639,19 +642,20 @@ export class ManageManifestService {
 
       const bufferZipfile = await zipFiles(bookingBillFiles);
 
-      const subject = `MANIFEST - YAMATO - INVOICE ${dayjs().tz('asia/ho_chi_minh').format('YYYY/MM/DD HH:mm')}`;
-      const params = {
-        from: awsConfig.emailSend,
-        to: awsConfig.emailReceiveManifestYamato,
-        subject: subject,
-        attachments: [
-          {
-            filename: `${subject}.zip`,
-            content: bufferZipfile,
-          },
-        ],
-      };
-      sendRawMessageToEmail(params);
+       const subject = `MANIFEST - YAMATO - INVOICE ${dayjs().tz('asia/ho_chi_minh').format('YYYY/MM/DD HH:mm')}`;
+       // Email sending commented out - AWS SES removed
+       // const params = {
+       //   from: awsConfig.emailSend,
+       //   to: awsConfig.emailReceiveManifestYamato,
+       //   subject: subject,
+       //   attachments: [
+       //     {
+       //       filename: `${subject}.zip`,
+       //       content: bufferZipfile,
+       //     },
+       //   ],
+       // };
+       // sendRawMessageToEmail(params);
 
       return {
         buffer: bufferZipfile,

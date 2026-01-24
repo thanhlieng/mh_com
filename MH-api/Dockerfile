@@ -1,25 +1,29 @@
-FROM node:18-alpine
+# Dockerfile for NestJS backend with Python support
+FROM node:20-alpine
 
-WORKDIR /app
+# Install Python and build tools for native modules
+RUN apk add --no-cache python3 py3-pip make gcc g++ python3-dev
+
+WORKDIR /usr/src/app
 
 # Copy package files
-COPY package*.json ./
+COPY package.json yarn.lock* ./
 
 # Install dependencies
-RUN npm ci --only=production
+RUN yarn install --frozen-lockfile
+
+# Rebuild bcrypt for the container's architecture
+# RUN npm rebuild bcrypt --build-from-source
 
 # Copy source code
 COPY . .
 
-# Build the application
-RUN npm run build
+# Create uploads directory
+RUN mkdir -p uploads
 
-# Expose port
-EXPOSE 3002
+# Build app
+RUN yarn build
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:3002/api || exit 1
+EXPOSE 3000
 
-# Start the application
-CMD ["npm", "run", "start:prod"]
+CMD ["yarn", "start:prod"]

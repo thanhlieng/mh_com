@@ -2,6 +2,17 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { DataSource, DataSourceOptions } from "typeorm";
 import { databaseConfig, nodeEnvConfig } from "../configs.constants";
 
+console.log(`
+====================================
+ TypeORM CLI
+ DB       : ${databaseConfig.database}
+ HOST     : ${databaseConfig.host}:${databaseConfig.port}
+ USER     : ${databaseConfig.username}
+ ENV      : ${nodeEnvConfig}
+ SSL      : ${nodeEnvConfig !== "local"}
+====================================
+`);
+
 export const typeOrmConfig: TypeOrmModule = {
   host: databaseConfig.host,
   port: databaseConfig.port,

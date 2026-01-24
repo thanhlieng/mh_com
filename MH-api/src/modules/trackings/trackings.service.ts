@@ -15,10 +15,11 @@ import {
 } from 'src/common/constants/common.constants';
 import { CommonPagination } from 'src/common/helper/common-pagination';
 import { commonResponse } from 'src/common/helper/common-response';
-import { sendRawMessageToEmail } from 'src/common/helper/helper';
+// import { sendRawMessageToEmail } from 'src/common/helper/helper'; // Commented out - AWS SES removed
 import { CommonLogger } from 'src/common/logger/common-logger';
 import { formatDateString, getDayInDateString, getHourInDateString } from 'src/common/utils/util';
-import { acfConfig, aftershipConfig, awsConfig, nodeEnvConfig } from 'src/configs/configs.constants';
+import { acfConfig, aftershipConfig, nodeEnvConfig } from 'src/configs/configs.constants';
+// import { awsConfig } from 'src/configs/configs.constants'; // Commented out - AWS config removed
 import { Between, IsNull, LessThanOrEqual, MoreThanOrEqual, Not } from 'typeorm';
 import { IBooking } from '../bookings/interface/bookings.interface';
 import { BookingService } from '../bookings/services/bookings.service';
@@ -286,19 +287,20 @@ export class TrackingsService {
       if (customer.management_staff[i].typeStaff === ETypeStaff.BUSINESS_STAFF && customer.management_staff[i].staff)
         emailCC.push(customer.management_staff[i].staff.email);
     }
-    const params = {
-      from: awsConfig.emailSend,
-      to: customer.email,
-      cc: emailCC,
-      subject: `${
-        nodeEnvConfig !== 'prd' ? `[${nodeEnvConfig.toUpperCase()}]` : ''
-      }Thông tin người nhận/ Consignee’s information ${acfBill} - ${booking.senderContactPerson} & ${
-        booking.senderNameVi
-      } - ${booking.receiverContactPerson} & ${booking.receiverName}`,
-      html: html,
-    };
+    // Email sending commented out - AWS SES removed
+    // const params = {
+    //   from: awsConfig.emailSend,
+    //   to: customer.email,
+    //   cc: emailCC,
+    //   subject: `${
+    //     nodeEnvConfig !== 'prd' ? `[${nodeEnvConfig.toUpperCase()}]` : ''
+    //   }Thông tin người nhận/ Consignee’s information ${acfBill} - ${booking.senderContactPerson} & ${
+    //     booking.senderNameVi
+    //   } - ${booking.receiverContactPerson} & ${booking.receiverName}`,
+    //   html: html,
+    // };
 
-    await sendRawMessageToEmail(params);
+    // await sendRawMessageToEmail(params);
 
     return commonResponse(CommonResponse.SUCCESS, null);
   }

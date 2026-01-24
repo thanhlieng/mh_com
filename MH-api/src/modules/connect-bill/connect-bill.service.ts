@@ -11,9 +11,10 @@ import {
   ETypePuDeliveryDetail,
 } from 'src/common/constants/common.constants';
 import { CommonPaginationRaw } from 'src/common/helper/common-pagination';
-import { sendRawMessageToEmail } from 'src/common/helper/helper';
+// import { sendRawMessageToEmail } from 'src/common/helper/helper'; // Commented out - AWS SES removed
 import { mapToPercent } from 'src/common/utils/util';
-import { awsConfig, nodeEnvConfig } from 'src/configs/configs.constants';
+// import { awsConfig } from 'src/configs/configs.constants'; // Commented out - AWS config removed
+import { nodeEnvConfig } from 'src/configs/configs.constants';
 import { SharePointService } from 'src/share-point/share-point.service';
 import { Repository, SelectQueryBuilder } from 'typeorm';
 import IJwtPayload, { IHistoryInfo } from '../auth/payloads/jwt-payload';
@@ -89,24 +90,25 @@ export class ConnectBillService {
   }
 
   async sendConnectBillFileToEmail(bufferOP: any, filenameOP: string, buffer: any, filename: string) {
-    const params = {
-      from: awsConfig.emailSend,
-      to: awsConfig.emailReceiveManifest,
-      subject: `${nodeEnvConfig === 'develop' ? '[DEVELOP]' : ''} ${filename}`,
-      text: filename,
-      attachments: [
-        {
-          filename: filename,
-          content: buffer,
-        },
-        {
-          filename: filenameOP,
-          content: bufferOP,
-        },
-      ],
-    };
+    // Email sending commented out - AWS SES removed
+    // const params = {
+    //   from: awsConfig.emailSend,
+    //   to: awsConfig.emailReceiveManifest,
+    //   subject: `${nodeEnvConfig === 'develop' ? '[DEVELOP]' : ''} ${filename}`,
+    //   text: filename,
+    //   attachments: [
+    //     {
+    //       filename: filename,
+    //       content: buffer,
+    //     },
+    //     {
+    //       filename: filenameOP,
+    //       content: bufferOP,
+    //     },
+    //   ],
+    // };
 
-    return sendRawMessageToEmail(params);
+    // return sendRawMessageToEmail(params);
   }
 
   async uploadFileToSharepoint(buffer: any, connectBill: IConnectBill) {

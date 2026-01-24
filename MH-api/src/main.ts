@@ -39,7 +39,7 @@ async function bootstrap() {
     }), //{ forbidNonWhitelisted: true, whitelist: true }
   );
 
-  // Enable CORS for AWS.
+  // Enable CORS.
   app.enableCors();
 
   const port = appConfig.port;

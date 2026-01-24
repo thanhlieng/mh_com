@@ -12,9 +12,9 @@ import {
   CommonResponse,
 } from "src/common/constants/common.constants";
 import { commonResponse } from "src/common/helper/common-response";
-import { sendRawMessageToEmail } from "src/common/helper/helper";
+// import { sendRawMessageToEmail } from "src/common/helper/helper"; // Commented out - AWS SES removed
 import { formatNumberWithCommas } from "src/common/utils/util";
-import { awsConfig } from "src/configs/configs.constants";
+// import { awsConfig } from "src/configs/configs.constants"; // Commented out - AWS config removed
 import IJwtPayload from "src/modules/auth/payloads/jwt-payload";
 import { GenerateBillService } from "src/modules/bookings/services/generate-bill.service";
 import { CustomerService } from "src/modules/customers/customers.service";
@@ -573,32 +573,33 @@ export class CargoListService {
     const pdfBuffer = await this.generateBillService.generateCargoListFile(template);
     const excelBuffer = await this.getExcelCargoList(data);
 
-    const params = {
-      from: awsConfig.emailSend,
-      to: [...data.email, awsConfig.emailReceiveCargoList],
-      subject: `MH Great Sun gửi bảng kê XHĐ T${data.month}.${data.year} (${data.customer_code})`,
-      text: `
-      Dear Anh/Chị Quý Khách hàng! 
+    // Email sending commented out - AWS SES removed
+    // const params = {
+    //   from: awsConfig.emailSend,
+    //   to: [...data.email, awsConfig.emailReceiveCargoList],
+    //   subject: `MH Great Sun gửi bảng kê XHĐ T${data.month}.${data.year} (${data.customer_code})`,
+    //   text: `
+    //   Dear Anh/Chị Quý Khách hàng!
 
-        Kế toán MH Great Sun gửi Bảng kê cước tháng ${data.month}/${data.year} chốt hết ngày 25.${data.month}.${data.year}. 
-        Anh/Chị vui lòng kiểm tra chốt bảng kê trước 17h ngày 28.${data.month}.${data.year} 
-        Sau thời hạn trên nếu Quý khách không có thắc mắc và phản hồi mail về số liệu. Team chốt cước MH Great Sun sẽ xuất hóa đơn theo số liệu đã gửi ở bảng kê này!
+    //     Kế toán MH Great Sun gửi Bảng kê cước tháng ${data.month}/${data.year} chốt hết ngày 25.${data.month}.${data.year}.
+    //     Anh/Chị vui lòng kiểm tra chốt bảng kê trước 17h ngày 28.${data.month}.${data.year}
+    //     Sau thời hạn trên nếu Quý khách không có thắc mắc và phản hồi mail về số liệu. Team chốt cước MH Great Sun sẽ xuất hóa đơn theo số liệu đã gửi ở bảng kê này!
 
-      Team chốt cước MH Great Sun
-    `,
-      attachments: [
-        {
-          filename: `${data.customer_code} - ${data.customer_name} - T${data.month}.${data.year} ${data.date_now}.xlsx`,
-          content: excelBuffer,
-        },
-        {
-          filename: `${data.customer_code} - ${data.customer_name} - T${data.month}.${data.year} ${data.date_now}.pdf`,
-          content: pdfBuffer,
-        },
-      ],
-    };
+    //   Team chốt cước MH Great Sun
+    // `,
+    //   attachments: [
+    //     {
+    //       filename: `${data.customer_code} - ${data.customer_name} - T${data.month}.${data.year} ${data.date_now}.xlsx`,
+    //       content: excelBuffer,
+    //     },
+    //     {
+    //       filename: `${data.customer_code} - ${data.customer_name} - T${data.month}.${data.year} ${data.date_now}.pdf`,
+    //       content: pdfBuffer,
+    //     },
+    //   ],
+    // };
 
-    return sendRawMessageToEmail(params);
+    // return sendRawMessageToEmail(params);
   }
 
   async saveLogSendCargoList(

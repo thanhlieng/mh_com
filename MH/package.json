@@ -15,8 +15,7 @@
     "format": "prettier -w .",
     "format:check": "prettier -c .",
     "release": "standard-version",
-    "push-release": "git push --follow-tags origin main",
-    "prepare": "husky install"
+    "push-release": "git push --follow-tags origin main"
   },
   "dependencies": {
     "@ant-design/icons": "^4.7.0",
@@ -62,7 +61,7 @@
     "@types/lodash": "^4.14.182",
     "@types/nprogress": "^0.2.0",
     "@types/react": "^18.0.6",
-    "@types/react-slick": "^0.23.8",
+    "@types/react-slick": "^0.23.13",
     "@types/tailwindcss": "^3.0.10",
     "@typescript-eslint/eslint-plugin": "^5.20.0",
     "@typescript-eslint/parser": "^5.20.0",

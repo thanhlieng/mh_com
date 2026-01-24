@@ -1,15 +1,21 @@
 /* eslint-disable @next/next/no-img-element */
 import React from 'react';
-import Slider from 'react-slick';
+import ReactSlick, { Settings } from 'react-slick';
 
 import 'slick-carousel/slick/slick.css';
 import 'slick-carousel/slick/slick-theme.css';
 import styles from './style.module.scss';
+
+// Fix for React 18 compatibility with react-slick types
+const Slider = ReactSlick as unknown as React.ComponentType<
+  Settings & { children?: React.ReactNode }
+>;
+
 interface SliderPartnerProps {
   dataImage: Array<{ src: string }>;
 }
 const Partner = ({ dataImage }: SliderPartnerProps) => {
-  const settings = {
+  const settings: Settings = {
     dots: false,
     infinite: true,
     slidesToShow: 6,

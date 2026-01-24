@@ -45,20 +45,7 @@ export const acfConfig = {
   maxProcessCreatePdfFile: Number(process.env.MAX_PROCESS_CREATE_PDF_FILE || 5),
 };
 
-export const awsConfig = {
-  accessKey: process.env.AWS_ACCESS_KEY,
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  s3Bucket: process.env.AWS_S3_BUCKET,
-  region: process.env.AWS_REGION,
-  emailSend: process.env.EMAIL_SEND,
-  emailReceiveCreateCustomer: process.env.EMAIL_RECEIVE_CREATE_CUSTOMER,
-  emailReceiveHandleBooking: process.env.EMAIL_RECEIVE_HANDLE_BOOKING,
-  emailReceiveCustomerService: process.env.EMAIL_RECEIVE_CUSTOMER_SERVICE,
-  emailReceiveManifest: process.env.EMAIL_RECEIVE_MANIFEST,
-  emailReceiveError: process.env.EMAIL_RECEIVE_ERROR,
-  emailReceiveManifestYamato: process.env.EMAIL_RECEIVE_MANIFEST_YAMATO,
-  emailReceiveCargoList: process.env.EMAIL_RECEIVE_CARGO_LIST,
-};
+
 
 export const aftershipConfig = {
   secret: process.env.AFTERSHIP_SECRET_KEY,

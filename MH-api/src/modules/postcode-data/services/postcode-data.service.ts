@@ -2,7 +2,7 @@ import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { parse as parseCSV } from 'csv-parse/sync';
-import stringify from 'csv-stringify/sync';
+import { stringify } from 'csv-stringify/sync';
 
 export interface ICountry {
   name: string;

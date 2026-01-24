@@ -35,7 +35,7 @@ import {
 import { commonResponse } from "src/common/helper/common-response";
 import {
   convertSymbolToCountryName,
-  sendRawMessageToEmail,
+  // sendRawMessageToEmail, // Commented out - AWS SES removed
 } from "src/common/helper/helper";
 import {
   getStartDateAndEndDate,
@@ -46,7 +46,7 @@ import {
 import { removeAccents } from "src/common/utils/util";
 import {
   acfConfig,
-  awsConfig,
+  // awsConfig, // Commented out - AWS config removed
   nodeEnvConfig,
 } from "src/configs/configs.constants";
 import { CustomerRepository } from "src/modules/customers/repositories/customer.repository";
@@ -2387,51 +2387,52 @@ export class BookingService {
       )})`;
     });
 
-    const params = {
-      from: awsConfig.emailSend,
-      to: awsConfig.emailReceiveHandleBooking
-        .split(",")
-        .concat(booking?.customer?.email.split(",")),
-      subject: `[HUỶ] - ${
-        nodeEnvConfig === "develop" ? "[Booking-MH-DEVELOP]" : "[Booking-MH]"
-      } ${booking.senderNameVi} gửi hàng đi ${
-        receiverCountry?.value || booking?.receiverCountry
-      } - ${booking.bookingCode}`,
-      text: `
-      Mã khách hàng: ${booking.customer.customerCode}
-      Tên khách hàng: ${booking?.senderNameEn || ""}
-      Địa chỉ: ${booking?.senderAddressEn || ""} - ${
-        booking?.senderTown || ""
-      } - ${booking.senderProvince || ""} - ${convertSymbolToCountryName(
-        booking.senderCountry
-      )}
-      Thời gian yêu cầu lấy hàng: ${dayjs(booking?.estimatedDate)
-        .tz("asia/ho_chi_minh")
-        .format("DD/MM/YYYY HH:mm")}
-      
-      Dịch vụ: ${booking?.service?.name || ""}
-      Số kiện: ${booking.bookingDetail.length}
-      Trọng lượng thực: ${sumWeight || 0} kgs
-      Kích thước hàng hóa (cm): ${mappingDimensions.join(", ")}
-      Trọng lượng quy đổi: ${sumWeightCharge || 0} kgs 
-      Loại hàng: ${
-        booking.type === BookingType.COMMODITY ? "Hàng hóa" : "Chứng từ"
-      }
-      
-      Người gửi: ${booking.senderContactPerson || ""}
-      Số điện thoại: ${booking.senderPhoneNumber || ""}
-      
-      Consignee: ${booking.receiverName || ""}
-      Tên người nhận: ${booking.receiverContactPerson || ""}
-      Điện thoại: ${booking.receiverPhoneNumber || ""}
-      Nơi đến: ${receiverCountry?.value || booking?.receiverCountry}
-      Địa chỉ: ${booking.receiverAddress || ""}
-      Ghi chú: ${booking.note || ""}
-
-      Lý do hủy: ${booking.reasonCancelBooking}
-      `,
-    };
-    return sendRawMessageToEmail(params);
+    // Email sending commented out - AWS SES removed
+    // const params = {
+    //   from: awsConfig.emailSend,
+    //   to: awsConfig.emailReceiveHandleBooking
+    //     .split(",")
+    //     .concat(booking?.customer?.email.split(",")),
+    //   subject: `[HUỶ] - ${
+    //     nodeEnvConfig === "develop" ? "[Booking-MH-DEVELOP]" : "[Booking-MH]"
+    //   } ${booking.senderNameVi} gửi hàng đi ${
+    //     receiverCountry?.value || booking?.receiverCountry
+    //   } - ${booking.bookingCode}`,
+    //   text: `
+    //   Mã khách hàng: ${booking.customer.customerCode}
+    //   Tên khách hàng: ${booking?.senderNameEn || ""}
+    //   Địa chỉ: ${booking?.senderAddressEn || ""} - ${
+    //     booking?.senderTown || ""
+    //   } - ${booking.senderProvince || ""} - ${convertSymbolToCountryName(
+    //     booking.senderCountry
+    //   )}
+    //   Thời gian yêu cầu lấy hàng: ${dayjs(booking?.estimatedDate)
+    //     .tz("asia/ho_chi_minh")
+    //     .format("DD/MM/YYYY HH:mm")}
+    //
+    //   Dịch vụ: ${booking?.service?.name || ""}
+    //   Số kiện: ${booking.bookingDetail.length}
+    //   Trọng lượng thực: ${sumWeight || 0} kgs
+    //   Kích thước hàng hóa (cm): ${mappingDimensions.join(", ")}
+    //   Trọng lượng quy đổi: ${sumWeightCharge || 0} kgs
+    //   Loại hàng: ${
+    //     booking.type === BookingType.COMMODITY ? "Hàng hóa" : "Chứng từ"
+    //   }
+    //
+    //   Người gửi: ${booking.senderContactPerson || ""}
+    //   Số điện thoại: ${booking.senderPhoneNumber || ""}
+    //
+    //   Consignee: ${booking.receiverName || ""}
+    //   Tên người nhận: ${booking.receiverContactPerson || ""}
+    //   Điện thoại: ${booking.receiverPhoneNumber || ""}
+    //   Nơi đến: ${receiverCountry?.value || booking?.receiverCountry}
+    //   Địa chỉ: ${booking.receiverAddress || ""}
+    //   Ghi chú: ${booking.note || ""}
+    //
+    //   Lý do hủy: ${booking.reasonCancelBooking}
+    //   `,
+    // };
+    // return sendRawMessageToEmail(params);
   }
 
   async sendMailHandleOverBooking(
@@ -2483,60 +2484,61 @@ export class BookingService {
       )})`;
     });
 
-    const params = {
-      from: awsConfig.emailSend,
-      to: awsConfig.emailReceiveHandleBooking
-        .split(",")
-        .concat(booking?.customer?.email.split(","))
-        .concat(staffEmails),
+    // Email sending commented out - AWS SES removed
+    // const params = {
+    //   from: awsConfig.emailSend,
+    //   to: awsConfig.emailReceiveHandleBooking
+    //     .split(",")
+    //     .concat(booking?.customer?.email.split(","))
+    //     .concat(staffEmails),
 
-      subject: `${
-        nodeEnvConfig === "develop" ? "[Booking-MH-DEVELOP]" : "[Booking-MH]"
-      } ${booking.senderNameVi} gửi hàng đi ${
-        receiverCountry?.value || booking?.receiverCountry
-      } - ${booking.bookingCode}`,
-      text: `
-      Mã khách hàng: ${booking.customer.customerCode}
-      Tên khách hàng: ${booking?.senderNameEn || ""}
-      Địa chỉ: ${booking?.senderAddressEn || ""}, ${
-        booking.senderTown || ""
-      }, ${booking.senderProvince || ""}, ${convertSymbolToCountryName(
-        booking.senderCountry
-      )}
-      Thời gian yêu cầu lấy hàng: ${dayjs(timeRequiredPU)
-        .tz("asia/ho_chi_minh")
-        .format("DD/MM/YYYY HH:mm")}
-      ĐỊA CHỈ GỬI KHÁC: ${booking.senderOtherShippingAddress || ""}
-      Ghi Chú: ${booking.senderNote || ""}
-      
-      Dịch vụ: ${booking?.service?.name || ""}
-      Số kiện: ${totalPackage}
-      Trọng lượng thực: ${sumWeight || 0} kgs
-      Kích thước hàng hóa (cm): ${mappingDimensions.join(", ")}
-      Trọng lượng quy đổi: ${sumWeightCharge || 0} kgs 
-      Loại hàng: ${
-        booking.type === BookingType.COMMODITY ? "Hàng hóa" : "Chứng từ"
-      }
-      
-      Người gửi: ${booking.senderContactPerson || ""}
-      Số điện thoại: ${booking.senderPhoneNumber || ""}
-      
-      Consignee: ${booking.receiverName || ""}
-      Tên người nhận: ${booking.receiverContactPerson || ""}
-      Điện thoại: ${booking.receiverPhoneNumber || ""}
-      Nơi đến: ${receiverCountry?.value || booking?.receiverCountry}
-      Địa chỉ: ${booking.receiverAddress || ""}, ${
-        booking.receiverTown || ""
-      }, ${booking.receiverProvince || ""}, ${convertSymbolToCountryName(
-        booking.receiverCountry
-      )}
+    //   subject: `${
+    //     nodeEnvConfig === "develop" ? "[Booking-MH-DEVELOP]" : "[Booking-MH]"
+    //   } ${booking.senderNameVi} gửi hàng đi ${
+    //     receiverCountry?.value || booking?.receiverCountry
+    //   } - ${booking.bookingCode}`,
+    //   text: `
+    //   Mã khách hàng: ${booking.customer.customerCode}
+    //   Tên khách hàng: ${booking?.senderNameEn || ""}
+    //   Địa chỉ: ${booking?.senderAddressEn || ""}, ${
+    //     booking.senderTown || ""
+    //   }, ${booking.senderProvince || ""}, ${convertSymbolToCountryName(
+    //     booking.senderCountry
+    //   )}
+    //   Thời gian yêu cầu lấy hàng: ${dayjs(timeRequiredPU)
+    //     .tz("asia/ho_chi_minh")
+    //     .format("DD/MM/YYYY HH:mm")}
+    //   ĐỊA CHỈ GỬI KHÁC: ${booking.senderOtherShippingAddress || ""}
+    //   Ghi Chú: ${booking.senderNote || ""}
+    //
+    //   Dịch vụ: ${booking?.service?.name || ""}
+    //   Số kiện: ${totalPackage}
+    //   Trọng lượng thực: ${sumWeight || 0} kgs
+    //   Kích thước hàng hóa (cm): ${mappingDimensions.join(", ")}
+    //   Trọng lượng quy đổi: ${sumWeightCharge || 0} kgs
+    //   Loại hàng: ${
+    //     booking.type === BookingType.COMMODITY ? "Hàng hóa" : "Chứng từ"
+    //   }
+    //
+    //   Người gửi: ${booking.senderContactPerson || ""}
+    //   Số điện thoại: ${booking.senderPhoneNumber || ""}
+    //
+    //   Consignee: ${booking.receiverName || ""}
+    //   Tên người nhận: ${booking.receiverContactPerson || ""}
+    //   Điện thoại: ${booking.receiverPhoneNumber || ""}
+    //   Nơi đến: ${receiverCountry?.value || booking?.receiverCountry}
+    //   Địa chỉ: ${booking.receiverAddress || ""}, ${
+    //     booking.receiverTown || ""
+    //   }, ${booking.receiverProvince || ""}, ${convertSymbolToCountryName(
+    //     booking.receiverCountry
+    //   )}
 
-      Ghi chú (THÔNG TIN CHUNG): ${booking.note || ""}
-      `,
-      attachments: files,
-    };
+    //   Ghi chú (THÔNG TIN CHUNG): ${booking.note || ""}
+    //   `,
+    //   attachments: files,
+    // };
 
-    return sendRawMessageToEmail(params);
+    // return sendRawMessageToEmail(params);
   }
 
   async sendMailConfirmBooking(

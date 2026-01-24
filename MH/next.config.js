@@ -3,9 +3,11 @@
 const nextTranslate = require('next-translate');
 
 module.exports = {
-  eslint: {
-    dirs: ['src'],
-  },
+  // eslint: {
+  //   dirs: ['src'],
+  // },
+
+  output: 'standalone',
 
   reactStrictMode: true,
   i18n: {
@@ -15,13 +17,13 @@ module.exports = {
   },
 
   // Uncoment to add domain whitelist
-  images: {
-    domains: [
-      'acf-vn.s3.ap-southeast-1.amazonaws.com',
-      'res.cloudinary.com',
-      'logodix.com',
-    ],
-  },
+  // images: {
+  //   domains: [
+  //     'acf-vn.s3.ap-southeast-1.amazonaws.com',
+  //     'res.cloudinary.com',
+  //     'logodix.com',
+  //   ],
+  // },
 
   // SVGR
   webpack(config) {

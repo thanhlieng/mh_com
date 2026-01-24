@@ -7,6 +7,7 @@ import {
   CommonError,
   CommonResponse,
 } from 'src/common/constants/common.constants';
+
 import { PostcodeDataService } from '../../postcode-data/services/postcode-data.service';
 import {
   ICountry,
@@ -14,7 +15,7 @@ import {
   ITown,
   IPostCode,
 } from '../interface/postcode.interface';
-import { PostcodeDataService } from '../../postcode-data/services/postcode-data.service';
+
 import { GetPostCodeDto } from '../dto/get-postcode.dto';
 import { Repository } from 'typeorm';
 import { PostCodeEntity } from '../entities/postcode.entity';

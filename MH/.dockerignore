@@ -1,0 +1,18 @@
+# Ignore common development files and directories
+.git
+.gitignore
+.dockerignore
+Dockerfile
+
+# Ignore cache, logs, and temp files
+**/__pycache__
+*.log
+*/temp*
+
+# Language specific ignores (e.g., Node.js)
+node_modules/
+npm-debug.log
+.aws
+
+# Allow a specific file back in (if using 'ignore all' pattern)
+# !/src/important.file

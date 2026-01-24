@@ -2,7 +2,6 @@
 import Link from 'next/link';
 import useTranslation from 'next-translate/useTranslation';
 import React from 'react';
-import Slider from 'react-slick';
 
 import 'slick-carousel/slick/slick.css';
 import 'slick-carousel/slick/slick-theme.css';
@@ -12,11 +11,17 @@ import {
   DATA_MOCK_FIELDS_EN,
   DATA_MOCK_FIELDS_VI,
 } from '@/contants/mock-data/mock-data';
+import ReactSlick, { Settings } from 'react-slick';
+
+// Fix for React 18 compatibility with react-slick types
+const Slider = ReactSlick as unknown as React.ComponentType<
+  Settings & { children?: React.ReactNode }
+>;
 
 function OperationFieldsMobile() {
   const { lang, t } = useTranslation('common');
   const dataField = lang === 'vi' ? DATA_MOCK_FIELDS_VI : DATA_MOCK_FIELDS_EN;
-  const settings = {
+  const settings: Settings = {
     dots: true,
     infinite: true,
     slidesToShow: 3,
@@ -47,7 +52,7 @@ function OperationFieldsMobile() {
     ],
   };
   return (
-    <div className='mt-[22px] w-full snMin:hidden'>
+    <div className='snMin:hidden mt-[22px] w-full'>
       <div className={styles.wrappers}>
         <h1 className={styles.title}>
           <span className=' border-b-[1px] border-[#fff] font-semibold xs:text-[20px]'>

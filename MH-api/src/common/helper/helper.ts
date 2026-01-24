@@ -1,7 +1,7 @@
-import AWS from 'aws-sdk';
+// import AWS from 'aws-sdk'; // Commented out - AWS SES removed
 import dayjs from 'dayjs';
 import mailcomposer from 'mailcomposer';
-import { awsConfig } from 'src/configs/configs.constants';
+// import { awsConfig } from 'src/configs/configs.constants'; // Commented out - AWS config removed
 import { countries, EFormatDate } from '../constants/common.constants';
 
 export function replaceSpecialCharInString(str: string) {
@@ -36,46 +36,46 @@ export function convertSymbolToCountryName(country: string) {
   return symbol ? symbol.value : country;
 }
 
-const SES = new AWS.SES({
-  accessKeyId: awsConfig.accessKey,
-  secretAccessKey: awsConfig.secretAccessKey,
-  region: awsConfig.region,
-});
+// const SES = new AWS.SES({
+//   accessKeyId: awsConfig.accessKey,
+//   secretAccessKey: awsConfig.secretAccessKey,
+//   region: awsConfig.region,
+// });
 
-export const sendMessageToEmail = async (params) => {
-  const sendPromise = SES.sendEmail(params).promise();
-  sendPromise
-    .then((data) => {
-      console.log(data);
-      return data;
-    })
-    .catch((error) => {
-      console.info('======== ERROR SEND MAIL ==========');
-      console.error(error);
-      console.info('===================================');
-      return error;
-    });
-};
+// export const sendMessageToEmail = async (params) => {
+//   const sendPromise = SES.sendEmail(params).promise();
+//   sendPromise
+//     .then((data) => {
+//       console.log(data);
+//       return data;
+//     })
+//     .catch((error) => {
+//       console.info('======== ERROR SEND MAIL ==========');
+//       console.error(error);
+//       console.info('===================================');
+//       return error;
+//     });
+// };
 
-export const sendRawMessageToEmail = async (params) => {
-  let sendRawEmailPromise;
+// export const sendRawMessageToEmail = async (params) => {
+//   let sendRawEmailPromise;
 
-  const mail = mailcomposer(params);
+//   const mail = mailcomposer(params);
 
-  return new Promise((resolve, reject) => {
-    mail.build((err, message) => {
-      if (err) {
-        console.log(err);
-        reject(`Error sending raw email: ${err}`);
-      }
+//   return new Promise((resolve, reject) => {
+//     mail.build((err, message) => {
+//       if (err) {
+//         console.log(err);
+//         reject(`Error sending raw email: ${err}`);
+//       }
 
-      sendRawEmailPromise = SES.sendRawEmail({
-        RawMessage: { Data: message },
-      }).promise();
-    });
-    resolve(sendRawEmailPromise);
-  });
-};
+//       sendRawEmailPromise = SES.sendRawEmail({
+//         RawMessage: { Data: message },
+//       }).promise();
+//     });
+//     resolve(sendRawEmailPromise);
+//   });
+// };
 
 export const randomString = (length: number) => {
   const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';

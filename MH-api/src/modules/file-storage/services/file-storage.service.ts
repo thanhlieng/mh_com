@@ -17,16 +17,10 @@ export interface StorageResult {
 }
 
 export interface StorageConfig {
-  provider: 'local' | 's3' | 'cloudflare' | 'backblaze';
+  provider: 'local' | 'cloudflare' | 'backblaze';
   local?: {
     storagePath: string;
     baseUrl: string;
-  };
-  s3?: {
-    accessKeyId: string;
-    secretAccessKey: string;
-    bucket: string;
-    region: string;
   };
   cloudflare?: {
     accountId: string;
@@ -58,12 +52,6 @@ export class FileStorageService {
         storagePath: process.env.LOCAL_STORAGE_PATH || './uploads',
         baseUrl: process.env.LOCAL_STORAGE_URL || 'http://localhost:3002/uploads',
       },
-      s3: {
-        accessKeyId: process.env.AWS_ACCESS_KEY || '',
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
-        bucket: process.env.AWS_S3_BUCKET || '',
-        region: process.env.AWS_REGION || 'ap-southeast-1',
-      },
       cloudflare: {
         accountId: process.env.CLOUDFLARE_ACCOUNT_ID || '',
         token: process.env.CLOUDFLARE_TOKEN || '',
@@ -82,8 +70,6 @@ export class FileStorageService {
     switch (this.config.provider) {
       case 'local':
         return this.uploadToLocal(file);
-      case 's3':
-        return this.uploadToS3(file);
       case 'cloudflare':
         return this.uploadToCloudflare(file);
       case 'backblaze':
@@ -114,35 +100,7 @@ export class FileStorageService {
     };
   }
 
-  private async uploadToS3(file: UploadedFile): Promise<StorageResult> {
-    const AWS = require('aws-sdk');
-    const { accessKeyId, secretAccessKey, bucket, region } = this.config.s3!;
-    
-    const s3 = new AWS.S3({
-      accessKeyId,
-      secretAccessKey,
-      region,
-    });
 
-    const filename = this.generateUniqueFilename(file.originalname);
-    const key = `images/${filename}`;
-
-    const result = await s3
-      .upload({
-        Bucket: bucket,
-        Key: key,
-        Body: file.buffer,
-        ACL: 'public-read',
-        ContentType: file.mimetype,
-      })
-      .promise();
-
-    return {
-      location: result.Location,
-      key: key,
-      bucket: bucket,
-    };
-  }
 
   private async uploadToCloudflare(file: UploadedFile): Promise<StorageResult> {
     // Cloudflare R2 implementation
@@ -178,8 +136,6 @@ export class FileStorageService {
     switch (this.config.provider) {
       case 'local':
         return this.deleteLocalFile(key);
-      case 's3':
-        return this.deleteS3File(key);
       default:
         return this.deleteLocalFile(key);
     }
@@ -199,28 +155,7 @@ export class FileStorageService {
     }
   }
 
-  private async deleteS3File(key: string): Promise<boolean> {
-    try {
-      const AWS = require('aws-sdk');
-      const { accessKeyId, secretAccessKey, bucket, region } = this.config.s3!;
-      
-      const s3 = new AWS.S3({
-        accessKeyId,
-        secretAccessKey,
-        region,
-      });
 
-      await s3.deleteObject({
-        Bucket: bucket,
-        Key: key,
-      }).promise();
-
-      return true;
-    } catch (error) {
-      console.error('Error deleting S3 file:', error);
-      return false;
-    }
-  }
 
   async getFileStats(key: string): Promise<{ size: number; exists: boolean }> {
     switch (this.config.provider) {

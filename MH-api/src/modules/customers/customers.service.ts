@@ -36,11 +36,11 @@ import { commonResponse } from "src/common/helper/common-response";
 import {
   formatDate,
   randomString,
-  sendRawMessageToEmail,
+  // sendRawMessageToEmail, // Commented out - AWS SES removed
 } from "src/common/helper/helper";
 import {
   acfConfig,
-  awsConfig,
+  // awsConfig, // Commented out - AWS config removed
   nodeEnvConfig,
 } from "src/configs/configs.constants";
 import { In, IsNull, Not, Repository, SelectQueryBuilder } from "typeorm";
@@ -168,21 +168,22 @@ export class CustomerService {
       password,
     });
 
-    const params = {
-      from: awsConfig.emailSend,
-      to: customer.email,
-      cc: awsConfig.emailReceiveCustomerService,
-      subject: `${
-        nodeEnvConfig === "develop"
-          ? "[MH GREAT SUN-DEVELOP]"
-          : "[MH GREAT SUN]"
-      } THÔNG TIN TÀI KHOẢN/ACCOUNT INFORMATION - ${customer.customerCode} - ${
-        customer.fullName
-      }`,
-      html: html,
-    };
+    // Email sending commented out - AWS SES removed
+    // const params = {
+    //   from: awsConfig.emailSend,
+    //   to: customer.email,
+    //   cc: awsConfig.emailReceiveCustomerService,
+    //   subject: `${
+    //     nodeEnvConfig === "develop"
+    //       ? "[MH GREAT SUN-DEVELOP]"
+    //       : "[MH GREAT SUN]"
+    //   } THÔNG TIN TÀI KHOẢN/ACCOUNT INFORMATION - ${customer.customerCode} - ${
+    //     customer.fullName
+    //   }`,
+    //   html: html,
+    // };
 
-    await sendRawMessageToEmail(params);
+    // await sendRawMessageToEmail(params);
   }
 
   async checkCustomerExists(
@@ -491,22 +492,23 @@ export class CustomerService {
       },
     ]);
 
-    const params = {
-      from: awsConfig.emailSend,
-      to: awsConfig.emailReceiveCreateCustomer,
-      subject: "[Tạo mã] Yêu cầu mở tài khoản Individual",
-      text: "Thông tin khách hàng yêu cầu mở tài khoản Individual",
-      attachments: [
-        {
-          filename: `Individual-${new Date().getTime()}.xlsx`,
-          content: buffer,
-        },
-      ],
-    };
+    // Email sending commented out - AWS SES removed
+    // const params = {
+    //   from: awsConfig.emailSend,
+    //   to: awsConfig.emailReceiveCreateCustomer,
+    //   subject: "[Tạo mã] Yêu cầu mở tài khoản Individual",
+    //   text: "Thông tin khách hàng yêu cầu mở tài khoản Individual",
+    //   attachments: [
+    //     {
+    //       filename: `Individual-${new Date().getTime()}.xlsx`,
+    //       content: buffer,
+    //     },
+    //   ],
+    // };
 
-    const result = await sendRawMessageToEmail(params);
+    // const result = await sendRawMessageToEmail(params);
 
-    return commonResponse(CommonResponse.SUCCESS, result);
+    // return commonResponse(CommonResponse.SUCCESS, result);
   }
 
   async sendRequestCreateBusinessCustomer(
@@ -553,22 +555,23 @@ export class CustomerService {
       },
     ]);
 
-    const params = {
-      from: awsConfig.emailSend,
-      to: awsConfig.emailReceiveCreateCustomer,
-      subject: "[Tạo mã] Yêu cầu mở tài khoản Business",
-      text: "Thông tin khách hàng yêu cầu mở tài khoản Business",
-      attachments: [
-        {
-          filename: `Business-${new Date().getTime()}.xlsx`,
-          content: buffer,
-        },
-      ],
-    };
+    // Email sending commented out - AWS SES removed
+    // const params = {
+    //   from: awsConfig.emailSend,
+    //   to: awsConfig.emailReceiveCreateCustomer,
+    //   subject: "[Tạo mã] Yêu cầu mở tài khoản Business",
+    //   text: "Thông tin khách hàng yêu cầu mở tài khoản Business",
+    //   attachments: [
+    //     {
+    //       filename: `Business-${new Date().getTime()}.xlsx`,
+    //       content: buffer,
+    //     },
+    //   ],
+    // };
 
-    await sendRawMessageToEmail(params);
+    // await sendRawMessageToEmail(params);
 
-    return commonResponse(CommonResponse.SUCCESS, null);
+    // return commonResponse(CommonResponse.SUCCESS, null);
   }
 
   async findCustomerByCustomerCode(findCustomerDto: FindCustomerDto) {
