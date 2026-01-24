@@ -1,51 +1,53 @@
 version: "3.8"
 
 services:
-  traefik:
-    image: traefik:v2.10
-    command:
-      - "--api.insecure=true"
-      - "--providers.docker=true"
-      - "--providers.docker.exposedbydefault=false"
-      - "--entrypoints.web.address=:80"
-    ports:
-      - "80:80"
-      - "8080:8080" # Traefik dashboard
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    networks:
-      - proxy
-
-  backend:
+  backend-mh:
     build: ./MH-api
+    container_name: backend-mh
     environment:
       DATABASE_URL: postgresql://thanh:123456@host.docker.internal:5432/mhcom_db
       NODE_ENV: local
     volumes:
-      - ./uploads:/usr/src/app/uploads
-    # Backend is not publicly exposed; only accessible via internal network
+      - mh_uploads:/usr/src/app/uploads
     networks:
-      - proxy
+      # - proxy
+      - mh-internal
+    restart: unless-stopped
+    expose:
+      - "3000"
+    # Backend is not publicly exposed; only accessible via internal network
     # No Traefik labels here to keep it internal
 
-  frontend:
+  frontend-mh:
     build: ./MH
+    container_name: frontend-mh
     depends_on:
-      - backend
+      - backend-mh
     environment:
-      NEXT_PUBLIC_API_URL: http://backend:3000 # Frontend proxies to backend internally
-      NODE_ENV: development
+      NEXT_PUBLIC_API_URL: http://backend-mh:3000
+      NODE_ENV: production
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.frontend.rule=Host(`localhost`)"
-      - "traefik.http.services.frontend.loadbalancer.server.port=3000"
-      - "traefik.http.routers.frontend.entrypoints=web"
+      - "traefik.http.routers.mh-frontend.rule=Host(`mhgreatsun.com`)"
+      - "traefik.http.services.mh-frontend.loadbalancer.server.port=3000"
+      - "traefik.http.routers.mh-frontend.entrypoints=web"
+      - "traefik.http.middlewares.mh-frontend-https.redirectscheme.scheme=https"
+      - "traefik.http.routers.mh-frontend-secure.rule=Host(`mhgreatsun.com`)"
+      - "traefik.http.routers.mh-frontend-secure.entrypoints=websecure"
+      - "traefik.http.routers.mh-frontend-secure.tls.certresolver=letsencrypt"
+    expose:
+      - "3000"
     networks:
       - proxy
+      - mh-internal
+    restart: unless-stopped
 
 volumes:
-  postgres_data:
+  mh_uploads:
+    driver: local
 
 networks:
   proxy:
+    external: true
+  mh-internal:
     driver: bridge

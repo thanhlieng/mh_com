@@ -1,0 +1,107 @@
+version: "3.8"
+
+services:
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik
+    restart: always
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.le.acme.email=mh@mhgreatsun.vn"
+      - "--certificatesresolvers.le.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.le.acme.httpchallenge=true"
+      - "--certificatesresolvers.le.acme.httpchallenge.entrypoint=web"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./letsencrypt:/letsencrypt
+  be:
+    build: ./be
+    container_name: mhgs_be
+    expose:
+      - "8000"
+    volumes:
+      - ./data:/home/mhgs_log_be/data
+    environment:
+      DB_NAME: mhgs_clone
+
+  begp:
+    build: ./be
+    container_name: gp_be
+    expose:
+      - "8000"
+    volumes:
+      - ./datagp:/home/mhgs_log_be/data
+    environment:
+      DB_NAME: gp_clone
+
+  ocr:
+    build: ./ocr
+    container_name: mhgs_ocr
+    volumes:
+      - pip-cache:/pip-cache
+    ports:
+      - "9000:9000" # Expose port internally (not public)
+
+  web:
+    build: 
+      context: ./web
+      dockerfile: Dockerfile.web-a
+    container_name: mhgs_web
+    depends_on:
+      - be
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.web.rule=Host(`mhgreatsun.vn`)"
+      - "traefik.http.routers.web.entrypoints=websecure"
+      - "traefik.http.routers.web.tls.certresolver=le"
+      - "traefik.http.services.web.loadbalancer.server.port=80"
+  
+  webgp:
+    build: 
+      context: ./web
+      dockerfile: Dockerfile.web-b
+    container_name: gp_web
+    ports:
+      - "8081:80"
+    depends_on:
+      - begp
+
+    
+
+  chatbot:
+    build: ./chatbot
+    container_name: mhgs_chatbot
+    ports:
+      - "8100:8100"  # Internal only
+    depends_on:
+      - mongo  
+      
+  mongo:
+    image: mongo:4.4
+    container_name: mhgs_mongo
+    ports:
+      - "27017:27017"  # Publicly exposes the default MongoDB port
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: adminpass
+
+  reader:
+    build: ./content-reader
+    container_name: mhgs_chatbot_content_reader
+    ports:
+      - "8001:8001"  # Internal only
+    depends_on:
+      - mongo
+
+
+volumes:
+  pip-cache:
+    driver: local

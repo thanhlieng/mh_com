@@ -7,6 +7,15 @@ module.exports = {
   //   dirs: ['src'],
   // },
 
+  async rewrites() {
+    return [
+      {
+        source: '/:path*',
+        destination: 'http://backend-mh:3000/:path*',
+      },
+    ];
+  },
+
   output: 'standalone',
 
   reactStrictMode: true,
