@@ -27,16 +27,21 @@ services:
       NEXT_PUBLIC_API_URL: http://backend-mh:3000
       NODE_ENV: production
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.mh-frontend.rule=Host(`mhgreatsun.com`)"
-      - "traefik.http.services.mh-frontend.loadbalancer.server.port=3000"
-      - "traefik.http.routers.mh-frontend.entrypoints=web"
-      - "traefik.http.middlewares.mh-frontend-https.redirectscheme.scheme=https"
-      - "traefik.http.routers.mh-frontend-secure.rule=Host(`mhgreatsun.com`)"
-      - "traefik.http.routers.mh-frontend-secure.entrypoints=websecure"
-      - "traefik.http.routers.mh-frontend-secure.tls.certresolver=letsencrypt"
-    expose:
-      - "3000"
+        - "traefik.enable=true"
+
+  # HTTP
+        - "traefik.http.routers.mhcom-frontend.rule=Host(`mhgreatsun.com`)"
+        - "traefik.http.routers.mhcom-frontend.entrypoints=web"
+        - "traefik.http.middlewares.mhcom-frontend-https.redirectscheme.scheme=https"
+
+  # HTTPS
+        - "traefik.http.routers.mhcom-frontend-secure.rule=Host(`mhgreatsun.com`)"
+        - "traefik.http.routers.mhcom-frontend-secure.entrypoints=websecure"
+        - "traefik.http.routers.mhcom-frontend-secure.tls.certresolver=le"
+        - "traefik.http.routers.mhcom-frontend-secure.service=mhcom-frontend"
+
+  # Service
+        - "traefik.http.services.mhcom-frontend.loadbalancer.server.port=3000"
     networks:
       - proxy
       - mh-internal
