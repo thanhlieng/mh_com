@@ -5,7 +5,7 @@ services:
     build: ./MH-api
     container_name: backend-mh
     environment:
-      DATABASE_URL: postgresql://thanh:123456@host.docker.internal:5432/mhcom_db
+      DATABASE_URL: postgresql://dev:devdsea123@103.216.115.200:5432/mhcom_db
       NODE_ENV: local
     volumes:
       - mh_uploads:/usr/src/app/uploads
@@ -13,18 +13,24 @@ services:
       # - proxy
       - mh-internal
     restart: unless-stopped
-    expose:
-      - "3000"
+    ports:
+      - "4000:3000"
     # Backend is not publicly exposed; only accessible via internal network
     # No Traefik labels here to keep it internal
 
   frontend-mh:
-    build: ./MH
+    build:
+      context: ./MH
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_HOST=http://backend-mh:3000
+        - NODE_ENV=production
     container_name: frontend-mh
     depends_on:
       - backend-mh
+    
     environment:
-      NEXT_PUBLIC_API_URL: http://backend-mh:3000
+      NEXT_PUBLIC_API_HOST: http://localhost:4000
       NODE_ENV: production
     labels:
         - "traefik.enable=true"
@@ -45,6 +51,8 @@ services:
     networks:
       - proxy
       - mh-internal
+    ports:
+      - "3000:3000"
     restart: unless-stopped
 
 volumes:
