@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p /Users/tl/work/mhcom/mhcom/MH/.claude)",
+      "Bash(touch /Users/tl/work/mhcom/mhcom/MH/.claude/change-log.md)"
+    ]
+  }
+}

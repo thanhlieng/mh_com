@@ -40,6 +40,12 @@ export class UserEntity extends BaseEntity {
   @Column({ enum: ETypeUser, default: ETypeUser.CLIENT })
   type: string;
 
+  @Column({ nullable: true, name: 'a_supplier_id' })
+  a_supplier_id: string;
+
+  @Column({ nullable: true, name: 'a_customer_id' })
+  a_customer_id: string;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
   @UpdateDateColumn({ name: 'updated_at' })

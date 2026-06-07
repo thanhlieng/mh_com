@@ -10,7 +10,7 @@ import VInput from '@/components/common/VInput';
 
 import { ACCSESS_TOKEN, REFRESH_TOKEN, USER } from '@/contants/Storage';
 import { UsersRole } from '@/contants/types';
-import { MANAGER_BOOKINGS } from '@/routes/routes';
+import { MANAGER_BOOKINGS, SUPPLIER_COST_STATEMENT } from '@/routes/routes';
 import AuthenService from '@/services/Authen.service';
 import storage from '@/utils/storage';
 
@@ -37,7 +37,10 @@ const LoginPage = () => {
       setItem(ACCSESS_TOKEN, res.tokens.access.token);
       setItem(REFRESH_TOKEN, res.tokens.refresh.token);
       setItem(USER, JSON.stringify(res.user));
-      router.push(MANAGER_BOOKINGS);
+      const destination = res.user.a_supplier_id
+        ? SUPPLIER_COST_STATEMENT
+        : MANAGER_BOOKINGS;
+      router.push(destination);
       setLoading(false);
     } catch (error) {
       notification.error({

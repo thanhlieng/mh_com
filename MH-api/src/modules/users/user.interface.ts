@@ -9,6 +9,8 @@ export interface IUser {
   password: string;
   salt: string;
   type: string;
+  a_supplier_id?: string | null;
+  a_customer_id?: string | null;
   createdAt?: Date;
   updatedAt?: Date;
   customer?: ICustomer;

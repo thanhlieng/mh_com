@@ -38,6 +38,9 @@ lerna-debug.log*
 .env.dev
 deploy.sh
 
+# RS256 private key — never commit
+keys/private.pem
+
 .env.*
 
 package-lock.json

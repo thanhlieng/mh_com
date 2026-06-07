@@ -29,6 +29,8 @@ export class AuthService {
       status,
       typeUser: user.type,
       permissions: permissions,
+      a_supplier_id: user.a_supplier_id ?? null,
+      a_customer_id: user.a_customer_id ?? null,
     };
   }
 

@@ -46,6 +46,9 @@ import { VirtualDeliveryAddressModule } from './modules/virtual-delivery-address
 import { MlExchangeRateModule } from './modules/ml-exchange-rate/ml-exchange-rate.module';
 import { PostcodeDataModule } from './modules/postcode-data/postcode-data.module';
 import { FileStorageModule } from './modules/file-storage/file-storage.module';
+import { SystemAIntegrationModule } from './modules/system-a-integration/system-a-integration.module';
+import { BangKeModule } from './modules/bangke/bangke.module';
+import { ServicesCatalogModule } from './modules/services-catalog/services-catalog.module';
 import { Module } from '@nestjs/common';
 
 @Module({
@@ -93,6 +96,9 @@ import { Module } from '@nestjs/common';
     MlExchangeRateModule,
     PostcodeDataModule,
     FileStorageModule,
+    SystemAIntegrationModule,
+    BangKeModule,
+    ServicesCatalogModule,
   ],
   controllers: [AppController],
   providers: [GlobalSeed, AppService],

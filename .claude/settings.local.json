@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p /Users/tl/work/mhcom/mhcom/.claude/agents)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); deps={**d.get\\('dependencies',{}\\), **d.get\\('devDependencies',{}\\)}; print\\('\\\\n'.join\\(k for k in deps if any\\(x in k for x in ['shadcn','radix','tailwind','clsx','lucide','class-variance']\\)\\)\\)\")",
+      "Bash(xargs cat)"
+    ]
+  }
+}

@@ -1,11 +1,8 @@
 import { BookingStatusPost } from './types';
 
-console.log(process.env.NEXT_PUBLIC_API_HOST);
-
-
-export const BASE_URL_GEN_BILL = process.env.NEXT_PUBLIC_API_HOST;
+export const BASE_URL_GEN_BILL = process.env.NEXT_PUBLIC_API_HOST + '/api';
 export const BASE_URL = process.env.NEXT_PUBLIC_API_HOST;
-export const UPLOAD_ENDPOINT = `${process.env.NEXT_PUBLIC_API_HOST}/upload`;
+export const UPLOAD_ENDPOINT = `${process.env.NEXT_PUBLIC_API_HOST}/api/upload`;
 
 export const DEFAULT_DATE_FORMAT = 'YYYY-MM-DD';
 

@@ -7,6 +7,18 @@ module.exports = {
   //   dirs: ['src'],
   // },
 
+  env: {
+    NEXT_PUBLIC_API_HOST: 'http://localhost:3000',
+  },
+
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: 'http://backend-mh:3000/:path*',
+      },
+    ];
+  },
 
   output: 'standalone',
 
