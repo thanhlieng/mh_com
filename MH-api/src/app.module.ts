@@ -48,6 +48,8 @@ import { PostcodeDataModule } from './modules/postcode-data/postcode-data.module
 import { FileStorageModule } from './modules/file-storage/file-storage.module';
 import { SystemAIntegrationModule } from './modules/system-a-integration/system-a-integration.module';
 import { BangKeModule } from './modules/bangke/bangke.module';
+import { SupplierTransactionsModule } from './modules/supplier-transactions/supplier-transactions.module';
+import { SupplierChiHoFilesModule } from './modules/supplier-chiho-files/supplier-chiho-files.module';
 import { ServicesCatalogModule } from './modules/services-catalog/services-catalog.module';
 import { Module } from '@nestjs/common';
 
@@ -98,6 +100,8 @@ import { Module } from '@nestjs/common';
     FileStorageModule,
     SystemAIntegrationModule,
     BangKeModule,
+    SupplierTransactionsModule,
+    SupplierChiHoFilesModule,
     ServicesCatalogModule,
   ],
   controllers: [AppController],

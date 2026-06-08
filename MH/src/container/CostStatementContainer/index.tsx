@@ -9,37 +9,59 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-import { format, isWithinInterval, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import {
   ArrowUpDownIcon,
   CheckCircleIcon,
-  FileTextIcon,
   FileSpreadsheetIcon,
+  FileTextIcon,
+  ListChecksIcon,
   Loader2Icon,
   PencilIcon,
   RotateCcwIcon,
   SearchIcon,
+  TableIcon,
   XCircleIcon,
 } from 'lucide-react';
 import * as React from 'react';
 import { type DateRange } from 'react-day-picker';
+
+import { cn } from '@/lib/utils';
 
 import { DateRangePicker } from '@/components/DateRangePicker';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { cn } from '@/lib/utils';
-import { withPrivateRouteSupplier } from '@/routes/withPrivateRouteSupplier';
-import { exportCostStatement } from '@/services/supplier.services';
 
-import { FAKE_COST_DATA } from './fakeData';
-import { type CostStatementRow, type CostStatus, type EditableField } from './types';
+import { withPrivateRouteSupplier } from '@/routes/withPrivateRouteSupplier';
+import { exportCostStatement, getSupplierTransactions } from '@/services/supplier.services';
+import type { SupplierTransactionsParams, SupplierTransaction } from '@/services/supplier.services';
+import { useQuery } from 'react-query';
+
+import { FAKE_CHANGE_REQUESTS } from './changeRequestData';
+import { ChangeRequestList } from './ChangeRequestList';
+import {
+  type ChangeRequest,
+  type ChangeRequestItem,
+  type CostStatementRow,
+  type CostStatus,
+  type EditableField,
+  FIELD_LABELS,
+} from './types';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const formatVND = (n: number) =>
   n.toLocaleString('vi-VN', { style: 'currency', currency: 'VND' });
+
+// Định dạng giá trị một trường để hiển thị trong đề nghị thay đổi
+const formatFieldValue = (field: EditableField, value: unknown): string => {
+  if (value === null || value === undefined || value === '') return '';
+  if (field === 'freightCost' || field === 'surcharge') return formatVND(Number(value));
+  if (field === 'quantity') return Number(value).toLocaleString('vi-VN');
+  return String(value);
+};
 
 const STATUS_BADGE: Record<
   CostStatus,
@@ -50,6 +72,36 @@ const STATUS_BADGE: Record<
   'Chưa thanh toán': 'outline',
   'Đã hủy':          'destructive',
 };
+
+// ─── Map API transaction to CostStatementRow ──────────────────────────────────
+
+function mapTransactionToRow(t: SupplierTransaction): CostStatementRow {
+  const base = {
+    id: `${t.type}-${t.id}`,
+    billCode: t.order_code ?? t.booking_bill_number ?? '',
+    createdDate: t.created_at?.slice(0, 10) ?? '',
+    customer: t.customer_name ?? '',
+    surcharge: 0,
+    quantity: 0,
+    total: t.amount_after_vat ?? 0,
+    status: 'Chưa thanh toán' as CostStatus,
+    note: t.invoice_exporter ?? '',
+  };
+  if (t.type === 'pnl') {
+    return {
+      ...base,
+      route: t.service_name,
+      cargoType: t.service_type ?? '',
+      freightCost: t.cost ?? 0,
+    };
+  }
+  return {
+    ...base,
+    route: t.services?.join(', ') ?? '',
+    cargoType: 'Chi hộ',
+    freightCost: t.amount ?? 0,
+  };
+}
 
 // ─── Editable text cell ───────────────────────────────────────────────────────
 
@@ -208,6 +260,116 @@ function FilterableHeader({
 // ─── Column definitions ───────────────────────────────────────────────────────
 
 type DirtyMap = Record<string, Set<EditableField>>;
+
+// ─── Mobile card (giữ nguyên khả năng chỉnh sửa inline) ───────────────────────
+
+function CostCard({
+  row,
+  onUpdate,
+  dirtyMap,
+}: {
+  row: CostStatementRow;
+  onUpdate: (id: string, field: EditableField, value: string | number) => void;
+  dirtyMap: DirtyMap;
+}) {
+  const isDirty = (f: EditableField) => dirtyMap[row.id]?.has(f) ?? false;
+  const rowHasDirty = !!dirtyMap[row.id];
+
+  const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
+    <div className='flex items-center justify-between gap-2'>
+      <span className='shrink-0 text-[11px] text-muted-foreground'>{label}</span>
+      <div className='min-w-0 flex-1'>{children}</div>
+    </div>
+  );
+
+  return (
+    <div
+      className={cn(
+        'flex flex-col gap-1.5 rounded-md border p-3',
+        rowHasDirty ? 'border-amber-300 bg-amber-50/40' : 'border-border bg-background'
+      )}
+    >
+      <div className='flex items-center justify-between gap-2'>
+        <div className='min-w-0 flex-1 text-sm font-semibold'>
+          <EditableTextCell
+            value={row.billCode}
+            isDirty={isDirty('billCode')}
+            onCommit={(v) => onUpdate(row.id, 'billCode', v)}
+          />
+        </div>
+        <Badge variant={STATUS_BADGE[row.status]}>{row.status}</Badge>
+      </div>
+
+      <Field label='Ngày tạo'>
+        <EditableTextCell
+          value={row.createdDate}
+          isDirty={isDirty('createdDate')}
+          onCommit={(v) => onUpdate(row.id, 'createdDate', v)}
+        />
+      </Field>
+      <Field label='Khách hàng'>
+        <EditableTextCell
+          value={row.customer}
+          isDirty={isDirty('customer')}
+          onCommit={(v) => onUpdate(row.id, 'customer', v)}
+        />
+      </Field>
+      <Field label='Tuyến đường'>
+        <EditableTextCell
+          value={row.route}
+          isDirty={isDirty('route')}
+          onCommit={(v) => onUpdate(row.id, 'route', v)}
+        />
+      </Field>
+      <Field label='Loại hàng'>
+        <EditableTextCell
+          value={row.cargoType}
+          isDirty={isDirty('cargoType')}
+          onCommit={(v) => onUpdate(row.id, 'cargoType', v)}
+        />
+      </Field>
+      <Field label='Số lượng'>
+        <EditableNumericCell
+          value={row.quantity}
+          formatted={row.quantity.toLocaleString('vi-VN')}
+          isDirty={isDirty('quantity')}
+          onCommit={(v) => onUpdate(row.id, 'quantity', v)}
+        />
+      </Field>
+      <Field label='Cước phí'>
+        <EditableNumericCell
+          value={row.freightCost}
+          formatted={formatVND(row.freightCost)}
+          isDirty={isDirty('freightCost')}
+          onCommit={(v) => onUpdate(row.id, 'freightCost', v)}
+        />
+      </Field>
+      <Field label='Phụ phí'>
+        <EditableNumericCell
+          value={row.surcharge}
+          formatted={formatVND(row.surcharge)}
+          isDirty={isDirty('surcharge')}
+          onCommit={(v) => onUpdate(row.id, 'surcharge', v)}
+        />
+      </Field>
+
+      <div className='flex items-center justify-between border-t border-border pt-1.5'>
+        <span className='text-[11px] font-medium text-muted-foreground'>Tổng cộng</span>
+        <span className='text-sm font-bold tabular-nums text-primary'>
+          {formatVND(row.total)}
+        </span>
+      </div>
+
+      <Field label='Ghi chú'>
+        <EditableTextCell
+          value={row.note}
+          isDirty={isDirty('note')}
+          onCommit={(v) => onUpdate(row.id, 'note', v)}
+        />
+      </Field>
+    </div>
+  );
+}
 
 function buildColumns(
   onUpdate: (id: string, field: EditableField, value: string | number) => void,
@@ -412,13 +574,29 @@ const INITIAL_DB: DbFilters = { billCode: '', customer: '', route: '' };
 // ─── Main component ───────────────────────────────────────────────────────────
 
 const CostStatementContainer = () => {
-  const [data, setData] = React.useState<CostStatementRow[]>(() =>
-    FAKE_COST_DATA.map((r) => ({ ...r }))
+  const [queryParams, setQueryParams] = React.useState<SupplierTransactionsParams>({
+    page: 1,
+    page_size: 200,
+  });
+  const apiQuery = useQuery(
+    ['supplier-transactions', queryParams],
+    () => getSupplierTransactions(queryParams),
+    { keepPreviousData: true, retry: false }
   );
+
+  const [data, setData] = React.useState<CostStatementRow[]>([]);
   const [dirtyMap, setDirtyMap] = React.useState<DirtyMap>({});
-  const originalDataRef = React.useRef<CostStatementRow[]>(
-    FAKE_COST_DATA.map((r) => ({ ...r }))
-  );
+  const originalDataRef = React.useRef<CostStatementRow[]>([]);
+
+  // Reset data khi API trả về
+  React.useEffect(() => {
+    if (apiQuery.data) {
+      const mapped = apiQuery.data.results.map(mapTransactionToRow);
+      setData(mapped);
+      originalDataRef.current = mapped;
+      setDirtyMap({});
+    }
+  }, [apiQuery.data]);
 
   const [dateRange, setDateRange] = React.useState<DateRange | undefined>();
   const [dbFilters, setDbFilters] = React.useState<DbFilters>(INITIAL_DB);
@@ -426,23 +604,15 @@ const CostStatementContainer = () => {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [isExporting, setIsExporting] = React.useState(false);
 
+  // View con: 'statement' = bảng kê | 'requests' = danh sách đề nghị thay đổi
+  const [view, setView] = React.useState<'statement' | 'requests'>('statement');
+  const [changeRequests, setChangeRequests] = React.useState<ChangeRequest[]>(
+    () => FAKE_CHANGE_REQUESTS.map((r) => ({ ...r }))
+  );
+
   // Dirty stats
   const dirtyRowCount = Object.keys(dirtyMap).length;
   const dirtyCellCount = Object.values(dirtyMap).reduce((s, set) => s + set.size, 0);
-
-  // Date range filter runs locally
-  const dateFiltered = React.useMemo(() => {
-    if (!dateRange?.from) return data;
-    const from = dateRange.from;
-    const to = dateRange.to ?? dateRange.from;
-    return data.filter((row) => {
-      try {
-        return isWithinInterval(parseISO(row.createdDate), { start: from, end: to });
-      } catch {
-        return true;
-      }
-    });
-  }, [data, dateRange]);
 
   // Update a single field; recompute total when freightCost/surcharge changes; mark dirty
   const handleUpdate = React.useCallback(
@@ -474,13 +644,49 @@ const CostStatementContainer = () => {
     setDirtyMap({});
   };
 
-  // Submit changes then clear dirty state (stub until API is ready)
+  // Tạo một đề nghị thay đổi từ các ô đã chỉnh sửa, gửi sang hệ thống khác
   const handleConfirm = () => {
-    const changedRows = data.filter((row) => dirtyMap[row.id]);
-    // TODO: replace with actual API call
-    console.log('[CostStatement] Submitting', changedRows.length, 'changed rows:', changedRows);
+    const items: ChangeRequestItem[] = [];
+    for (const [rowId, fields] of Object.entries(dirtyMap)) {
+      const current = data.find((r) => r.id === rowId);
+      const original = originalDataRef.current.find((r) => r.id === rowId);
+      if (!current || !original) continue;
+      fields.forEach((field) => {
+        items.push({
+          rowId,
+          billCode: current.billCode,
+          field,
+          fieldLabel: FIELD_LABELS[field],
+          oldValue: formatFieldValue(field, (original as any)[field]),
+          newValue: formatFieldValue(field, (current as any)[field]),
+        });
+      });
+    }
+    if (items.length === 0) return;
+
+    const now = new Date();
+    const seq = String(changeRequests.length + 1).padStart(4, '0');
+    const request: ChangeRequest = {
+      id: `cr-${now.getTime()}`,
+      code: `DNTD-${now.getFullYear()}-${seq}`,
+      submittedAt: now.toISOString(),
+      status: 'Chờ duyệt',
+      items,
+    };
+
+    // TODO: thay bằng API gửi đề nghị sang hệ thống khác
+    setChangeRequests((prev) => [request, ...prev]);
     originalDataRef.current = data.map((r) => ({ ...r }));
     setDirtyMap({});
+    setView('requests'); // chuyển sang xem danh sách đề nghị vừa gửi
+  };
+
+  // Hủy một đề nghị đang chờ duyệt (chỉ áp dụng cho trạng thái "Chờ duyệt")
+  const handleCancelRequest = (id: string) => {
+    setChangeRequests((prev) =>
+      prev.filter((r) => !(r.id === id && r.status === 'Chờ duyệt'))
+    );
+    // TODO: gọi API hủy đề nghị trên hệ thống duyệt
   };
 
   // Export to Excel via API (backend generates the file)
@@ -517,7 +723,7 @@ const CostStatementContainer = () => {
   );
 
   const table = useReactTable({
-    data: dateFiltered,
+    data,
     columns,
     state: { columnFilters, sorting },
     onColumnFiltersChange: setColumnFilters,
@@ -532,10 +738,23 @@ const CostStatementContainer = () => {
     Object.values(dbFilters).some(Boolean) ||
     columnFilters.length > 0;
 
+  const handleApplyFilters = () => {
+    const params: SupplierTransactionsParams = { page: 1, page_size: 200 };
+    if (dateRange?.from) params.start_date = format(dateRange.from, 'yyyy-MM-dd');
+    if (dateRange?.to) params.end_date = format(dateRange.to, 'yyyy-MM-dd');
+    const qParts: string[] = [];
+    if (dbFilters.billCode) qParts.push(dbFilters.billCode);
+    if (dbFilters.customer) qParts.push(dbFilters.customer);
+    if (dbFilters.route) qParts.push(dbFilters.route);
+    if (qParts.length > 0) params.q = qParts.join(' ');
+    setQueryParams(params);
+  };
+
   const clearAllFilters = () => {
     setDateRange(undefined);
     setDbFilters(INITIAL_DB);
     setColumnFilters([]);
+    setQueryParams({ page: 1, page_size: 200 });
   };
 
   const visibleRows = table.getFilteredRowModel().rows;
@@ -546,39 +765,93 @@ const CostStatementContainer = () => {
   return (
     <div className='flex flex-1 flex-col overflow-hidden'>
       {/* ── Page header ── */}
-      <div className='flex h-14 shrink-0 items-center gap-3 border-b border-border px-6'>
+      <div className='flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-border px-4 py-2 md:h-14 md:flex-nowrap md:px-6 md:py-0'>
         <FileTextIcon className='h-4 w-4 shrink-0 text-muted-foreground' />
         <h1 className='text-sm font-semibold'>Bảng kê chi phí</h1>
-        {dirtyCellCount > 0 && (
+        {view === 'statement' && dirtyCellCount > 0 && (
           <Badge variant='warning' className='gap-1'>
             <PencilIcon className='h-3 w-3' />
             {dirtyCellCount} thay đổi
           </Badge>
         )}
-        <div className='ml-auto flex items-center gap-4 text-xs'>
-          <span className='text-muted-foreground'>
-            {visibleRows.length} bản ghi
-          </span>
-          <span className='text-muted-foreground'>
-            Cước: <span className='font-medium text-foreground'>{formatVND(totalFreight)}</span>
-          </span>
-          <span className='text-muted-foreground'>
-            Phụ phí: <span className='font-medium text-foreground'>{formatVND(totalSurcharge)}</span>
-          </span>
-          <span className='rounded bg-primary/10 px-2 py-0.5 font-semibold text-primary'>
-            Tổng: {formatVND(grandTotal)}
-          </span>
-        </div>
+        {view === 'statement' && (
+          <div className='flex w-full flex-wrap items-center gap-x-4 gap-y-1 text-xs md:ml-auto md:w-auto'>
+            <span className='text-muted-foreground'>
+              {apiQuery.isFetching && (
+                <Loader2Icon className='mr-1 inline h-3 w-3 animate-spin' />
+              )}
+              {visibleRows.length} bản ghi
+              {apiQuery.data && (
+                <span className='text-[10px] text-muted-foreground/60'>
+                  {' '}/ {apiQuery.data.total}
+                </span>
+              )}
+            </span>
+            <span className='text-muted-foreground'>
+              Cước: <span className='font-medium text-foreground'>{formatVND(totalFreight)}</span>
+            </span>
+            <span className='text-muted-foreground'>
+              Phụ phí: <span className='font-medium text-foreground'>{formatVND(totalSurcharge)}</span>
+            </span>
+            <span className='rounded bg-primary/10 px-2 py-0.5 font-semibold text-primary'>
+              Tổng: {formatVND(grandTotal)}
+            </span>
+          </div>
+        )}
       </div>
 
+      {/* ── Tab bar (view con) ── */}
+      <div className='flex shrink-0 items-center gap-1 overflow-x-auto border-b border-border px-4 md:px-6'>
+        <button
+          onClick={() => setView('statement')}
+          className={cn(
+            'flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-xs font-medium transition-colors',
+            view === 'statement'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          )}
+        >
+          <TableIcon className='h-3.5 w-3.5' />
+          Bảng kê chi phí
+        </button>
+        <button
+          onClick={() => setView('requests')}
+          className={cn(
+            'flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-xs font-medium transition-colors',
+            view === 'requests'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          )}
+        >
+          <ListChecksIcon className='h-3.5 w-3.5' />
+          Đề nghị thay đổi
+          {changeRequests.length > 0 && (
+            <span className='rounded-full bg-muted px-1.5 text-[10px] font-semibold text-muted-foreground'>
+              {changeRequests.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {view === 'requests' && (
+        <ChangeRequestList
+          requests={changeRequests}
+          onCancel={handleCancelRequest}
+        />
+      )}
+
+      {view === 'statement' && (
+      <>
+      {/* statement-view-wrapper */}
+
       {/* ── Filter bar ── */}
-      <div className='shrink-0 border-b border-border bg-muted/20 px-6 py-3'>
+      <div className='shrink-0 border-b border-border bg-muted/20 px-4 py-3 md:px-6'>
         <div className='flex flex-wrap items-end gap-3'>
           <DateRangePicker
             label='Khoảng thời gian'
             value={dateRange}
             onChange={setDateRange}
-            className='w-60'
+            className='w-full md:w-60'
           />
 
           <div className='flex flex-col gap-1'>
@@ -612,8 +885,7 @@ const CostStatementContainer = () => {
           </div>
 
           <div className='flex items-end gap-2'>
-            {/* TODO: wire "Áp dụng" to API when ready */}
-            <Button size='sm' className='h-8 text-xs'>
+            <Button size='sm' className='h-8 text-xs' onClick={handleApplyFilters}>
               Áp dụng
             </Button>
             {hasActiveFilters && (
@@ -629,8 +901,8 @@ const CostStatementContainer = () => {
             )}
           </div>
 
-          {/* Export button — pushed to far right */}
-          <div className='ml-auto flex items-end'>
+          {/* Export button — pushed to far right (trên desktop) */}
+          <div className='flex items-end md:ml-auto'>
             <Button
               variant='outline'
               size='sm'
@@ -651,7 +923,7 @@ const CostStatementContainer = () => {
 
       {/* ── Dirty action bar (shown when there are unsaved changes) ── */}
       {dirtyCellCount > 0 && (
-        <div className='shrink-0 flex items-center gap-3 border-b border-amber-200 bg-amber-50 px-6 py-2'>
+        <div className='flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-amber-200 bg-amber-50 px-4 py-2 md:px-6'>
           <PencilIcon className='h-3.5 w-3.5 shrink-0 text-amber-600' />
           <span className='text-xs text-amber-700'>
             <span className='font-semibold'>{dirtyCellCount} ô</span>
@@ -681,9 +953,45 @@ const CostStatementContainer = () => {
         </div>
       )}
 
-      {/* ── Table ── */}
-      <div className='flex-1 overflow-auto px-6 py-4'>
-        <div className='min-w-max rounded-md border border-border'>
+      {/* ── Table (desktop) / Card list (mobile) ── */}
+      <div className='flex-1 overflow-auto px-4 py-4 md:px-6'>
+        {/* Card list — mobile: thông tin chính, vẫn chỉnh sửa inline được */}
+        <div className='flex flex-col gap-2 md:hidden'>
+          {table.getRowModel().rows.length === 0 ? (
+            <div className='py-16 text-center text-xs text-muted-foreground'>
+              Không tìm thấy bản ghi phù hợp
+            </div>
+          ) : (
+            <>
+              {table.getRowModel().rows.map((row) => (
+                <CostCard
+                  key={row.id}
+                  row={row.original}
+                  onUpdate={handleUpdate}
+                  dirtyMap={dirtyMap}
+                />
+              ))}
+              {/* Tóm tắt tổng */}
+              <div className='mt-1 flex flex-col gap-1 rounded-md border border-border bg-muted/30 p-3 text-xs'>
+                <div className='flex justify-between'>
+                  <span className='text-muted-foreground'>Cước phí</span>
+                  <span className='tabular-nums'>{formatVND(totalFreight)}</span>
+                </div>
+                <div className='flex justify-between'>
+                  <span className='text-muted-foreground'>Phụ phí</span>
+                  <span className='tabular-nums'>{formatVND(totalSurcharge)}</span>
+                </div>
+                <div className='flex justify-between border-t border-border pt-1 font-semibold'>
+                  <span>Tổng cộng ({visibleRows.length} bản ghi)</span>
+                  <span className='tabular-nums text-primary'>{formatVND(grandTotal)}</span>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Table — từ sm trở lên, scroll ngang khi nhiều cột */}
+        <div className='hidden w-full min-w-max rounded-md border border-border md:block'>
           <table className='w-full border-collapse text-sm'>
             <thead>
               {table.getHeaderGroups().map((hg) => (
@@ -764,6 +1072,8 @@ const CostStatementContainer = () => {
           </table>
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 };

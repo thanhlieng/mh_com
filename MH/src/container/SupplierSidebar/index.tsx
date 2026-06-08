@@ -3,20 +3,24 @@ import {
   FileTextIcon,
   HandCoinsIcon,
   LogOutIcon,
+  RouteIcon,
   TruckIcon,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 
+import { cn } from '@/lib/utils';
+
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { cn } from '@/lib/utils';
+
+import { USER } from '@/contants/Storage';
 import {
   SUPPLIER_COST_STATEMENT,
   SUPPLIER_PAYMENT_MANAGEMENT,
+  SUPPLIER_SHIPPING_RATE,
 } from '@/routes/routes';
-import { ACCSESS_TOKEN, USER } from '@/contants/Storage';
 import storage from '@/utils/storage';
 
 const NAV_ITEMS = [
@@ -30,9 +34,21 @@ const NAV_ITEMS = [
     href: SUPPLIER_PAYMENT_MANAGEMENT,
     icon: HandCoinsIcon,
   },
+  {
+    label: 'Chi phí vận chuyển',
+    href: SUPPLIER_SHIPPING_RATE,
+    icon: RouteIcon,
+  },
 ];
 
-const SupplierSidebar = () => {
+interface SupplierSidebarProps {
+  /** Trạng thái mở drawer trên mobile/tablet */
+  open?: boolean;
+  /** Đóng drawer (mobile/tablet) */
+  onClose?: () => void;
+}
+
+const SupplierSidebar = ({ open = false, onClose }: SupplierSidebarProps) => {
   const router = useRouter();
   const { removeAll } = storage();
   const [username, setUsername] = useState('');
@@ -51,7 +67,23 @@ const SupplierSidebar = () => {
   };
 
   return (
-    <aside className='flex h-screen w-60 flex-col bg-sidebar text-sidebar-foreground'>
+    <>
+      {/* Backdrop — chỉ trên mobile/tablet khi drawer mở */}
+      {open && (
+        <div
+          className='fixed inset-0 z-40 bg-black/40 md:hidden'
+          onClick={onClose}
+          aria-hidden
+        />
+      )}
+
+      <aside
+        className={cn(
+          'fixed inset-y-0 left-0 z-50 flex h-screen w-60 flex-col bg-sidebar text-sidebar-foreground transition-transform duration-200',
+          'md:static md:z-auto md:translate-x-0',
+          open ? 'translate-x-0' : '-translate-x-full'
+        )}
+      >
       {/* Brand */}
       <div className='flex h-16 items-center gap-3 px-5'>
         <div className='flex h-8 w-8 items-center justify-center rounded-md bg-sidebar-primary'>
@@ -74,6 +106,7 @@ const SupplierSidebar = () => {
           return (
             <Link key={href} href={href} passHref>
               <a
+                onClick={onClose}
                 className={cn(
                   'flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors',
                   active
@@ -111,7 +144,8 @@ const SupplierSidebar = () => {
           Đăng xuất
         </Button>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 };
 

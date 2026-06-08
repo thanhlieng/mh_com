@@ -47,6 +47,9 @@ src/
 | `pu-deliveries` | Pickup & Delivery |
 | `invoices` | Hóa đơn |
 | `bangke` | Bảng kê (cargo list) |
+| `system-a-integration` | Proxy gọi API hệ thống A (gắn token RS256 supplier/customer/service) |
+| `supplier-transactions` | `GET /api/supplier/transactions` — proxy danh sách giao dịch (PNL + Chi hộ) của supplier từ A (màn Bảng kê chi phí) |
+| `supplier-chiho-files` | `GET/POST /api/supplier/chiho-files` — liệt kê & upload file Chi hộ theo order, proxy sang A (màn Quản lý chi hộ) |
 | `roles` | Phân quyền động (RBAC) |
 | `finance-statistical` | Báo cáo tài chính & thống kê |
 | `homepage` | Nội dung trang chủ website |

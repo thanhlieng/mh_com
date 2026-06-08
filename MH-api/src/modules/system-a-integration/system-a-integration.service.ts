@@ -9,6 +9,7 @@ import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
 import { AxiosError } from 'axios';
+import FormDataNode from 'form-data';
 import { SystemBJwtService } from '../auth/system-b-jwt.service';
 
 interface CallSystemAOptions {
@@ -115,6 +116,62 @@ export class SystemAIntegrationService {
           throw new BadRequestException(`Unsupported HTTP method: ${method}`);
       }
 
+      return response.data;
+    } catch (error) {
+      this.handleError(error, endpoint);
+    }
+  }
+
+  /**
+   * Call System A with a multipart/form-data body (e.g. file upload).
+   * Token được gắn tự động giống callSystemA. Dùng cho upload Chi hộ.
+   */
+  async callSystemAMultipart<T = any>(options: {
+    endpoint: string;
+    form: FormDataNode;
+    a_supplier_id?: string;
+    a_customer_id?: string;
+    timeout?: number;
+  }): Promise<T> {
+    const {
+      endpoint,
+      form,
+      a_supplier_id,
+      a_customer_id,
+      timeout = this.requestTimeout,
+    } = options;
+
+    let token: string;
+    try {
+      if (a_supplier_id) {
+        token = this.systemBJwtService.issueSupplierToken(a_supplier_id);
+      } else if (a_customer_id) {
+        token = this.systemBJwtService.issueCustomerToken(a_customer_id);
+      } else {
+        token = this.systemBJwtService.issueServiceToken();
+      }
+    } catch (error) {
+      if (error.status === HttpStatus.CONFLICT) {
+        throw error;
+      }
+      throw new InternalServerErrorException(
+        'Failed to generate System A token',
+      );
+    }
+
+    const url = `${this.baseUrl}${endpoint}`;
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post<T>(url, form, {
+          headers: {
+            ...form.getHeaders(),
+            Authorization: `Bearer ${token}`,
+          },
+          timeout,
+          maxBodyLength: Infinity,
+          maxContentLength: Infinity,
+        }),
+      );
       return response.data;
     } catch (error) {
       this.handleError(error, endpoint);

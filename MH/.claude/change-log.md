@@ -64,3 +64,19 @@ Mục đích: giúp team hiểu được những gì đang được làm mà kh�
 
 **Ảnh hưởng fullstack:** Backend cần trả về trường `a_supplier_id` và `a_customer_id` trong response của `POST /auth/login` (object `user`).
 
+---
+
+## [2026-06-08 20:40] — Chuyển PaymentManagement sang API tra cứu đơn theo mã (order-by-code)
+
+**Yêu cầu:** Thay API `GET /supplier/transactions` bằng API tra cứu đơn hàng theo mã từ hệ thống A (`order-by-code`) trong màn Quản lý chi hộ.
+
+**Agent thực hiện:** frontend
+
+**Các file đã thay đổi:**
+- `MH/src/services/supplier.services.ts` (dòng 198–271): thêm types `ChihosItem`, `OrderByCodeResponse` và service function `getOrderByCode` (mock với 2 chihos, delay 600ms)
+- `MH/src/container/PaymentManagementContainer/index.tsx`: thay `getSupplierTransactions` → `getOrderByCode`; thay `mapChiHoToOrder` mapping từ `ChiHoTransaction` → mapping từ `OrderByCodeResponse.chihos` items; xoá import `ChiHoTransaction`
+
+**Lý do / bối cảnh:** Hệ thống B không còn lưu giao dịch chi hộ dạng flat. Thay vào đó, màn Quản lý chi hộ cần search đơn trước (order-code), sau đó hiển thị các khoản chi hộ (chihos) trong đơn đó.
+
+**Ảnh hưởng fullstack:** API mới `GET /api/order_by_code/?q=<code>` thuộc `mhgs_log_be` (Django - hệ thống A). Cần proxy endpoint trên system B hoặc gọi trực tiếp từ frontend. Hiện tại dùng mock data với timeout 600ms.
+

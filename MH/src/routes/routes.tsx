@@ -185,3 +185,4 @@ export const MANAGER_BOOKINGS = '/manager/booking';
 export const SUPPLIER_HOME = '/supplier';
 export const SUPPLIER_COST_STATEMENT = '/supplier/cost-statement';
 export const SUPPLIER_PAYMENT_MANAGEMENT = '/supplier/payment-management';
+export const SUPPLIER_SHIPPING_RATE = '/supplier/shipping-rate';

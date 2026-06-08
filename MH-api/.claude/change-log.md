@@ -23,3 +23,23 @@ các file frontend (../MH) cần được cập nhật tương ứng.
 
 **Ảnh hưởng fullstack:** Frontend (`MH/src/services/Authen.type.ts`) đã được cập nhật sẵn để nhận 2 trường này. Không có breaking change với code frontend cũ.
 
+
+## [2026-06-08 13:45] — System B: API transactions + chi hộ files (proxy sang A)
+
+**Yêu cầu:** Dựa vào docs API mới từ hệ thống A, tạo request trên hệ thống B cho API transactions (màn Bảng kê chi phí) và API chi hộ (màn Quản lý chi hộ).
+
+**Các file đã thay đổi:**
+- `src/modules/system-a-integration/system-a-integration.service.ts`: thêm `callSystemAMultipart()` để forward multipart/form-data (upload file) kèm token; import `form-data`.
+- `src/modules/supplier-transactions/*` (mới): controller `GET /api/supplier/transactions` + service proxy tới A `GET /api/system-b/supplier/transactions/` (token supplier), pass-through params start_date/end_date/q/page/page_size.
+- `src/modules/supplier-chiho-files/*` (mới): controller `GET /api/supplier/chiho-files` (liệt kê theo order_id, include_inactive) và `POST /api/supplier/chiho-files` (AnyFilesInterceptor, multipart) + service proxy tới A `GET/POST /api/system-b/supplier/chiho-files/`.
+- `src/app.module.ts`: đăng ký `SupplierTransactionsModule`, `SupplierChiHoFilesModule`.
+- `package.json`: khai báo dependency `form-data` (đã có sẵn transitively).
+- `CLAUDE.md`: bổ sung 3 module vào bảng module chính.
+
+**Lý do / bối cảnh:** Theo SPEC A↔B, FE B không gọi thẳng A; B (NestJS) phát token RS256 supplier rồi proxy. Lấy `a_supplier_id` từ `@GetUser()`, chặn 409 nếu tài khoản chưa liên kết supplier. Các endpoint A chỉ chấp nhận token supplier.
+
+**Ảnh hưởng fullstack:** Thêm 3 endpoint hệ thống B:
+- `GET /api/supplier/transactions` (params: start_date, end_date, q, page, page_size) → trả `{ total, results[] }` với mỗi item `type: 'pnl' | 'chi_ho'`, cột tiền chuẩn hoá `amount_after_vat`.
+- `GET /api/supplier/chiho-files?order_id=&include_inactive=`
+- `POST /api/supplier/chiho-files` (multipart: order_id + file0, file1...)
+Frontend đã thêm service tương ứng trong `MH/src/services/supplier.services.ts`.
