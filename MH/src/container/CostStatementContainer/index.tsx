@@ -35,19 +35,18 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 import { withPrivateRouteSupplier } from '@/routes/withPrivateRouteSupplier';
-import { exportCostStatement, getSupplierTransactions } from '@/services/supplier.services';
+import { exportCostStatement, getSupplierTransactions, getChangeRequests, createChangeRequest } from '@/services/supplier.services';
 import type { SupplierTransactionsParams, SupplierTransaction } from '@/services/supplier.services';
-import { useQuery } from 'react-query';
+import { useQuery, useMutation, useQueryClient } from 'react-query';
 
-import { FAKE_CHANGE_REQUESTS } from './changeRequestData';
 import { ChangeRequestList } from './ChangeRequestList';
 import {
   type ChangeRequest,
-  type ChangeRequestItem,
   type CostStatementRow,
   type CostStatus,
   type EditableField,
   FIELD_LABELS,
+  mapApiResponseToChangeRequest,
 } from './types';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -86,6 +85,9 @@ function mapTransactionToRow(t: SupplierTransaction): CostStatementRow {
     total: t.amount_after_vat ?? 0,
     status: 'Chưa thanh toán' as CostStatus,
     note: t.invoice_exporter ?? '',
+    pnlId: t.type === 'pnl' ? t.id : undefined,
+    orderId: t.order_id ?? undefined,
+    transactionType: t.type,
   };
   if (t.type === 'pnl') {
     return {
@@ -606,9 +608,26 @@ const CostStatementContainer = () => {
 
   // View con: 'statement' = bảng kê | 'requests' = danh sách đề nghị thay đổi
   const [view, setView] = React.useState<'statement' | 'requests'>('statement');
-  const [changeRequests, setChangeRequests] = React.useState<ChangeRequest[]>(
-    () => FAKE_CHANGE_REQUESTS.map((r) => ({ ...r }))
+
+  // Fetch change requests list từ API
+  const queryClient = useQueryClient();
+  const changeRequestsQuery = useQuery(
+    ['supplier-change-requests'],
+    () => getChangeRequests(),
+    { enabled: view === 'requests', retry: false },
   );
+
+  const changeRequests: ChangeRequest[] = React.useMemo(() => {
+    if (!changeRequestsQuery.data) return [];
+    return changeRequestsQuery.data.map(mapApiResponseToChangeRequest);
+  }, [changeRequestsQuery.data]);
+
+  // Mutation: tạo đề nghị thay đổi cost
+  const createMutation = useMutation(createChangeRequest, {
+    onSuccess: () => {
+      queryClient.invalidateQueries('supplier-change-requests');
+    },
+  });
 
   // Dirty stats
   const dirtyRowCount = Object.keys(dirtyMap).length;
@@ -644,49 +663,50 @@ const CostStatementContainer = () => {
     setDirtyMap({});
   };
 
-  // Tạo một đề nghị thay đổi từ các ô đã chỉnh sửa, gửi sang hệ thống khác
-  const handleConfirm = () => {
-    const items: ChangeRequestItem[] = [];
+  // Tạo một đề nghị thay đổi từ các ô đã chỉnh sửa, gửi sang hệ thống A
+  const handleConfirm = async () => {
+    const promises: Promise<unknown>[] = [];
     for (const [rowId, fields] of Object.entries(dirtyMap)) {
       const current = data.find((r) => r.id === rowId);
       const original = originalDataRef.current.find((r) => r.id === rowId);
       if (!current || !original) continue;
-      fields.forEach((field) => {
-        items.push({
-          rowId,
-          billCode: current.billCode,
-          field,
-          fieldLabel: FIELD_LABELS[field],
-          oldValue: formatFieldValue(field, (original as any)[field]),
-          newValue: formatFieldValue(field, (current as any)[field]),
-        });
-      });
+
+      // Chỉ tạo đề nghị cho rows có thay đổi freightCost và là PNL type
+      if (!fields.has('freightCost')) continue;
+      if (!current.pnlId || !current.orderId) continue;
+
+      const reason = window.prompt(
+        `Lý do thay đổi cước phí cho bill "${current.billCode}" từ ${formatFieldValue('freightCost', original.freightCost)} thành ${formatFieldValue('freightCost', current.freightCost)}?`,
+        'Điều chỉnh cước phí từ NCC',
+      );
+      if (reason === null) return; // user hủy
+
+      promises.push(
+        createMutation.mutateAsync({
+          pnl: current.pnlId,
+          order: current.orderId,
+          requested_cost: current.freightCost,
+          reason: reason || undefined,
+        }),
+      );
     }
-    if (items.length === 0) return;
 
-    const now = new Date();
-    const seq = String(changeRequests.length + 1).padStart(4, '0');
-    const request: ChangeRequest = {
-      id: `cr-${now.getTime()}`,
-      code: `DNTD-${now.getFullYear()}-${seq}`,
-      submittedAt: now.toISOString(),
-      status: 'Chờ duyệt',
-      items,
-    };
+    if (promises.length === 0) return;
 
-    // TODO: thay bằng API gửi đề nghị sang hệ thống khác
-    setChangeRequests((prev) => [request, ...prev]);
-    originalDataRef.current = data.map((r) => ({ ...r }));
-    setDirtyMap({});
-    setView('requests'); // chuyển sang xem danh sách đề nghị vừa gửi
+    try {
+      await Promise.all(promises);
+      originalDataRef.current = data.map((r) => ({ ...r }));
+      setDirtyMap({});
+      setView('requests');
+    } catch {
+      // error handled by react-query onError / console
+    }
   };
 
   // Hủy một đề nghị đang chờ duyệt (chỉ áp dụng cho trạng thái "Chờ duyệt")
   const handleCancelRequest = (id: string) => {
-    setChangeRequests((prev) =>
-      prev.filter((r) => !(r.id === id && r.status === 'Chờ duyệt'))
-    );
-    // TODO: gọi API hủy đề nghị trên hệ thống duyệt
+    // TODO: gọi API hủy đề nghị khi có endpoint (hiện tại API hệ thống A chưa hỗ trợ cancel)
+    queryClient.invalidateQueries('supplier-change-requests');
   };
 
   // Export to Excel via API (backend generates the file)

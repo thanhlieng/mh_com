@@ -50,6 +50,7 @@ src/
 | `system-a-integration` | Proxy gọi API hệ thống A (gắn token RS256 supplier/customer/service) |
 | `supplier-transactions` | `GET /api/supplier/transactions` — proxy danh sách giao dịch (PNL + Chi hộ) của supplier từ A (màn Bảng kê chi phí) |
 | `supplier-chiho-files` | `GET/POST /api/supplier/chiho-files` — liệt kê & upload file Chi hộ theo order, proxy sang A (màn Quản lý chi hộ) |
+| `supplier-change-requests` | `GET /api/supplier/change-requests`, `GET /api/supplier/change-requests/:id`, `POST /api/supplier/change-requests` — proxy yêu cầu thay đổi cost PNL từ NCC sang A (màn Đề nghị thay đổi) |
 | `roles` | Phân quyền động (RBAC) |
 | `finance-statistical` | Báo cáo tài chính & thống kê |
 | `homepage` | Nội dung trang chủ website |

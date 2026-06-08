@@ -234,6 +234,32 @@
 
 **Ảnh hưởng fullstack:** Không thay đổi contract API.
 
+## [2026-06-08 16:00] — Tích hợp API đề nghị thay đổi cost (ServiceChangeSupplierRequest)
+
+**Yêu cầu:** Dựa vào API-service-change-supplier-request.md, tích hợp các API liên quan đến đề nghị thay đổi cost PNL từ hệ thống A qua proxy B.
+
+**Agent thực hiện:** backend + frontend
+
+**Backend (MH-api):**
+- `src/modules/supplier-change-requests/dto/create-change-request.dto.ts` (mới): DTO với validation `pnl`, `order`, `requested_cost` (required) + `reason` (optional).
+- `src/modules/supplier-change-requests/supplier-change-requests.module.ts` (mới): module import SystemAIntegrationModule.
+- `src/modules/supplier-change-requests/supplier-change-requests.controller.ts` (mới): 3 endpoint — `GET /api/supplier/change-requests` (danh sách), `GET /api/supplier/change-requests/:id` (chi tiết), `POST /api/supplier/change-requests` (tạo). Tất cả đều kiểm tra `a_supplier_id`, proxy qua SystemAIntegrationService.
+- `src/modules/supplier-change-requests/supplier-change-requests.service.ts` (mới): proxy `GET /api/service-change-supplier-requests/`, `GET /api/service-change-supplier-requests/<id>/`, `POST /api/service-change-supplier-requests/` trên hệ thống A.
+- `src/app.module.ts` (dòng 53, 106): import + đăng ký `SupplierChangeRequestsModule`.
+
+**Frontend (MH):**
+- `src/services/supplier.services.ts` (dòng 198–259): thêm types `CreateChangeRequestPayload`, `ChangeRequestResponse` + 3 methods `getChangeRequests()`, `createChangeRequest()`, `getChangeRequestDetail()`.
+- `src/container/CostStatementContainer/types.ts` (dòng 3–16): thêm `pnlId`, `orderId`, `transactionType` vào `CostStatementRow`; cập nhật `EditableField` exclude list. Thêm `API_STATUS_TO_VN` mapper + function `mapApiResponseToChangeRequest()`.
+- `src/container/CostStatementContainer/index.tsx` (dòng 38–55): xoá import `FAKE_CHANGE_REQUESTS`/`ChangeRequestItem`; thêm import `getChangeRequests`, `createChangeRequest`, `useMutation`, `useQueryClient`, `mapApiResponseToChangeRequest`. (dòng 78–103): thêm mapping `pnlId`, `orderId`, `transactionType` trong `mapTransactionToRow`. (dòng 609–630): thay `changeRequests` state bằng React Query `useQuery` + `useMemo` mapping từ API. (dòng 666–710): `handleConfirm` gọi `createMutation.mutateAsync` cho mỗi row dirty có `freightCost` (PNL type), dùng `window.prompt` lấy lý do. (dòng 713): `handleCancelRequest` dùng `queryClient.invalidateQueries` (chưa có cancel API).
+
+**Lý do / bối cảnh:** Tích hợp API hệ thống A cho chức năng đề nghị thay đổi cost (ServiceChangeSupplierRequest). FE thay dữ liệu giả (FAKE_CHANGE_REQUESTS) bằng API thật qua proxy B. Mỗi thay đổi cước phí trên một PNL row → 1 POST API call.
+
+**Ảnh hưởng fullstack:**
+- Frontend: `CostStatementContainer` giờ phụ thuộc vào `GET /api/supplier/change-requests` và `POST /api/supplier/change-requests`. Container không còn dùng fake data cho change requests nữa.
+- Backend: Module mới `supplier-change-requests` với 3 endpoint proxy sang A. Cần `SYSTEM_A_API_BASE_URL` cấu hình đúng và hệ thống A hỗ trợ các endpoint tương ứng.
+- API contract: `POST /api/supplier/change-requests` body `{pnl, order, requested_cost, reason?}`. Response theo schema trong `API-service-change-supplier-request.md`.
+- Chưa có API hủy đề nghị — `handleCancelRequest` hiện chỉ refetch danh sách (TODO).
+
 ## [2026-06-08 15:00] — Chi hộ: chuyển sang search-then-upload thay vì hiển thị danh sách
 
 **Yêu cầu:** Sửa màn quản lý chi hộ, không hiển thị danh sách đơn hàng nữa mà tìm kiếm đơn hàng theo ô search string. Sau khi API response success, bấm vào đơn hàng mới bắt đầu upload.
