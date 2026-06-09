@@ -251,11 +251,11 @@ export const getChangeRequests = (): Promise<ChangeRequestResponse[]> => {
   return axiosClient2.get('/supplier/change-requests') as Promise<ChangeRequestResponse[]>;
 };
 
-/** Tạo yêu cầu thay đổi cost mới */
+/** Tạo yêu cầu thay đổi cost — body là list các thay đổi */
 export const createChangeRequest = (
-  data: CreateChangeRequestPayload,
-): Promise<ChangeRequestResponse> => {
-  return axiosClient2.post('/supplier/change-requests', data) as Promise<ChangeRequestResponse>;
+  data: CreateChangeRequestPayload[],
+): Promise<ChangeRequestResponse[]> => {
+  return axiosClient2.post('/supplier/change-requests', data) as Promise<ChangeRequestResponse[]>;
 };
 
 /** Chi tiết một yêu cầu thay đổi cost */

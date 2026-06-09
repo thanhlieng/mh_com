@@ -9,6 +9,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
+import { notification } from 'antd';
 import { format } from 'date-fns';
 import {
   ArrowUpDownIcon,
@@ -53,14 +54,6 @@ import {
 
 const formatVND = (n: number) =>
   n.toLocaleString('vi-VN', { style: 'currency', currency: 'VND' });
-
-// Định dạng giá trị một trường để hiển thị trong đề nghị thay đổi
-const formatFieldValue = (field: EditableField, value: unknown): string => {
-  if (value === null || value === undefined || value === '') return '';
-  if (field === 'freightCost' || field === 'surcharge') return formatVND(Number(value));
-  if (field === 'quantity') return Number(value).toLocaleString('vi-VN');
-  return String(value);
-};
 
 const STATUS_BADGE: Record<
   CostStatus,
@@ -583,7 +576,18 @@ const CostStatementContainer = () => {
   const apiQuery = useQuery(
     ['supplier-transactions', queryParams],
     () => getSupplierTransactions(queryParams),
-    { keepPreviousData: true, retry: false }
+    {
+      keepPreviousData: true,
+      retry: false,
+      onError: (e: any) => {
+        notification.error({
+          message: e?.response?.data?.message
+            ? `${e.response.data.message}`
+            : 'Tải bảng kê chi phí thất bại',
+          placement: 'top',
+        });
+      },
+    }
   );
 
   const [data, setData] = React.useState<CostStatementRow[]>([]);
@@ -614,7 +618,18 @@ const CostStatementContainer = () => {
   const changeRequestsQuery = useQuery(
     ['supplier-change-requests'],
     () => getChangeRequests(),
-    { enabled: view === 'requests', retry: false },
+    {
+      enabled: view === 'requests',
+      retry: false,
+      onError: (e: any) => {
+        notification.error({
+          message: e?.response?.data?.message
+            ? `${e.response.data.message}`
+            : 'Tải danh sách đề nghị thay đổi thất bại',
+          placement: 'top',
+        });
+      },
+    },
   );
 
   const changeRequests: ChangeRequest[] = React.useMemo(() => {
@@ -624,8 +639,20 @@ const CostStatementContainer = () => {
 
   // Mutation: tạo đề nghị thay đổi cost
   const createMutation = useMutation(createChangeRequest, {
-    onSuccess: () => {
+    onSuccess: (res) => {
       queryClient.invalidateQueries('supplier-change-requests');
+      notification.success({
+        message: `Đã gửi ${res?.length ?? ''} đề nghị thay đổi thành công`,
+        placement: 'top',
+      });
+    },
+    onError: (e: any) => {
+      notification.error({
+        message: e?.response?.data?.message
+          ? `${e.response.data.message}`
+          : 'Gửi đề nghị thay đổi thất bại',
+        placement: 'top',
+      });
     },
   });
 
@@ -663,38 +690,27 @@ const CostStatementContainer = () => {
     setDirtyMap({});
   };
 
-  // Tạo một đề nghị thay đổi từ các ô đã chỉnh sửa, gửi sang hệ thống A
+  // Gom tất cả thay đổi freightCost thành 1 API call duy nhất
   const handleConfirm = async () => {
-    const promises: Promise<unknown>[] = [];
+    const payload: { pnl: number; order: number; requested_cost: number }[] = [];
+
     for (const [rowId, fields] of Object.entries(dirtyMap)) {
       const current = data.find((r) => r.id === rowId);
-      const original = originalDataRef.current.find((r) => r.id === rowId);
-      if (!current || !original) continue;
-
-      // Chỉ tạo đề nghị cho rows có thay đổi freightCost và là PNL type
+      if (!current) continue;
       if (!fields.has('freightCost')) continue;
       if (!current.pnlId || !current.orderId) continue;
 
-      const reason = window.prompt(
-        `Lý do thay đổi cước phí cho bill "${current.billCode}" từ ${formatFieldValue('freightCost', original.freightCost)} thành ${formatFieldValue('freightCost', current.freightCost)}?`,
-        'Điều chỉnh cước phí từ NCC',
-      );
-      if (reason === null) return; // user hủy
-
-      promises.push(
-        createMutation.mutateAsync({
-          pnl: current.pnlId,
-          order: current.orderId,
-          requested_cost: current.freightCost,
-          reason: reason || undefined,
-        }),
-      );
+      payload.push({
+        pnl: current.pnlId,
+        order: current.orderId,
+        requested_cost: current.freightCost,
+      });
     }
 
-    if (promises.length === 0) return;
+    if (payload.length === 0) return;
 
     try {
-      await Promise.all(promises);
+      await createMutation.mutateAsync(payload);
       originalDataRef.current = data.map((r) => ({ ...r }));
       setDirtyMap({});
       setView('requests');
@@ -729,9 +745,18 @@ const CostStatementContainer = () => {
       anchor.click();
       document.body.removeChild(anchor);
       URL.revokeObjectURL(url);
-    } catch (err) {
+      notification.success({
+        message: 'Xuất Excel thành công',
+        placement: 'top',
+      });
+    } catch (err: any) {
       console.error('[CostStatement] Export failed:', err);
-      // TODO: show error notification when UI toast is available
+      notification.error({
+        message: err?.response?.data?.message
+          ? `${err.response.data.message}`
+          : 'Xuất Excel thất bại',
+        placement: 'top',
+      });
     } finally {
       setIsExporting(false);
     }

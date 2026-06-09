@@ -5,6 +5,55 @@ Mục đích: giúp team hiểu được những gì đang được làm mà kh�
 
 ---
 
+## [2026-06-09] — Thêm toast (antd notification) thông báo kết quả request API màn Bảng kê chi phí
+
+**Yêu cầu:** Hiện tại request API thành công hay thất bại đều không có thông báo; thêm toast thông báo khi gọi API.
+
+**Agent thực hiện:** frontend
+
+**Các file đã thay đổi:**
+- `src/container/CostStatementContainer/index.tsx`:
+  - Thêm import `notification` từ `antd` (theo convention sẵn có của dự án, vd `ListContainer/components/ExpandItems.tsx`).
+  - `createMutation` (tạo đề nghị thay đổi): thêm `notification.success` khi gửi thành công và `notification.error` (đọc `e.response.data.message`) khi lỗi.
+  - `apiQuery` (getSupplierTransactions) và `changeRequestsQuery` (getChangeRequests): thêm `onError` → `notification.error`.
+  - `handleExport`: thêm `notification.success` khi xuất Excel xong, `notification.error` khi lỗi (thay cho việc chỉ `console.error`).
+  - Xóa hàm `formatFieldValue` (dead code còn lại sau khi bỏ `window.prompt` ở thay đổi trước).
+
+**Lý do / bối cảnh:** Người dùng không biết kết quả thao tác gọi API. Dùng `notification` của antd với `placement: 'top'` để đồng nhất với phần còn lại của dự án.
+
+**Ảnh hưởng fullstack:** Không đổi API; chỉ đọc `error.response.data.message` từ response lỗi để hiển thị.
+
+---
+
+## [2026-06-09] — Gộp nhiều thay đổi cước phí thành 1 API call, bỏ prompt lý do
+
+**Yêu cầu:** Bỏ cửa sổ prompt hỏi lý do; thay vì gọi 1 API per thay đổi, gom tất cả thành 1 API call với body là list.
+
+**Agent thực hiện:** frontend
+
+**Các file đã thay đổi:**
+- `src/services/supplier.services.ts` (sau dòng 259): Thêm type `CreateChangeRequestsBulkPayload` và hàm `createChangeRequestsBulk` — POST `/supplier/change-requests/bulk` với body là array các `{pnl, order, requested_cost}`.
+- `src/container/CostStatementContainer/index.tsx` (dòng 38, 626–703): Đổi import sang `createChangeRequestsBulk`; rewrite `handleConfirm` — bỏ hoàn toàn `window.prompt`, gom tất cả dirty rows có `freightCost` + `pnlId` + `orderId` vào 1 array, gọi `createMutation.mutateAsync(payload)` một lần duy nhất.
+
+**Lý do / bối cảnh:** Gọi N API đồng thời cho N thay đổi tốn tài nguyên và khó xử lý lỗi; bulk call đơn giản hơn và phù hợp với backend mới hỗ trợ batch endpoint. Prompt lý do bị bỏ theo yêu cầu UX.
+
+**Ảnh hưởng fullstack:** Backend cần hỗ trợ endpoint `POST /supplier/change-requests/bulk` nhận `[{pnl, order, requested_cost}, ...]` và trả về `ChangeRequestResponse[]`.
+
+---
+
+## [2026-06-09] — Đổi UI màn đề nghị thay đổi từ parent-child sang flat rows
+
+**Yêu cầu:** Đổi UI màn "Đề nghị thay đổi" từ dạng parent row (ChangeRequest) + child rows expand (ChangeRequestItem) thành mỗi ChangeRequestItem là 1 row phẳng riêng biệt.
+
+**Agent thực hiện:** frontend
+
+**Các file đã thay đổi:**
+- `src/container/CostStatementContainer/ChangeRequestList.tsx` (toàn bộ): Xóa logic expand/collapse, thêm hàm `flattenRequests()` để flat hóa `ChangeRequest[]` thành mảng `FlatRow[]`. Mỗi `ChangeRequestItem` trở thành 1 row hiển thị đầy đủ: Mã đề nghị, Thời gian gửi, Mã bill, Trường thay đổi, Giá trị cũ → Giá trị mới, Trạng thái, Hủy.
+
+**Lý do / bối cảnh:** UI parent-child dạng accordion không trực quan, user muốn nhìn thấy toàn bộ chi tiết thay đổi trực tiếp trên bảng mà không cần click expand.
+
+---
+
 ## [2026-06-07 00:02] — Tích hợp view Bảng kê chi phí — domain data thực
 
 **Yêu cầu:** Tích hợp view bảng kê đã plan, dùng đúng data model vận chuyển (billCode, customer, route, cargoType, freightCost, surcharge...).
