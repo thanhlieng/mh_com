@@ -4,6 +4,8 @@ export default interface IJwtPayload {
   type: string;
   typeUser: string;
   permissions: string[];
+  a_supplier_id?: string;
+  a_customer_id?: string;
 }
 
 export interface IHistoryInfo {

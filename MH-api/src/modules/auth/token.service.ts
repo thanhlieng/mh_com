@@ -15,7 +15,7 @@ export class TokensService {
   constructor(public readonly jwtService: JwtService) {}
 
   async generateToken(createTokenDto: CreateTokenDto): Promise<ResponseTokenDto> {
-    const { type, username, id, permissions, typeUser } = createTokenDto;
+    const { type, username, id, permissions, typeUser, a_supplier_id, a_customer_id } = createTokenDto;
     const { refreshExpiresIn, resetPasswordExpiresIn, expiresIn, secret } = jwtConfig;
 
     let expires: moment.Moment;
@@ -36,6 +36,8 @@ export class TokensService {
       permissions,
       type,
       typeUser,
+      a_supplier_id,
+      a_customer_id,
     };
     const token = await this.jwtService.signAsync(payload, jwtOptions);
 
@@ -58,13 +60,15 @@ export class TokensService {
   }
 
   async generateAuthTokens(generateTokenInputDto: GenerateTokenInputDto) {
-    const { id, username, permissions, typeUser } = generateTokenInputDto;
+    const { id, username, permissions, typeUser, a_supplier_id, a_customer_id } = generateTokenInputDto;
 
     const accessToken = await this.generateToken({
       id,
       username,
       permissions,
       typeUser,
+      a_supplier_id,
+      a_customer_id,
       type: TokenTypes.ACCESS,
     });
 
@@ -73,6 +77,8 @@ export class TokensService {
       username,
       permissions,
       typeUser,
+      a_supplier_id,
+      a_customer_id,
       type: TokenTypes.REFRESH,
     });
 

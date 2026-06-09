@@ -7,13 +7,13 @@ import {
   UseGuards,
   UseInterceptors,
   UploadedFiles,
-  ConflictException,
   BadRequestException,
 } from '@nestjs/common';
 import { AnyFilesInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from 'src/common/guards/jwt.guard';
 import { GetUser } from 'src/common/decorators/user.decorator';
 import { UserEntity } from '../users/user.entity';
+import { assertSupplierLinked } from 'src/common/helper/supplier.helper';
 import { SupplierChiHoFilesService } from './supplier-chiho-files.service';
 
 /**
@@ -33,12 +33,7 @@ export class SupplierChiHoFilesController {
     @Query('order_id') orderId: string,
     @Query('include_inactive') includeInactive?: string,
   ) {
-    const { a_supplier_id } = user;
-    if (!a_supplier_id) {
-      throw new ConflictException(
-        'Tài khoản chưa được liên kết với nhà cung cấp. Vui lòng liên hệ quản trị viên.',
-      );
-    }
+    const a_supplier_id = assertSupplierLinked(user);
     if (!orderId) {
       throw new BadRequestException('order_id is required.');
     }
@@ -59,12 +54,7 @@ export class SupplierChiHoFilesController {
     @Body('order_id') orderId: string,
     @UploadedFiles() files: Express.Multer.File[],
   ) {
-    const { a_supplier_id } = user;
-    if (!a_supplier_id) {
-      throw new ConflictException(
-        'Tài khoản chưa được liên kết với nhà cung cấp. Vui lòng liên hệ quản trị viên.',
-      );
-    }
+    const a_supplier_id = assertSupplierLinked(user);
     if (!orderId) {
       throw new BadRequestException('order_id is required.');
     }

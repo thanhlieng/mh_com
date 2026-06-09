@@ -63,6 +63,8 @@ export class AuthService {
       username: user.username,
       typeUser: user.type,
       permissions: userDataReponse.permissions,
+      a_supplier_id: user.a_supplier_id ?? undefined,
+      a_customer_id: user.a_customer_id ?? undefined,
     });
 
     return {
