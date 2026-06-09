@@ -195,6 +195,76 @@ export const uploadChiHoFiles = (
   }) as Promise<ChiHoFilesUploadResponse>;
 };
 
+// ─── Đề nghị thay đổi cost (màn Bảng kê chi phí) ──────────────────────────────
+// Gọi system B: GET/POST /api/supplier/change-requests → proxy sang hệ thống A.
+// Doc: API-service-change-supplier-request.md
+
+export interface CreateChangeRequestPayload {
+  pnl: number;
+  order: number;
+  requested_cost: number;
+  reason?: string;
+}
+
+export interface ChangeRequestResponse {
+  id: number;
+  pnl: number;
+  order: number;
+  supplier: number;
+  requested_cost: string;
+  reason: string | null;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  approved_by: string | null;
+  approved_at: string | null;
+  created_by: string;
+  created_at: string;
+  updated_by: string | null;
+  updated_at: string | null;
+  pnl_data?: {
+    id: number;
+    service_name: string;
+    service_type: string;
+    supplier: number;
+    supplier_name: string;
+    cost: number;
+    cost_after_vat: number;
+    order_container: number;
+  };
+  order_data?: {
+    id: number;
+    order_code: string;
+    booking_bill_number: string;
+    status: string;
+    customer_name: string;
+  };
+  supplier_data?: {
+    id: number;
+    company_name: string;
+    tax_number: string;
+    address: string;
+    is_active: boolean;
+  };
+}
+
+/** Danh sách yêu cầu thay đổi cost của supplier */
+export const getChangeRequests = (): Promise<ChangeRequestResponse[]> => {
+  return axiosClient2.get('/supplier/change-requests') as Promise<ChangeRequestResponse[]>;
+};
+
+/** Tạo yêu cầu thay đổi cost mới */
+export const createChangeRequest = (
+  data: CreateChangeRequestPayload,
+): Promise<ChangeRequestResponse> => {
+  return axiosClient2.post('/supplier/change-requests', data) as Promise<ChangeRequestResponse>;
+};
+
+/** Chi tiết một yêu cầu thay đổi cost */
+export const getChangeRequestDetail = (
+  id: number,
+): Promise<ChangeRequestResponse> => {
+  return axiosClient2.get(`/supplier/change-requests/${id}`) as Promise<ChangeRequestResponse>;
+};
+
 // ─── Tra cứu đơn hàng theo mã (hệ thống A) ─────────────────────────────────────
 // Doc: mhgs_log_be/docs/api/order-by-code.md
 

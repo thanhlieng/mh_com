@@ -50,6 +50,7 @@ import { SystemAIntegrationModule } from './modules/system-a-integration/system-
 import { BangKeModule } from './modules/bangke/bangke.module';
 import { SupplierTransactionsModule } from './modules/supplier-transactions/supplier-transactions.module';
 import { SupplierChiHoFilesModule } from './modules/supplier-chiho-files/supplier-chiho-files.module';
+import { SupplierChangeRequestsModule } from './modules/supplier-change-requests/supplier-change-requests.module';
 import { ServicesCatalogModule } from './modules/services-catalog/services-catalog.module';
 import { Module } from '@nestjs/common';
 
@@ -102,6 +103,7 @@ import { Module } from '@nestjs/common';
     BangKeModule,
     SupplierTransactionsModule,
     SupplierChiHoFilesModule,
+    SupplierChangeRequestsModule,
     ServicesCatalogModule,
   ],
   controllers: [AppController],

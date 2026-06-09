@@ -13,9 +13,13 @@ export interface CostStatementRow {
   total: number;
   status: CostStatus;
   note: string;
+  // Extra fields for API integration
+  pnlId?: number;            // PNL ID from system A (pnl type only)
+  orderId?: number;          // Order ID from system A
+  transactionType?: 'pnl' | 'chi_ho';
 }
 
-export type EditableField = Exclude<keyof CostStatementRow, 'id' | 'total'>;
+export type EditableField = Exclude<keyof CostStatementRow, 'id' | 'total' | 'pnlId' | 'orderId' | 'transactionType'>;
 
 // ─── Đề nghị thay đổi (change request gửi sang hệ thống khác) ──────────────────
 
@@ -42,6 +46,46 @@ export interface ChangeRequest {
   submittedAt: string;      // ISO datetime — thời gian gửi
   status: ChangeRequestStatus;
   items: ChangeRequestItem[];
+}
+
+// ─── API response mapping ──────────────────────────────────────────────────────
+
+/** Map API status (English) → ChangeRequestStatus (Vietnamese) */
+export const API_STATUS_TO_VN: Record<string, ChangeRequestStatus> = {
+  PENDING: 'Chờ duyệt',
+  APPROVED: 'Đã duyệt',
+  REJECTED: 'Từ chối',
+};
+
+/**
+ * Map một ChangeRequestResponse từ API hệ thống A sang ChangeRequest
+ * để hiển thị trên ChangeRequestList.
+ */
+export function mapApiResponseToChangeRequest(
+  apiItem: import('@/services/supplier.services').ChangeRequestResponse,
+): ChangeRequest {
+  const reqCost = Number(apiItem.requested_cost);
+  const oldCost = apiItem.pnl_data?.cost ?? 0;
+  const billCode = apiItem.order_data?.order_code ?? apiItem.pnl_data?.service_name ?? '';
+
+  return {
+    id: String(apiItem.id),
+    code: apiItem.order_data?.order_code
+      ? `${apiItem.order_data.order_code}-${apiItem.id}`
+      : `REQ-${apiItem.id}`,
+    submittedAt: apiItem.created_at,
+    status: API_STATUS_TO_VN[apiItem.status] || 'Chờ duyệt',
+    items: [
+      {
+        rowId: String(apiItem.pnl),
+        billCode,
+        field: 'freightCost',
+        fieldLabel: 'Cước phí',
+        oldValue: oldCost.toLocaleString('vi-VN') + ' ₫',
+        newValue: reqCost.toLocaleString('vi-VN') + ' ₫',
+      },
+    ],
+  };
 }
 
 /** Nhãn tiếng Việt cho từng trường có thể chỉnh sửa */
