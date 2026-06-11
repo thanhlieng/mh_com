@@ -48,7 +48,9 @@ src/
 | `invoices` | Hóa đơn |
 | `bangke` | Bảng kê (cargo list) |
 | `system-a-integration` | Proxy gọi API hệ thống A (gắn token RS256 supplier/customer/service) |
+| `account-links` | `GET /api/account/a-links` — danh sách supplier/customer (bên A) mà account được liên kết. Một account liên kết **nhiều** supplier HOẶC nhiều customer (đúng một loại). Resolver `ActiveLinkService` chọn thực thể active theo header `X-Active-Supplier-Id` / `X-Active-Customer-Id` và kiểm tra quyền truy cập. |
 | `supplier-transactions` | `GET /api/supplier/transactions` — proxy danh sách giao dịch (PNL + Chi hộ) của supplier từ A (màn Bảng kê chi phí) |
+| `supplier-prices` | `GET/PATCH /api/supplier/prices`, `POST /api/supplier/prices/import`, `GET /api/supplier/price-changes` (hỗ trợ `?status=`), `DELETE /api/supplier/price-changes/:id` — proxy thao tác giá (ServiceSupplierPrice) của supplier sang A: liệt kê, cập nhật theo lô, import từ file (multipart); liệt kê & xóa yêu cầu thay đổi giá (chỉ xóa được khi PENDING) |
 | `supplier-chiho-files` | `GET/POST /api/supplier/chiho-files` — liệt kê & upload file Chi hộ theo order, proxy sang A (màn Quản lý chi hộ) |
 | `supplier-change-requests` | `GET /api/supplier/change-requests`, `GET /api/supplier/change-requests/:id`, `POST /api/supplier/change-requests` — proxy yêu cầu thay đổi cost PNL từ NCC sang A (màn Đề nghị thay đổi) |
 | `roles` | Phân quyền động (RBAC) |

@@ -3,7 +3,13 @@ import querystring from 'query-string';
 
 import { BASE_URL_GEN_BILL } from '@/contants/common.constants';
 import { AUTH_REFRESH_TOKEN } from '@/contants/endpoint';
-import { ACCSESS_TOKEN, REFRESH_TOKEN, USER } from '@/contants/Storage';
+import {
+  ACCSESS_TOKEN,
+  ACTIVE_CUSTOMER_ID,
+  ACTIVE_SUPPLIER_ID,
+  REFRESH_TOKEN,
+  USER,
+} from '@/contants/Storage';
 import { ILogin } from '@/services/Authen.type';
 import storage from '@/utils/storage';
 
@@ -20,6 +26,15 @@ axiosClient2.interceptors.request.use(
   function (config) {
     const accessToken = getItem(ACCSESS_TOKEN);
     config.headers = { Authorization: `Bearer ${accessToken}` };
+    // Multi-link: đính id thực thể A đang chọn để BE proxy mint đúng token.
+    const activeSupplierId = getItem(ACTIVE_SUPPLIER_ID);
+    const activeCustomerId = getItem(ACTIVE_CUSTOMER_ID);
+    if (activeSupplierId) {
+      config.headers['X-Active-Supplier-Id'] = activeSupplierId;
+    }
+    if (activeCustomerId) {
+      config.headers['X-Active-Customer-Id'] = activeCustomerId;
+    }
     return config;
   },
   function (error) {

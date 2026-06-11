@@ -12,6 +12,13 @@ import { cn } from '@/lib/utils';
 
 import { Button } from '@/components/ui/button';
 
+import { importSupplierPrices } from '@/services/supplier.services';
+
+const ROUTE_TYPE_OPTIONS = [
+  { value: 'DOMESTIC', label: 'Nội địa (tỉnh → tỉnh)' },
+  { value: 'DOMESTIC_PORT', label: 'Cảng ↔ Nội địa' },
+];
+
 // Cột template để khách điền giá
 const TEMPLATE_HEADERS = [
   'Mã tuyến',
@@ -46,11 +53,14 @@ function isAccepted(name: string): boolean {
 
 interface UploadRateModalProps {
   onClose: () => void;
-  onUploaded: (file: File) => void;
+  /** Gọi sau khi import thành công (số yêu cầu PENDING vừa tạo). */
+  onUploaded: (created: number) => void;
 }
 
 export function UploadRateModal({ onClose, onUploaded }: UploadRateModalProps) {
   const [file, setFile] = React.useState<File | null>(null);
+  const [routeType, setRouteType] = React.useState('DOMESTIC');
+  const [currencyId, setCurrencyId] = React.useState('');
   const [error, setError] = React.useState('');
   const [isUploading, setIsUploading] = React.useState(false);
   const [isDragging, setIsDragging] = React.useState(false);
@@ -86,11 +96,21 @@ export function UploadRateModal({ onClose, onUploaded }: UploadRateModalProps) {
 
   const handleSubmit = async () => {
     if (!file) return;
+    if (!currencyId.trim()) {
+      setError('Vui lòng nhập mã tiền tệ (currency id).');
+      return;
+    }
+    setError('');
     setIsUploading(true);
     try {
-      // TODO: gọi uploadShippingRates(file) khi backend sẵn sàng
-      await new Promise((r) => setTimeout(r, 500));
-      onUploaded(file);
+      const res = await importSupplierPrices(file, routeType, currencyId.trim());
+      onUploaded(res?.created ?? 0);
+    } catch (e: any) {
+      setError(
+        e?.response?.data?.error ||
+          e?.response?.data?.message ||
+          'Upload thất bại. Vui lòng kiểm tra lại file.',
+      );
     } finally {
       setIsUploading(false);
     }
@@ -135,6 +155,38 @@ export function UploadRateModal({ onClose, onUploaded }: UploadRateModalProps) {
               <DownloadIcon className='h-3.5 w-3.5' />
               Tải template
             </Button>
+          </div>
+
+          {/* Tham số import (backend yêu cầu) */}
+          <div className='grid grid-cols-2 gap-2'>
+            <div className='flex flex-col gap-1'>
+              <label className='text-[11px] font-medium text-muted-foreground'>
+                Loại tuyến
+              </label>
+              <select
+                value={routeType}
+                onChange={(e) => setRouteType(e.target.value)}
+                className='h-8 rounded-md border border-border bg-background px-2 text-xs'
+              >
+                {ROUTE_TYPE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className='flex flex-col gap-1'>
+              <label className='text-[11px] font-medium text-muted-foreground'>
+                Mã tiền tệ (currency id)
+              </label>
+              <input
+                value={currencyId}
+                onChange={(e) => setCurrencyId(e.target.value)}
+                placeholder='VD: 1'
+                inputMode='numeric'
+                className='h-8 rounded-md border border-border bg-background px-2 text-xs'
+              />
+            </div>
           </div>
 
           {/* Dropzone */}

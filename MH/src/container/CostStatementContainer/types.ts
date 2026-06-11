@@ -1,25 +1,25 @@
-export type CostStatus = 'Chờ xử lý' | 'Đã thanh toán' | 'Chưa thanh toán' | 'Đã hủy';
+export type CostCategory = 'cost' | 'invoice_mh' | 'chi_ho';
 
 export interface CostStatementRow {
   id: string;
-  billCode: string;
-  createdDate: string;       // ISO date string YYYY-MM-DD
-  customer: string;
+  orderCode: string;
+  bookingBillNumber: string;
+  containerNo: string;
+  containerType: string;
   route: string;
-  cargoType: string;
-  quantity: number;
-  freightCost: number;
-  surcharge: number;
-  total: number;
-  status: CostStatus;
-  note: string;
+  serviceName: string;
+  contractNumber: string;
+  amount: number;            // cột "Tiền"
+  category: CostCategory;    // cột "Loại"
+  editable: boolean;         // chỉ pnl & expense_type !== 'invoice_mh'
   // Extra fields for API integration
   pnlId?: number;            // PNL ID from system A (pnl type only)
   orderId?: number;          // Order ID from system A
-  transactionType?: 'pnl' | 'chi_ho';
+  type: 'pnl' | 'chi_ho';
 }
 
-export type EditableField = Exclude<keyof CostStatementRow, 'id' | 'total' | 'pnlId' | 'orderId' | 'transactionType'>;
+/** Trường duy nhất có thể chỉnh sửa trong bảng kê */
+export type EditableField = 'amount';
 
 // ─── Đề nghị thay đổi (change request gửi sang hệ thống khác) ──────────────────
 
@@ -79,8 +79,8 @@ export function mapApiResponseToChangeRequest(
       {
         rowId: String(apiItem.pnl),
         billCode,
-        field: 'freightCost',
-        fieldLabel: 'Cước phí',
+        field: 'amount',
+        fieldLabel: 'Tiền',
         oldValue: oldCost.toLocaleString('vi-VN') + ' ₫',
         newValue: reqCost.toLocaleString('vi-VN') + ' ₫',
       },
@@ -90,14 +90,5 @@ export function mapApiResponseToChangeRequest(
 
 /** Nhãn tiếng Việt cho từng trường có thể chỉnh sửa */
 export const FIELD_LABELS: Record<EditableField, string> = {
-  billCode: 'Mã bill',
-  createdDate: 'Ngày tạo',
-  customer: 'Khách hàng',
-  route: 'Tuyến đường',
-  cargoType: 'Loại hàng',
-  quantity: 'Số lượng',
-  freightCost: 'Cước phí',
-  surcharge: 'Phụ phí',
-  status: 'Trạng thái',
-  note: 'Ghi chú',
+  amount: 'Tiền',
 };

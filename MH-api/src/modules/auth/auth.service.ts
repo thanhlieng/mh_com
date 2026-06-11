@@ -29,8 +29,6 @@ export class AuthService {
       status,
       typeUser: user.type,
       permissions: permissions,
-      a_supplier_id: user.a_supplier_id ?? null,
-      a_customer_id: user.a_customer_id ?? null,
     };
   }
 
@@ -63,8 +61,6 @@ export class AuthService {
       username: user.username,
       typeUser: user.type,
       permissions: userDataReponse.permissions,
-      a_supplier_id: user.a_supplier_id ?? undefined,
-      a_customer_id: user.a_customer_id ?? undefined,
     });
 
     return {

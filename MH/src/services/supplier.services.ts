@@ -1,5 +1,21 @@
 import axiosClient2 from '@/utils/axiosClient2';
 
+// ─── Account links (multi-link supplier/customer) ─────────────────────────────
+// Gọi system B: GET /api/account/a-links → trả về loại liên kết + danh sách id.
+// Một account chỉ thuộc đúng MỘT loại (supplier HOẶC customer).
+
+export type ALinkType = 'supplier' | 'customer';
+
+export interface AccountLinks {
+  linkType: ALinkType | null;
+  ids: string[];
+}
+
+/** Lấy danh sách supplier/customer (bên A) mà account hiện tại được liên kết. */
+export const getAccountLinks = (): Promise<AccountLinks> => {
+  return axiosClient2.get('/account/a-links') as Promise<AccountLinks>;
+};
+
 // ─── Export cost statement ────────────────────────────────────────────────────
 
 export interface CostStatementExportParams {
@@ -7,9 +23,8 @@ export interface CostStatementExportParams {
   from?: string;
   /** YYYY-MM-DD */
   to?: string;
-  billCode?: string;
-  customer?: string;
-  route?: string;
+  /** Tìm kiếm server-side (mã đơn, booking, container, tuyến, dịch vụ, hoá đơn) */
+  q?: string;
 }
 
 /**
@@ -17,7 +32,7 @@ export interface CostStatementExportParams {
  * cost-statement report matching the given filters.
  *
  * TODO (backend): implement GET /supplier/cost-statement/export
- *   - Accept query params: from, to, billCode, customer, route
+ *   - Accept query params: from, to, q
  *   - Return Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
  *   - Suggested Content-Disposition: attachment; filename="bang-ke-chi-phi.xlsx"
  */
@@ -72,53 +87,32 @@ export interface SupplierTransactionsParams {
   page_size?: number;
 }
 
-/** Phần tử PNL trong danh sách giao dịch */
-export interface PnlTransaction {
-  type: 'pnl';
+/**
+ * Một dòng giao dịch (PNL hoặc Chi hộ) trong bảng kê chi phí.
+ * Contract thống nhất do hệ thống A (Django) trả về — system B proxy nguyên trạng.
+ */
+export interface SupplierTransaction {
+  type: 'pnl' | 'chi_ho';
   id: number;
-  created_at: string;
-  invoice_date: string | null;
-  contract_number: string | null;
-  supplier_id: number;
-  supplier_name: string;
-  service_name: string;
-  service_type: string;
-  expense_type: 'normal' | 'invoice_mh';
-  cost: number;
-  revenue: number;
-  cost_after_vat: number;
-  revenue_after_vat: number;
-  profit: number;
-  amount_after_vat: number;
-  currency_code: string;
-  invoice_exporter: string | null;
   order_id: number | null;
   order_code: string | null;
   booking_bill_number: string | null;
-  customer_name: string | null;
-}
-
-/** Phần tử Chi hộ trong danh sách giao dịch */
-export interface ChiHoTransaction {
-  type: 'chi_ho';
-  id: number;
+  container_no: string; // chi_ho: nhiều cont nối bằng ", "
+  container_type: string; // Container.name, '' nếu không có
+  route: string; // pnl: "from - to"; chi_ho: ''
+  service_name: string; // chi_ho: nhiều dịch vụ nối bằng ", "
+  contract_number: string | null;
+  amount: number; // cột "Tiền" (pnl.cost hoặc chiho.amount)
+  expense_type: 'normal' | 'invoice_mh' | null; // null với chi_ho
+  category: 'cost' | 'invoice_mh' | 'chi_ho'; // cột "Loại"
+  editable: boolean; // true chỉ với pnl & expense_type !== 'invoice_mh'
+  // Các trường phụ trợ (vẫn dùng được nếu cần)
   created_at: string;
   invoice_date: string | null;
-  contract_number: string | null;
-  supplier_id: number;
-  supplier_name: string;
   customer_name: string | null;
-  vat: number;
-  amount: number;
-  amount_after_vat: number;
-  services: string[];
+  supplier_name: string;
   invoice_exporter: string | null;
-  order_id: number | null;
-  order_code: string | null;
-  booking_bill_number: string | null;
 }
-
-export type SupplierTransaction = PnlTransaction | ChiHoTransaction;
 
 export interface SupplierTransactionsResponse {
   supplier_id: string;
@@ -263,6 +257,132 @@ export const getChangeRequestDetail = (
   id: number,
 ): Promise<ChangeRequestResponse> => {
   return axiosClient2.get(`/supplier/change-requests/${id}`) as Promise<ChangeRequestResponse>;
+};
+
+// ─── Yêu cầu thay đổi giá (price-change approval) ─────────────────────────────
+// Gọi system B: GET/DELETE /api/supplier/price-changes → proxy sang hệ thống A.
+// Token supplier; header X-Active-Supplier-Id tự đính kèm bởi axiosClient2.
+
+export type PriceChangeSource = 'MANUAL' | 'EXCEL';
+export type PriceChangeType = 'EDIT_AMOUNT' | 'CREATE' | 'REPLACE';
+export type PriceChangeStatus =
+  | 'PENDING'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'CONFLICT';
+
+/**
+ * Một yêu cầu thay đổi giá của supplier hiện tại.
+ * Khớp serializer A (mhcom/supplier_price_change_views.py): nhãn tuyến/dịch vụ
+ * gộp trong `label`; số tiền là Decimal nên về dạng chuỗi.
+ */
+export interface SupplierPriceChange {
+  id: number;
+  source: PriceChangeSource;
+  batch_id: string | null;
+  change_type: PriceChangeType;
+  status: PriceChangeStatus;
+  old_amount: number | string | null;
+  new_amount: number | string | null;
+  created_at: string;
+  approved_by: string | null;
+  approved_at: string | null;
+  resolve_error: string | null;
+  /** Nhãn tuyến/dịch vụ/container gộp (best-effort, có thể rỗng) */
+  label?: string | null;
+}
+
+/** Envelope A trả về: { count, results } — proxy B giữ nguyên. */
+export interface SupplierPriceChangesResponse {
+  count: number;
+  results: SupplierPriceChange[];
+}
+
+/** Danh sách yêu cầu thay đổi giá của supplier hiện tại (lọc theo status nếu có) */
+export const getSupplierPriceChanges = (
+  status?: string,
+): Promise<SupplierPriceChangesResponse> => {
+  return axiosClient2.get('/supplier/prices/price-changes', {
+    params: status ? { status } : {},
+  }) as Promise<SupplierPriceChangesResponse>;
+};
+
+/** Xóa một yêu cầu thay đổi giá đang ở trạng thái PENDING (204) */
+export const deleteSupplierPriceChange = (
+  id: number | string,
+): Promise<void> => {
+  return axiosClient2.delete(`/supplier/prices/price-changes/${id}`) as Promise<void>;
+};
+
+// ─── Bảng giá dịch vụ (supplier prices) ───────────────────────────────────────
+// Gọi system B: GET/PATCH /api/supplier/prices → proxy sang hệ thống A.
+// Token supplier; header X-Active-Supplier-Id tự đính kèm bởi axiosClient2.
+// Lưu ý: các trường số tiền là Decimal nên về dạng chuỗi (string).
+
+export interface SupplierPrice {
+  id: number;
+  supplier_id: number;
+  supplier_name: string | null;
+  service_transport_id: number | null;
+  service_name: string;
+  transport_type: string | null;
+  container_name: string;
+  loai_hang_hoa: string;
+  route_id: number | null;
+  route_type: string | null;
+  amount: number | string | null;
+  amount_next_cont: number | string | null;
+  vat: number | string | null;
+  currency_code: string | null;
+  is_active: boolean;
+}
+
+/** Envelope A trả về: { count, results } — proxy B giữ nguyên. */
+export interface SupplierPricesResponse {
+  count: number;
+  results: SupplierPrice[];
+}
+
+/** Danh sách bảng giá hiện tại của supplier (chỉ trả về dòng is_active). */
+export const getSupplierPrices = (): Promise<SupplierPricesResponse> => {
+  return axiosClient2.get('/supplier/prices') as Promise<SupplierPricesResponse>;
+};
+
+/**
+ * Gửi yêu cầu thay đổi đơn giá (EDIT_AMOUNT).
+ * KHÔNG đổi giá ngay — tạo các yêu cầu PENDING chờ duyệt trên hệ thống A.
+ */
+export const updateSupplierPrices = (
+  items: { id: number; amount: number }[],
+): Promise<{ created: number; skipped: number[] }> => {
+  return axiosClient2.patch('/supplier/prices', { items }) as Promise<{
+    created: number;
+    skipped: number[];
+  }>;
+};
+
+export interface ImportSupplierPricesResponse {
+  batch_id: string;
+  created: number;
+  errors: number;
+}
+
+/**
+ * Upload file Excel giá → tạo batch yêu cầu thay đổi giá PENDING (CREATE/REPLACE)
+ * chờ duyệt trên hệ thống A. Proxy: POST /api/supplier/prices/import (multipart).
+ */
+export const importSupplierPrices = (
+  file: File,
+  routeType: string,
+  currencyId: string | number,
+): Promise<ImportSupplierPricesResponse> => {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('route_type', routeType);
+  formData.append('currency_id', String(currencyId));
+  return axiosClient2.post('/supplier/prices/import', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }) as Promise<ImportSupplierPricesResponse>;
 };
 
 // ─── Tra cứu đơn hàng theo mã (hệ thống A) ─────────────────────────────────────

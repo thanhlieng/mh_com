@@ -1,263 +1,494 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { isWithinInterval, parseISO } from 'date-fns';
 import {
+  type ColumnDef,
+  flexRender,
+  getCoreRowModel,
+  useReactTable,
+} from '@tanstack/react-table';
+import { notification } from 'antd';
+import {
+  CheckCircleIcon,
+  InfoIcon,
+  Loader2Icon,
+  PencilIcon,
+  RotateCcwIcon,
   RouteIcon,
-  SearchIcon,
   UploadCloudIcon,
-  XCircleIcon,
 } from 'lucide-react';
+import { useRouter } from 'next/router';
 import * as React from 'react';
-import { type DateRange } from 'react-day-picker';
+import { useMutation, useQuery, useQueryClient } from 'react-query';
 
 import { cn } from '@/lib/utils';
 
-import { DateRangePicker } from '@/components/DateRangePicker';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
+import { SUPPLIER_PRICE_CHANGES } from '@/routes/routes';
 import { withPrivateRouteSupplier } from '@/routes/withPrivateRouteSupplier';
+import type { SupplierPrice } from '@/services/supplier.services';
+import {
+  getSupplierPrices,
+  updateSupplierPrices,
+} from '@/services/supplier.services';
 
-import { FAKE_SHIPPING_RATES } from './fakeData';
-import { type RateStatus, type ShippingRate } from './types';
 import { UploadRateModal } from './UploadRateModal';
 
-const formatVND = (n: number) =>
-  n.toLocaleString('vi-VN', { style: 'currency', currency: 'VND' });
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const formatDate = (iso: string) => {
-  try {
-    return parseISO(iso).toLocaleDateString('vi-VN');
-  } catch {
-    return iso;
+/** Coerce một giá trị Decimal (string | number | null) về number an toàn. */
+const toNum = (v: number | string | null | undefined): number => {
+  if (v == null || v === '') return 0;
+  const n = Number(v);
+  return Number.isNaN(n) ? 0 : n;
+};
+
+/** Format số tiền (đã coerce) theo locale vi-VN. */
+const formatNum = (v: number | string | null | undefined): string =>
+  toNum(v).toLocaleString('vi-VN');
+
+/** Hiển thị số tiền nhưng giữ "-" khi chưa có giá trị (null/rỗng). */
+const formatDisplay = (v: number | string | null | undefined): string =>
+  v == null || v === '' ? '-' : toNum(v).toLocaleString('vi-VN');
+
+// ─── Row model (số tiền đã coerce về number để edit) ───────────────────────────
+
+interface PriceRow extends SupplierPrice {
+  amount: number;
+}
+
+function mapPriceToRow(p: SupplierPrice): PriceRow {
+  return { ...p, amount: toNum(p.amount) };
+}
+
+// ─── Editable numeric cell (chỉ dùng cho cột Đơn giá) ──────────────────────────
+
+function EditableNumericCell({
+  value,
+  formatted,
+  isDirty = false,
+  onCommit,
+}: {
+  value: number;
+  formatted: string;
+  isDirty?: boolean;
+  onCommit: (v: number) => void;
+}) {
+  const [editing, setEditing] = React.useState(false);
+  const [draft, setDraft] = React.useState(String(value));
+  const ref = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    if (editing) ref.current?.select();
+  }, [editing]);
+  React.useEffect(() => {
+    setDraft(String(value));
+  }, [value]);
+
+  const commit = () => {
+    setEditing(false);
+    const num = parseFloat(draft.replace(/[^0-9.-]/g, ''));
+    if (!isNaN(num) && num !== value) onCommit(num);
+  };
+
+  if (editing) {
+    return (
+      <Input
+        ref={ref}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') commit();
+          if (e.key === 'Escape') {
+            setDraft(String(value));
+            setEditing(false);
+          }
+        }}
+        className={cn(
+          'h-7 w-full px-2 py-0 text-right text-xs tabular-nums',
+          isDirty && 'border-amber-400 focus-visible:ring-amber-300'
+        )}
+      />
+    );
   }
-};
+  return (
+    <div
+      className={cn(
+        'min-h-[28px] cursor-pointer rounded px-1 py-1 text-right text-xs tabular-nums hover:bg-accent',
+        isDirty && 'border-l-2 border-amber-400 bg-amber-50 pr-1 text-amber-900'
+      )}
+      onClick={() => setEditing(true)}
+      title={
+        isDirty
+          ? 'Đã chỉnh sửa — Click để tiếp tục chỉnh sửa'
+          : 'Click để chỉnh sửa'
+      }
+    >
+      {formatted}
+    </div>
+  );
+}
 
-const STATUS_BADGE: Record<
-  RateStatus,
-  React.ComponentProps<typeof Badge>['variant']
-> = {
-  'Đang áp dụng': 'success',
-  'Hết hiệu lực': 'outline',
-  Nháp: 'secondary',
-};
+// ─── Read-only text cell ──────────────────────────────────────────────────────
+
+function TextCell({
+  value,
+  align = 'left',
+}: {
+  value: string;
+  align?: 'left' | 'right';
+}) {
+  return (
+    <div
+      className={cn(
+        'px-1 py-1 text-xs text-foreground',
+        align === 'right' && 'text-right tabular-nums'
+      )}
+    >
+      {value || <span className='italic text-muted-foreground'>—</span>}
+    </div>
+  );
+}
+
+/** Nhãn tuyến (best-effort): route_type, fallback route_id, fallback "-". */
+const routeLabel = (r: PriceRow): string =>
+  r.route_type || (r.route_id != null ? String(r.route_id) : '-');
+
+// ─── Column definitions ───────────────────────────────────────────────────────
+
+type DirtyMap = Record<number, true>;
+
+function buildColumns(
+  onUpdate: (id: number, value: number) => void,
+  dirtyMap: DirtyMap
+): ColumnDef<PriceRow>[] {
+  return [
+    {
+      id: 'index',
+      size: 44,
+      header: () => <span className='text-xs font-semibold'>STT</span>,
+      cell: ({ row }) => (
+        <span className='text-xs text-muted-foreground'>{row.index + 1}</span>
+      ),
+    },
+    {
+      accessorKey: 'service_name',
+      size: 180,
+      header: () => <span className='text-xs font-semibold'>Dịch vụ</span>,
+      cell: ({ row }) => <TextCell value={row.original.service_name} />,
+    },
+    {
+      accessorKey: 'container_name',
+      size: 110,
+      header: () => <span className='text-xs font-semibold'>Loại cont</span>,
+      cell: ({ row }) => <TextCell value={row.original.container_name} />,
+    },
+    {
+      accessorKey: 'loai_hang_hoa',
+      size: 120,
+      header: () => <span className='text-xs font-semibold'>Loại hàng</span>,
+      cell: ({ row }) => <TextCell value={row.original.loai_hang_hoa} />,
+    },
+    {
+      id: 'route',
+      size: 120,
+      header: () => <span className='text-xs font-semibold'>Tuyến</span>,
+      cell: ({ row }) => <TextCell value={routeLabel(row.original)} />,
+    },
+    {
+      accessorKey: 'amount',
+      size: 140,
+      header: () => (
+        <span className='block text-right text-xs font-semibold'>Đơn giá</span>
+      ),
+      cell: ({ row }) => (
+        <EditableNumericCell
+          value={row.original.amount}
+          formatted={formatNum(row.original.amount)}
+          isDirty={!!dirtyMap[row.original.id]}
+          onCommit={(v) => onUpdate(row.original.id, v)}
+        />
+      ),
+    },
+    {
+      accessorKey: 'amount_next_cont',
+      size: 130,
+      header: () => (
+        <span className='block text-right text-xs font-semibold'>
+          Cont tiếp theo
+        </span>
+      ),
+      cell: ({ row }) => (
+        <TextCell value={formatDisplay(row.original.amount_next_cont)} align='right' />
+      ),
+    },
+    {
+      accessorKey: 'vat',
+      size: 80,
+      header: () => (
+        <span className='block text-right text-xs font-semibold'>VAT</span>
+      ),
+      cell: ({ row }) => (
+        <TextCell value={formatDisplay(row.original.vat)} align='right' />
+      ),
+    },
+    {
+      accessorKey: 'currency_code',
+      size: 90,
+      header: () => <span className='text-xs font-semibold'>Tiền tệ</span>,
+      cell: ({ row }) => <TextCell value={row.original.currency_code ?? '-'} />,
+    },
+  ];
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
 
 const ShippingRateContainer = () => {
-  const [rates, setRates] = React.useState<ShippingRate[]>(() =>
-    FAKE_SHIPPING_RATES.map((r) => ({ ...r }))
-  );
-  const [search, setSearch] = React.useState('');
-  const [dateRange, setDateRange] = React.useState<DateRange | undefined>();
+  const router = useRouter();
+  const queryClient = useQueryClient();
+
+  const apiQuery = useQuery(['supplier-prices'], getSupplierPrices, {
+    keepPreviousData: true,
+    retry: false,
+    onError: (e: any) => {
+      notification.error({
+        message: e?.response?.data?.message
+          ? `${e.response.data.message}`
+          : 'Tải giá vận chuyển thất bại',
+        placement: 'top',
+      });
+    },
+  });
+
+  const [data, setData] = React.useState<PriceRow[]>([]);
+  const [dirtyMap, setDirtyMap] = React.useState<DirtyMap>({});
   const [showUpload, setShowUpload] = React.useState(false);
+  const originalDataRef = React.useRef<PriceRow[]>([]);
 
-  const filtered = React.useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return rates.filter((r) => {
-      if (q) {
-        const haystack =
-          `${r.routeCode} ${r.origin} ${r.destination} ${r.vehicleType}`.toLowerCase();
-        if (!haystack.includes(q)) return false;
-      }
-      if (dateRange?.from) {
-        const from = dateRange.from;
-        const to = dateRange.to ?? dateRange.from;
-        try {
-          if (
-            !isWithinInterval(parseISO(r.effectiveDate), { start: from, end: to })
-          )
-            return false;
-        } catch {
-          /* giữ lại nếu ngày không hợp lệ */
-        }
-      }
-      return true;
-    });
-  }, [rates, search, dateRange]);
-
-  const hasActiveFilters = !!search || !!dateRange?.from;
-  const clearFilters = () => {
-    setSearch('');
-    setDateRange(undefined);
-  };
-
-  // Giả lập: sau khi upload file, thêm 1 dòng nháp để demo (chưa nối backend)
-  const handleUploaded = (file: File) => {
-    const now = new Date();
-    setRates((prev) => [
-      {
-        id: `new-${now.getTime()}`,
-        routeCode: 'TR-MỚI',
-        origin: '—',
-        destination: '—',
-        vehicleType: `Từ file: ${file.name}`,
-        unit: '—',
-        price: 0,
-        effectiveDate: now.toISOString().slice(0, 10),
-        status: 'Nháp',
-      },
-      ...prev,
-    ]);
+  const handleUploaded = (created: number) => {
     setShowUpload(false);
+    notification.success({
+      message: `Đã tạo ${created} yêu cầu thay đổi giá từ file`,
+      description: 'Các thay đổi cần được duyệt trước khi áp dụng.',
+      placement: 'top',
+    });
+    queryClient.invalidateQueries(['supplier-prices']);
+    router.push(SUPPLIER_PRICE_CHANGES);
   };
+
+  React.useEffect(() => {
+    if (apiQuery.data) {
+      const mapped = (apiQuery.data.results ?? []).map(mapPriceToRow);
+      setData(mapped);
+      originalDataRef.current = mapped;
+      setDirtyMap({});
+    }
+  }, [apiQuery.data]);
+
+  const dirtyRowCount = Object.keys(dirtyMap).length;
+
+  const handleUpdate = React.useCallback((id: number, value: number) => {
+    setData((prev) =>
+      prev.map((row) => (row.id === id ? { ...row, amount: value } : row))
+    );
+    setDirtyMap((prev) => ({ ...prev, [id]: true }));
+  }, []);
+
+  const handleClear = () => {
+    setData(originalDataRef.current.map((r) => ({ ...r })));
+    setDirtyMap({});
+  };
+
+  const updateMutation = useMutation(updateSupplierPrices, {
+    onSuccess: (res) => {
+      notification.success({
+        message: `Đã gửi ${res?.created ?? 0} yêu cầu thay đổi giá`,
+        description: 'Thay đổi cần được duyệt trước khi áp dụng.',
+        placement: 'top',
+      });
+      if (res?.skipped?.length) {
+        notification.warning({
+          message: `${res.skipped.length} dòng bị bỏ qua`,
+          description: `ID bị bỏ qua: ${res.skipped.join(', ')}`,
+          placement: 'top',
+        });
+      }
+      originalDataRef.current = data.map((r) => ({ ...r }));
+      setDirtyMap({});
+      queryClient.invalidateQueries(['supplier-prices']);
+      router.push(SUPPLIER_PRICE_CHANGES);
+    },
+    onError: (e: any) => {
+      notification.error({
+        message: e?.response?.data?.message
+          ? `${e.response.data.message}`
+          : 'Gửi yêu cầu thay đổi giá thất bại',
+        placement: 'top',
+      });
+    },
+  });
+
+  const handleConfirm = () => {
+    const items = data
+      .filter((r) => dirtyMap[r.id])
+      .map((r) => ({ id: r.id, amount: r.amount }));
+    if (items.length === 0) return;
+    updateMutation.mutate(items);
+  };
+
+  const columns = React.useMemo(
+    () => buildColumns(handleUpdate, dirtyMap),
+    [handleUpdate, dirtyMap]
+  );
+
+  const table = useReactTable({
+    data,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+  });
+
+  const rows = table.getRowModel().rows;
 
   return (
     <div className='flex flex-1 flex-col overflow-hidden'>
       {/* ── Page header ── */}
-      <div className='flex shrink-0 flex-col gap-2 border-b border-border px-4 py-2 md:h-14 md:flex-row md:flex-wrap md:items-center md:gap-3 md:px-6 md:py-0'>
-        <div className='flex items-center gap-2'>
-          <RouteIcon className='h-4 w-4 shrink-0 text-muted-foreground' />
-          <h1 className='text-sm font-semibold'>Chi phí vận chuyển theo tuyến</h1>
-        </div>
-
-        <div className='relative w-full md:ml-4 md:w-72'>
-          <SearchIcon className='absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground' />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder='Tìm mã tuyến, điểm đi/đến, phương tiện...'
-            className='h-8 pl-8 text-xs'
-          />
-        </div>
-
-        <div className='flex items-center gap-3 md:ml-auto'>
-          <span className='text-xs text-muted-foreground'>
-            {filtered.length} tuyến
+      <div className='flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-border px-4 py-2 md:h-14 md:flex-nowrap md:px-6 md:py-0'>
+        <RouteIcon className='h-4 w-4 shrink-0 text-muted-foreground' />
+        <h1 className='text-sm font-semibold'>Thiết lập giá vận chuyển</h1>
+        {dirtyRowCount > 0 && (
+          <Badge variant='warning' className='gap-1'>
+            <PencilIcon className='h-3 w-3' />
+            {dirtyRowCount} thay đổi
+          </Badge>
+        )}
+        <div className='flex w-full items-center gap-3 md:ml-auto md:w-auto'>
+          <span className='hidden items-center gap-1 text-xs text-muted-foreground lg:flex'>
+            <InfoIcon className='h-3.5 w-3.5 shrink-0' />
+            Chỉnh sửa đơn giá rồi gửi yêu cầu — thay đổi cần được duyệt.
           </span>
           <Button
             size='sm'
-            className='h-8 gap-1.5 text-xs'
+            className='h-8 shrink-0 gap-1.5 text-xs'
             onClick={() => setShowUpload(true)}
           >
             <UploadCloudIcon className='h-3.5 w-3.5' />
-            Upload giá mới
+            Upload Excel giá
           </Button>
         </div>
       </div>
 
-      {/* ── Filter bar ── */}
-      <div className='shrink-0 border-b border-border bg-muted/20 px-4 py-3 md:px-6'>
-        <div className='flex flex-wrap items-end gap-3'>
-          <DateRangePicker
-            label='Ngày áp dụng'
-            value={dateRange}
-            onChange={setDateRange}
-            className='w-full md:w-60'
-          />
-          {hasActiveFilters && (
+      {/* ── Dirty action bar ── */}
+      {dirtyRowCount > 0 && (
+        <div className='flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-amber-200 bg-amber-50 px-4 py-2 md:px-6'>
+          <PencilIcon className='h-3.5 w-3.5 shrink-0 text-amber-600' />
+          <span className='text-xs text-amber-700'>
+            <span className='font-semibold'>{dirtyRowCount} thay đổi</span> chưa
+            gửi.
+          </span>
+          <div className='ml-auto flex items-center gap-2'>
             <Button
-              variant='ghost'
+              variant='outline'
               size='sm'
-              className='h-8 gap-1 text-xs text-muted-foreground hover:text-foreground'
-              onClick={clearFilters}
+              className='h-7 gap-1.5 border-amber-300 text-xs text-amber-700 hover:bg-amber-100 hover:text-amber-800'
+              onClick={handleClear}
+              disabled={updateMutation.isLoading}
             >
-              <XCircleIcon className='h-3.5 w-3.5' />
-              Xóa bộ lọc
+              <RotateCcwIcon className='h-3 w-3' />
+              Hoàn tác
             </Button>
-          )}
+            <Button
+              size='sm'
+              className='h-7 gap-1.5 text-xs'
+              onClick={handleConfirm}
+              disabled={updateMutation.isLoading}
+              title='Thay đổi cần được duyệt'
+            >
+              {updateMutation.isLoading ? (
+                <Loader2Icon className='h-3 w-3 animate-spin' />
+              ) : (
+                <CheckCircleIcon className='h-3 w-3' />
+              )}
+              Gửi yêu cầu thay đổi giá ({dirtyRowCount})
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* ── Table (desktop) / Card list (mobile) ── */}
+      {/* ── Table ── */}
       <div className='flex-1 overflow-auto px-4 py-4 md:px-6'>
-        {/* Card list — mobile */}
-        <div className='flex flex-col gap-2 md:hidden'>
-          {filtered.length === 0 ? (
-            <div className='py-16 text-center text-xs text-muted-foreground'>
-              Không tìm thấy tuyến phù hợp
-            </div>
-          ) : (
-            filtered.map((r) => (
-              <div
-                key={r.id}
-                className='flex flex-col gap-1.5 rounded-md border border-border bg-background p-3'
-              >
-                <div className='flex items-center justify-between gap-2'>
-                  <span className='text-sm font-semibold text-primary'>
-                    {r.routeCode}
-                  </span>
-                  <Badge variant={STATUS_BADGE[r.status]}>{r.status}</Badge>
-                </div>
-                <div className='text-xs text-foreground'>
-                  {r.origin} → {r.destination}
-                </div>
-                <div className='flex items-center justify-between text-xs text-muted-foreground'>
-                  <span>{r.vehicleType}</span>
-                  <span>{formatDate(r.effectiveDate)}</span>
-                </div>
-                <div className='flex items-center justify-between border-t border-border pt-1'>
-                  <span className='text-[11px] text-muted-foreground'>
-                    Đơn giá / {r.unit}
-                  </span>
-                  <span className='text-sm font-semibold tabular-nums text-foreground'>
-                    {formatVND(r.price)}
-                  </span>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-
-        {/* Table — PC */}
-        <div className='hidden w-full min-w-max rounded-md border border-border md:block'>
+        <div className='w-full min-w-max rounded-md border border-border'>
           <table className='w-full border-collapse text-sm'>
             <thead>
-              <tr className='border-b border-border bg-muted/40 text-left'>
-                <th className='px-3 py-2 text-xs font-semibold'>Mã tuyến</th>
-                <th className='px-3 py-2 text-xs font-semibold'>Điểm đi</th>
-                <th className='px-3 py-2 text-xs font-semibold'>Điểm đến</th>
-                <th className='px-3 py-2 text-xs font-semibold'>Phương tiện</th>
-                <th className='px-3 py-2 text-xs font-semibold'>Đơn vị</th>
-                <th className='px-3 py-2 text-right text-xs font-semibold'>
-                  Đơn giá
-                </th>
-                <th className='px-3 py-2 text-xs font-semibold'>Ngày áp dụng</th>
-                <th className='px-3 py-2 text-xs font-semibold'>Trạng thái</th>
-              </tr>
+              {table.getHeaderGroups().map((hg) => (
+                <tr key={hg.id} className='border-b border-border bg-muted/40'>
+                  {hg.headers.map((h) => (
+                    <th
+                      key={h.id}
+                      className='px-3 py-2 text-left align-middle font-normal'
+                      style={{ width: h.getSize(), minWidth: h.getSize() }}
+                    >
+                      {flexRender(h.column.columnDef.header, h.getContext())}
+                    </th>
+                  ))}
+                </tr>
+              ))}
             </thead>
+
             <tbody>
-              {filtered.length === 0 ? (
+              {apiQuery.isLoading ? (
                 <tr>
                   <td
-                    colSpan={8}
+                    colSpan={columns.length}
                     className='py-16 text-center text-xs text-muted-foreground'
                   >
-                    Không tìm thấy tuyến phù hợp
+                    <Loader2Icon className='mr-1 inline h-4 w-4 animate-spin' />
+                    Đang tải giá vận chuyển...
+                  </td>
+                </tr>
+              ) : rows.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={columns.length}
+                    className='py-16 text-center text-xs text-muted-foreground'
+                  >
+                    Chưa có giá vận chuyển
                   </td>
                 </tr>
               ) : (
-                filtered.map((r, i) => (
-                  <tr
-                    key={r.id}
-                    className={cn(
-                      'border-b border-border transition-colors hover:bg-primary/5',
-                      i % 2 === 0 ? 'bg-background' : 'bg-muted/10'
-                    )}
-                  >
-                    <td className='px-3 py-2 text-xs font-medium text-primary'>
-                      {r.routeCode}
-                    </td>
-                    <td className='px-3 py-2 text-xs'>{r.origin}</td>
-                    <td className='px-3 py-2 text-xs'>{r.destination}</td>
-                    <td className='px-3 py-2 text-xs'>{r.vehicleType}</td>
-                    <td className='px-3 py-2 text-xs'>{r.unit}</td>
-                    <td className='px-3 py-2 text-right text-xs font-semibold tabular-nums'>
-                      {formatVND(r.price)}
-                    </td>
-                    <td className='px-3 py-2 text-xs'>
-                      {formatDate(r.effectiveDate)}
-                    </td>
-                    <td className='px-3 py-2 text-xs'>
-                      <Badge variant={STATUS_BADGE[r.status]}>{r.status}</Badge>
-                    </td>
-                  </tr>
-                ))
+                rows.map((row, i) => {
+                  const rowDirty = !!dirtyMap[row.original.id];
+                  return (
+                    <tr
+                      key={row.id}
+                      className={cn(
+                        'border-b border-border transition-colors hover:bg-primary/5',
+                        rowDirty
+                          ? 'bg-amber-50/50'
+                          : i % 2 === 0
+                            ? 'bg-background'
+                            : 'bg-muted/10'
+                      )}
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <td key={cell.id} className='px-3 py-0.5 align-middle'>
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext()
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* ── Upload modal ── */}
+      {/* ── Upload Excel giá modal ── */}
       {showUpload && (
         <UploadRateModal
           onClose={() => setShowUpload(false)}

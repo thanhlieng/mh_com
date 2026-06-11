@@ -4,6 +4,7 @@ import {
   HandCoinsIcon,
   LogOutIcon,
   RouteIcon,
+  TagIcon,
   TruckIcon,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -19,6 +20,7 @@ import { USER } from '@/contants/Storage';
 import {
   SUPPLIER_COST_STATEMENT,
   SUPPLIER_PAYMENT_MANAGEMENT,
+  SUPPLIER_PRICE_CHANGES,
   SUPPLIER_SHIPPING_RATE,
 } from '@/routes/routes';
 import storage from '@/utils/storage';
@@ -35,9 +37,14 @@ const NAV_ITEMS = [
     icon: HandCoinsIcon,
   },
   {
-    label: 'Chi phí vận chuyển',
+    label: 'Thiết lập giá vận chuyển',
     href: SUPPLIER_SHIPPING_RATE,
     icon: RouteIcon,
+  },
+  {
+    label: 'Yêu cầu thay đổi giá',
+    href: SUPPLIER_PRICE_CHANGES,
+    icon: TagIcon,
   },
 ];
 

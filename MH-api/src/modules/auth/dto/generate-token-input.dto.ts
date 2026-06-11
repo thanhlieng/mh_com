@@ -5,6 +5,4 @@ export class GenerateTokenInputDto {
   username: string;
   typeUser: string;
   permissions: string[];
-  a_supplier_id?: string;
-  a_customer_id?: string;
 }

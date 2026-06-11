@@ -19,10 +19,4 @@ export class ResponseUsersDto {
   @ApiProperty({ type: [String] })
   @IsString({ each: true })
   permissions: string[];
-
-  @ApiProperty({ nullable: true, description: 'ID nhà cung cấp — có giá trị nếu user là supplier' })
-  a_supplier_id: string | null;
-
-  @ApiProperty({ nullable: true, description: 'ID khách hàng — có giá trị nếu user là customer' })
-  a_customer_id: string | null;
 }

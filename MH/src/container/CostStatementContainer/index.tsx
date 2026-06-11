@@ -43,10 +43,9 @@ import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { ChangeRequestList } from './ChangeRequestList';
 import {
   type ChangeRequest,
+  type CostCategory,
   type CostStatementRow,
-  type CostStatus,
   type EditableField,
-  FIELD_LABELS,
   mapApiResponseToChangeRequest,
 } from './types';
 
@@ -55,105 +54,38 @@ import {
 const formatVND = (n: number) =>
   n.toLocaleString('vi-VN', { style: 'currency', currency: 'VND' });
 
-const STATUS_BADGE: Record<
-  CostStatus,
-  React.ComponentProps<typeof Badge>['variant']
+/** Nhãn + variant Badge cho cột "Loại" */
+const CATEGORY_META: Record<
+  CostCategory,
+  { label: string; variant: React.ComponentProps<typeof Badge>['variant'] }
 > = {
-  'Chờ xử lý':       'warning',
-  'Đã thanh toán':   'success',
-  'Chưa thanh toán': 'outline',
-  'Đã hủy':          'destructive',
+  cost:       { label: 'Chi phí',    variant: 'default' },
+  invoice_mh: { label: 'Chi hộ MH',  variant: 'warning' },
+  chi_ho:     { label: 'Chi hộ',     variant: 'secondary' },
 };
 
 // ─── Map API transaction to CostStatementRow ──────────────────────────────────
 
 function mapTransactionToRow(t: SupplierTransaction): CostStatementRow {
-  const base = {
+  return {
     id: `${t.type}-${t.id}`,
-    billCode: t.order_code ?? t.booking_bill_number ?? '',
-    createdDate: t.created_at?.slice(0, 10) ?? '',
-    customer: t.customer_name ?? '',
-    surcharge: 0,
-    quantity: 0,
-    total: t.amount_after_vat ?? 0,
-    status: 'Chưa thanh toán' as CostStatus,
-    note: t.invoice_exporter ?? '',
+    orderCode: t.order_code ?? '',
+    bookingBillNumber: t.booking_bill_number ?? '',
+    containerNo: t.container_no ?? '',
+    containerType: t.container_type ?? '',
+    route: t.route ?? '',
+    serviceName: t.service_name ?? '',
+    contractNumber: t.contract_number ?? '',
+    amount: t.amount ?? 0,
+    category: t.category,
+    editable: t.editable,
     pnlId: t.type === 'pnl' ? t.id : undefined,
     orderId: t.order_id ?? undefined,
-    transactionType: t.type,
-  };
-  if (t.type === 'pnl') {
-    return {
-      ...base,
-      route: t.service_name,
-      cargoType: t.service_type ?? '',
-      freightCost: t.cost ?? 0,
-    };
-  }
-  return {
-    ...base,
-    route: t.services?.join(', ') ?? '',
-    cargoType: 'Chi hộ',
-    freightCost: t.amount ?? 0,
+    type: t.type,
   };
 }
 
-// ─── Editable text cell ───────────────────────────────────────────────────────
-
-function EditableTextCell({
-  value,
-  isDirty = false,
-  onCommit,
-}: {
-  value: string;
-  isDirty?: boolean;
-  onCommit: (v: string) => void;
-}) {
-  const [editing, setEditing] = React.useState(false);
-  const [draft, setDraft] = React.useState(value);
-  const ref = React.useRef<HTMLInputElement>(null);
-
-  React.useEffect(() => { if (editing) ref.current?.select(); }, [editing]);
-  React.useEffect(() => { setDraft(value); }, [value]);
-
-  const commit = () => {
-    setEditing(false);
-    if (draft !== value) onCommit(draft);
-  };
-
-  if (editing) {
-    return (
-      <Input
-        ref={ref}
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') commit();
-          if (e.key === 'Escape') { setDraft(value); setEditing(false); }
-        }}
-        className={cn(
-          'h-7 w-full px-2 py-0 text-xs',
-          isDirty && 'border-amber-400 focus-visible:ring-amber-300'
-        )}
-      />
-    );
-  }
-  return (
-    <div
-      className={cn(
-        'min-h-[28px] cursor-pointer rounded px-1 py-1 text-xs hover:bg-accent',
-        isDirty && 'border-l-2 border-amber-400 bg-amber-50 pl-[3px] text-amber-900'
-      )}
-      onClick={() => setEditing(true)}
-      title={isDirty ? 'Đã chỉnh sửa — Click để tiếp tục chỉnh sửa' : 'Click để chỉnh sửa'}
-    >
-      {value || <span className='italic text-muted-foreground'>—</span>}
-    </div>
-  );
-}
-
-// ─── Editable numeric cell ────────────────────────────────────────────────────
+// ─── Editable numeric cell (chỉ dùng cho cột Tiền khi editable) ────────────────
 
 function EditableNumericCell({
   value,
@@ -211,6 +143,34 @@ function EditableNumericCell({
   );
 }
 
+// ─── Cột Tiền: editable hay read-only tuỳ row.editable ─────────────────────────
+
+function AmountCell({
+  row,
+  isDirty,
+  onCommit,
+}: {
+  row: CostStatementRow;
+  isDirty: boolean;
+  onCommit: (v: number) => void;
+}) {
+  if (!row.editable) {
+    return (
+      <div className='px-1 py-1 text-right text-xs tabular-nums text-foreground'>
+        {formatVND(row.amount)}
+      </div>
+    );
+  }
+  return (
+    <EditableNumericCell
+      value={row.amount}
+      formatted={formatVND(row.amount)}
+      isDirty={isDirty}
+      onCommit={onCommit}
+    />
+  );
+}
+
 // ─── Filterable column header ─────────────────────────────────────────────────
 
 function FilterableHeader({
@@ -218,11 +178,13 @@ function FilterableHeader({
   column,
   sortable = false,
   align = 'left',
+  filterable = true,
 }: {
   label: string;
   column: any;
   sortable?: boolean;
   align?: 'left' | 'right';
+  filterable?: boolean;
 }) {
   const filterValue = (column.getFilterValue() as string) ?? '';
   return (
@@ -238,16 +200,18 @@ function FilterableHeader({
           </button>
         )}
       </div>
-      <div className='relative'>
-        <SearchIcon className='absolute left-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground' />
-        <Input
-          value={filterValue}
-          onChange={(e) => column.setFilterValue(e.target.value)}
-          placeholder='Lọc...'
-          className='h-6 pl-5 text-[10px]'
-          onClick={(e) => e.stopPropagation()}
-        />
-      </div>
+      {filterable && (
+        <div className='relative'>
+          <SearchIcon className='absolute left-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground' />
+          <Input
+            value={filterValue}
+            onChange={(e) => column.setFilterValue(e.target.value)}
+            placeholder='Lọc...'
+            className='h-6 pl-5 text-[10px]'
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -256,7 +220,17 @@ function FilterableHeader({
 
 type DirtyMap = Record<string, Set<EditableField>>;
 
-// ─── Mobile card (giữ nguyên khả năng chỉnh sửa inline) ───────────────────────
+// ─── Read-only text cell ──────────────────────────────────────────────────────
+
+function TextCell({ value, align = 'left' }: { value: string; align?: 'left' | 'right' }) {
+  return (
+    <div className={cn('px-1 py-1 text-xs text-foreground', align === 'right' && 'text-right')}>
+      {value || <span className='italic text-muted-foreground'>—</span>}
+    </div>
+  );
+}
+
+// ─── Mobile card ───────────────────────────────────────────────────────────────
 
 function CostCard({
   row,
@@ -264,16 +238,19 @@ function CostCard({
   dirtyMap,
 }: {
   row: CostStatementRow;
-  onUpdate: (id: string, field: EditableField, value: string | number) => void;
+  onUpdate: (id: string, field: EditableField, value: number) => void;
   dirtyMap: DirtyMap;
 }) {
-  const isDirty = (f: EditableField) => dirtyMap[row.id]?.has(f) ?? false;
   const rowHasDirty = !!dirtyMap[row.id];
+  const isAmountDirty = dirtyMap[row.id]?.has('amount') ?? false;
+  const cat = CATEGORY_META[row.category];
 
-  const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
+  const Field = ({ label, value }: { label: string; value: string }) => (
     <div className='flex items-center justify-between gap-2'>
       <span className='shrink-0 text-[11px] text-muted-foreground'>{label}</span>
-      <div className='min-w-0 flex-1'>{children}</div>
+      <span className='min-w-0 flex-1 truncate text-right text-xs'>
+        {value || <span className='italic text-muted-foreground'>—</span>}
+      </span>
     </div>
   );
 
@@ -285,89 +262,35 @@ function CostCard({
       )}
     >
       <div className='flex items-center justify-between gap-2'>
-        <div className='min-w-0 flex-1 text-sm font-semibold'>
-          <EditableTextCell
-            value={row.billCode}
-            isDirty={isDirty('billCode')}
-            onCommit={(v) => onUpdate(row.id, 'billCode', v)}
-          />
+        <div className='min-w-0 flex-1 text-sm font-semibold truncate'>
+          {row.orderCode || <span className='italic text-muted-foreground'>—</span>}
         </div>
-        <Badge variant={STATUS_BADGE[row.status]}>{row.status}</Badge>
+        <Badge variant={cat.variant}>{cat.label}</Badge>
       </div>
 
-      <Field label='Ngày tạo'>
-        <EditableTextCell
-          value={row.createdDate}
-          isDirty={isDirty('createdDate')}
-          onCommit={(v) => onUpdate(row.id, 'createdDate', v)}
-        />
-      </Field>
-      <Field label='Khách hàng'>
-        <EditableTextCell
-          value={row.customer}
-          isDirty={isDirty('customer')}
-          onCommit={(v) => onUpdate(row.id, 'customer', v)}
-        />
-      </Field>
-      <Field label='Tuyến đường'>
-        <EditableTextCell
-          value={row.route}
-          isDirty={isDirty('route')}
-          onCommit={(v) => onUpdate(row.id, 'route', v)}
-        />
-      </Field>
-      <Field label='Loại hàng'>
-        <EditableTextCell
-          value={row.cargoType}
-          isDirty={isDirty('cargoType')}
-          onCommit={(v) => onUpdate(row.id, 'cargoType', v)}
-        />
-      </Field>
-      <Field label='Số lượng'>
-        <EditableNumericCell
-          value={row.quantity}
-          formatted={row.quantity.toLocaleString('vi-VN')}
-          isDirty={isDirty('quantity')}
-          onCommit={(v) => onUpdate(row.id, 'quantity', v)}
-        />
-      </Field>
-      <Field label='Cước phí'>
-        <EditableNumericCell
-          value={row.freightCost}
-          formatted={formatVND(row.freightCost)}
-          isDirty={isDirty('freightCost')}
-          onCommit={(v) => onUpdate(row.id, 'freightCost', v)}
-        />
-      </Field>
-      <Field label='Phụ phí'>
-        <EditableNumericCell
-          value={row.surcharge}
-          formatted={formatVND(row.surcharge)}
-          isDirty={isDirty('surcharge')}
-          onCommit={(v) => onUpdate(row.id, 'surcharge', v)}
-        />
-      </Field>
+      <Field label='Mã booking' value={row.bookingBillNumber} />
+      <Field label='Số container' value={row.containerNo} />
+      <Field label='Loại cont' value={row.containerType} />
+      <Field label='Tuyến đường' value={row.route} />
+      <Field label='Dịch vụ' value={row.serviceName} />
+      <Field label='Số hoá đơn' value={row.contractNumber} />
 
       <div className='flex items-center justify-between border-t border-border pt-1.5'>
-        <span className='text-[11px] font-medium text-muted-foreground'>Tổng cộng</span>
-        <span className='text-sm font-bold tabular-nums text-primary'>
-          {formatVND(row.total)}
-        </span>
+        <span className='text-[11px] font-medium text-muted-foreground'>Tiền</span>
+        <div className='min-w-[120px]'>
+          <AmountCell
+            row={row}
+            isDirty={isAmountDirty}
+            onCommit={(v) => onUpdate(row.id, 'amount', v)}
+          />
+        </div>
       </div>
-
-      <Field label='Ghi chú'>
-        <EditableTextCell
-          value={row.note}
-          isDirty={isDirty('note')}
-          onCommit={(v) => onUpdate(row.id, 'note', v)}
-        />
-      </Field>
     </div>
   );
 }
 
 function buildColumns(
-  onUpdate: (id: string, field: EditableField, value: string | number) => void,
+  onUpdate: (id: string, field: EditableField, value: number) => void,
   dirtyMap: DirtyMap,
 ): ColumnDef<CostStatementRow>[] {
   const isDirty = (id: string, field: EditableField) =>
@@ -384,187 +307,96 @@ function buildColumns(
       ),
     },
     {
-      accessorKey: 'billCode',
+      accessorKey: 'orderCode',
       filterFn: 'includesString',
       size: 130,
       header: ({ column }) => (
-        <FilterableHeader label='Mã bill' column={column} sortable />
+        <FilterableHeader label='Mã đơn' column={column} sortable />
       ),
-      cell: ({ row }) => (
-        <EditableTextCell
-          value={row.original.billCode}
-          isDirty={isDirty(row.original.id, 'billCode')}
-          onCommit={(v) => onUpdate(row.original.id, 'billCode', v)}
-        />
-      ),
+      cell: ({ row }) => <TextCell value={row.original.orderCode} />,
     },
     {
-      accessorKey: 'createdDate',
+      accessorKey: 'bookingBillNumber',
+      filterFn: 'includesString',
+      size: 130,
+      header: ({ column }) => (
+        <FilterableHeader label='Mã booking' column={column} sortable />
+      ),
+      cell: ({ row }) => <TextCell value={row.original.bookingBillNumber} />,
+    },
+    {
+      accessorKey: 'containerNo',
+      filterFn: 'includesString',
+      size: 140,
+      header: ({ column }) => (
+        <FilterableHeader label='Số container' column={column} />
+      ),
+      cell: ({ row }) => <TextCell value={row.original.containerNo} />,
+    },
+    {
+      accessorKey: 'containerType',
       filterFn: 'includesString',
       size: 100,
       header: ({ column }) => (
-        <FilterableHeader label='Ngày tạo' column={column} sortable />
+        <FilterableHeader label='Loại cont' column={column} />
       ),
-      cell: ({ row }) => (
-        <EditableTextCell
-          value={row.original.createdDate}
-          isDirty={isDirty(row.original.id, 'createdDate')}
-          onCommit={(v) => onUpdate(row.original.id, 'createdDate', v)}
-        />
-      ),
-    },
-    {
-      accessorKey: 'customer',
-      filterFn: 'includesString',
-      size: 170,
-      header: ({ column }) => (
-        <FilterableHeader label='Khách hàng' column={column} sortable />
-      ),
-      cell: ({ row }) => (
-        <EditableTextCell
-          value={row.original.customer}
-          isDirty={isDirty(row.original.id, 'customer')}
-          onCommit={(v) => onUpdate(row.original.id, 'customer', v)}
-        />
-      ),
+      cell: ({ row }) => <TextCell value={row.original.containerType} />,
     },
     {
       accessorKey: 'route',
       filterFn: 'includesString',
-      size: 110,
-      header: ({ column }) => (
-        <FilterableHeader label='Tuyến đường' column={column} sortable />
-      ),
-      cell: ({ row }) => (
-        <EditableTextCell
-          value={row.original.route}
-          isDirty={isDirty(row.original.id, 'route')}
-          onCommit={(v) => onUpdate(row.original.id, 'route', v)}
-        />
-      ),
-    },
-    {
-      accessorKey: 'cargoType',
-      filterFn: 'includesString',
       size: 140,
       header: ({ column }) => (
-        <FilterableHeader label='Loại hàng' column={column} />
+        <FilterableHeader label='Tuyến đường' column={column} />
       ),
-      cell: ({ row }) => (
-        <EditableTextCell
-          value={row.original.cargoType}
-          isDirty={isDirty(row.original.id, 'cargoType')}
-          onCommit={(v) => onUpdate(row.original.id, 'cargoType', v)}
-        />
-      ),
+      cell: ({ row }) => <TextCell value={row.original.route} />,
     },
     {
-      accessorKey: 'quantity',
-      size: 70,
+      accessorKey: 'serviceName',
+      filterFn: 'includesString',
+      size: 160,
       header: ({ column }) => (
-        <FilterableHeader label='SL' column={column} sortable align='right' />
+        <FilterableHeader label='Dịch vụ' column={column} />
       ),
-      cell: ({ row }) => (
-        <EditableNumericCell
-          value={row.original.quantity}
-          formatted={row.original.quantity.toLocaleString('vi-VN')}
-          isDirty={isDirty(row.original.id, 'quantity')}
-          onCommit={(v) => onUpdate(row.original.id, 'quantity', v)}
-        />
-      ),
-      filterFn: (row, _id, fv: string) =>
-        String(row.original.quantity).includes(fv),
+      cell: ({ row }) => <TextCell value={row.original.serviceName} />,
     },
     {
-      accessorKey: 'freightCost',
-      size: 120,
-      header: ({ column }) => (
-        <FilterableHeader label='Cước phí' column={column} sortable align='right' />
-      ),
-      cell: ({ row }) => (
-        <EditableNumericCell
-          value={row.original.freightCost}
-          formatted={formatVND(row.original.freightCost)}
-          isDirty={isDirty(row.original.id, 'freightCost')}
-          onCommit={(v) => onUpdate(row.original.id, 'freightCost', v)}
-        />
-      ),
-      filterFn: (row, _id, fv: string) =>
-        String(row.original.freightCost).includes(fv),
-    },
-    {
-      accessorKey: 'surcharge',
-      size: 110,
-      header: ({ column }) => (
-        <FilterableHeader label='Phụ phí' column={column} sortable align='right' />
-      ),
-      cell: ({ row }) => (
-        <EditableNumericCell
-          value={row.original.surcharge}
-          formatted={formatVND(row.original.surcharge)}
-          isDirty={isDirty(row.original.id, 'surcharge')}
-          onCommit={(v) => onUpdate(row.original.id, 'surcharge', v)}
-        />
-      ),
-      filterFn: (row, _id, fv: string) =>
-        String(row.original.surcharge).includes(fv),
-    },
-    {
-      accessorKey: 'total',
-      size: 120,
-      enableColumnFilter: false,
-      header: () => (
-        <div className='py-1 text-right text-xs font-semibold text-foreground'>
-          Tổng cộng
-        </div>
-      ),
-      cell: ({ row }) => (
-        <div className='py-1 text-right text-xs font-semibold tabular-nums text-foreground'>
-          {formatVND(row.original.total)}
-        </div>
-      ),
-    },
-    {
-      accessorKey: 'status',
+      accessorKey: 'contractNumber',
+      filterFn: 'includesString',
       size: 130,
       header: ({ column }) => (
-        <FilterableHeader label='Trạng thái' column={column} sortable />
+        <FilterableHeader label='Số hoá đơn' column={column} />
       ),
-      cell: ({ row }) => (
-        <Badge variant={STATUS_BADGE[row.original.status]}>
-          {row.original.status}
-        </Badge>
-      ),
-      filterFn: (row, _id, fv: string) =>
-        row.original.status.toLowerCase().includes(fv.toLowerCase()),
+      cell: ({ row }) => <TextCell value={row.original.contractNumber} />,
     },
     {
-      accessorKey: 'note',
-      size: 180,
+      accessorKey: 'amount',
+      size: 140,
       header: ({ column }) => (
-        <FilterableHeader label='Ghi chú' column={column} />
+        <FilterableHeader label='Tiền' column={column} sortable align='right' filterable={false} />
       ),
       cell: ({ row }) => (
-        <EditableTextCell
-          value={row.original.note}
-          isDirty={isDirty(row.original.id, 'note')}
-          onCommit={(v) => onUpdate(row.original.id, 'note', v)}
+        <AmountCell
+          row={row.original}
+          isDirty={isDirty(row.original.id, 'amount')}
+          onCommit={(v) => onUpdate(row.original.id, 'amount', v)}
         />
       ),
-      filterFn: 'includesString',
+    },
+    {
+      accessorKey: 'category',
+      size: 110,
+      enableColumnFilter: false,
+      header: () => (
+        <div className='py-1 text-xs font-semibold text-foreground'>Loại</div>
+      ),
+      cell: ({ row }) => {
+        const cat = CATEGORY_META[row.original.category];
+        return <Badge variant={cat.variant}>{cat.label}</Badge>;
+      },
     },
   ];
 }
-
-// ─── DB filter state ──────────────────────────────────────────────────────────
-
-interface DbFilters {
-  billCode: string;
-  customer: string;
-  route: string;
-}
-
-const INITIAL_DB: DbFilters = { billCode: '', customer: '', route: '' };
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
@@ -605,7 +437,7 @@ const CostStatementContainer = () => {
   }, [apiQuery.data]);
 
   const [dateRange, setDateRange] = React.useState<DateRange | undefined>();
-  const [dbFilters, setDbFilters] = React.useState<DbFilters>(INITIAL_DB);
+  const [searchText, setSearchText] = React.useState('');
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [isExporting, setIsExporting] = React.useState(false);
@@ -660,19 +492,13 @@ const CostStatementContainer = () => {
   const dirtyRowCount = Object.keys(dirtyMap).length;
   const dirtyCellCount = Object.values(dirtyMap).reduce((s, set) => s + set.size, 0);
 
-  // Update a single field; recompute total when freightCost/surcharge changes; mark dirty
+  // Update Tiền của một dòng (chỉ với dòng editable); đánh dấu dirty
   const handleUpdate = React.useCallback(
-    (id: string, field: EditableField, value: string | number) => {
+    (id: string, field: EditableField, value: number) => {
       setData((prev) =>
         prev.map((row) => {
           if (row.id !== id) return row;
-          const updated = { ...row, [field]: value };
-          if (field === 'freightCost' || field === 'surcharge') {
-            updated.total =
-              (field === 'freightCost' ? (value as number) : row.freightCost) +
-              (field === 'surcharge' ? (value as number) : row.surcharge);
-          }
-          return updated;
+          return { ...row, [field]: value };
         })
       );
       setDirtyMap((prev) => {
@@ -690,20 +516,21 @@ const CostStatementContainer = () => {
     setDirtyMap({});
   };
 
-  // Gom tất cả thay đổi freightCost thành 1 API call duy nhất
+  // Gom tất cả thay đổi Tiền thành 1 API call duy nhất
   const handleConfirm = async () => {
     const payload: { pnl: number; order: number; requested_cost: number }[] = [];
 
     for (const [rowId, fields] of Object.entries(dirtyMap)) {
       const current = data.find((r) => r.id === rowId);
       if (!current) continue;
-      if (!fields.has('freightCost')) continue;
+      if (!fields.has('amount')) continue;
+      if (!current.editable) continue;
       if (!current.pnlId || !current.orderId) continue;
 
       payload.push({
         pnl: current.pnlId,
         order: current.orderId,
-        requested_cost: current.freightCost,
+        requested_cost: current.amount,
       });
     }
 
@@ -732,9 +559,7 @@ const CostStatementContainer = () => {
       const params: Parameters<typeof exportCostStatement>[0] = {};
       if (dateRange?.from) params.from = format(dateRange.from, 'yyyy-MM-dd');
       if (dateRange?.to)   params.to   = format(dateRange.to,   'yyyy-MM-dd');
-      if (dbFilters.billCode) params.billCode = dbFilters.billCode;
-      if (dbFilters.customer) params.customer = dbFilters.customer;
-      if (dbFilters.route)    params.route    = dbFilters.route;
+      if (searchText.trim()) params.q = searchText.trim();
 
       const blob = await exportCostStatement(params);
       const url = URL.createObjectURL(blob);
@@ -780,32 +605,26 @@ const CostStatementContainer = () => {
 
   const hasActiveFilters =
     !!dateRange?.from ||
-    Object.values(dbFilters).some(Boolean) ||
+    !!searchText ||
     columnFilters.length > 0;
 
   const handleApplyFilters = () => {
     const params: SupplierTransactionsParams = { page: 1, page_size: 200 };
+    if (searchText.trim()) params.q = searchText.trim();
     if (dateRange?.from) params.start_date = format(dateRange.from, 'yyyy-MM-dd');
     if (dateRange?.to) params.end_date = format(dateRange.to, 'yyyy-MM-dd');
-    const qParts: string[] = [];
-    if (dbFilters.billCode) qParts.push(dbFilters.billCode);
-    if (dbFilters.customer) qParts.push(dbFilters.customer);
-    if (dbFilters.route) qParts.push(dbFilters.route);
-    if (qParts.length > 0) params.q = qParts.join(' ');
     setQueryParams(params);
   };
 
   const clearAllFilters = () => {
     setDateRange(undefined);
-    setDbFilters(INITIAL_DB);
+    setSearchText('');
     setColumnFilters([]);
     setQueryParams({ page: 1, page_size: 200 });
   };
 
   const visibleRows = table.getFilteredRowModel().rows;
-  const totalFreight = visibleRows.reduce((s, r) => s + r.original.freightCost, 0);
-  const totalSurcharge = visibleRows.reduce((s, r) => s + r.original.surcharge, 0);
-  const grandTotal = visibleRows.reduce((s, r) => s + r.original.total, 0);
+  const totalAmount = visibleRows.reduce((s, r) => s + r.original.amount, 0);
 
   return (
     <div className='flex flex-1 flex-col overflow-hidden'>
@@ -832,14 +651,8 @@ const CostStatementContainer = () => {
                 </span>
               )}
             </span>
-            <span className='text-muted-foreground'>
-              Cước: <span className='font-medium text-foreground'>{formatVND(totalFreight)}</span>
-            </span>
-            <span className='text-muted-foreground'>
-              Phụ phí: <span className='font-medium text-foreground'>{formatVND(totalSurcharge)}</span>
-            </span>
             <span className='rounded bg-primary/10 px-2 py-0.5 font-semibold text-primary'>
-              Tổng: {formatVND(grandTotal)}
+              Tổng tiền: {formatVND(totalAmount)}
             </span>
           </div>
         )}
@@ -900,33 +713,17 @@ const CostStatementContainer = () => {
           />
 
           <div className='flex flex-col gap-1'>
-            <Label>Mã bill</Label>
-            <Input
-              value={dbFilters.billCode}
-              onChange={(e) => setDbFilters((p) => ({ ...p, billCode: e.target.value }))}
-              placeholder='MH-2024-...'
-              className='h-8 w-36 text-xs'
-            />
-          </div>
-
-          <div className='flex flex-col gap-1'>
-            <Label>Khách hàng</Label>
-            <Input
-              value={dbFilters.customer}
-              onChange={(e) => setDbFilters((p) => ({ ...p, customer: e.target.value }))}
-              placeholder='Tên công ty...'
-              className='h-8 w-40 text-xs'
-            />
-          </div>
-
-          <div className='flex flex-col gap-1'>
-            <Label>Tuyến đường</Label>
-            <Input
-              value={dbFilters.route}
-              onChange={(e) => setDbFilters((p) => ({ ...p, route: e.target.value }))}
-              placeholder='HCM → HN...'
-              className='h-8 w-32 text-xs'
-            />
+            <Label>Tìm kiếm</Label>
+            <div className='relative'>
+              <SearchIcon className='absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground' />
+              <Input
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleApplyFilters(); }}
+                placeholder='Mã đơn, booking, container, tuyến, dịch vụ, hoá đơn...'
+                className='h-8 w-full pl-7 text-xs md:w-80'
+              />
+            </div>
           </div>
 
           <div className='flex items-end gap-2'>
@@ -971,8 +768,6 @@ const CostStatementContainer = () => {
         <div className='flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-amber-200 bg-amber-50 px-4 py-2 md:px-6'>
           <PencilIcon className='h-3.5 w-3.5 shrink-0 text-amber-600' />
           <span className='text-xs text-amber-700'>
-            <span className='font-semibold'>{dirtyCellCount} ô</span>
-            {' '}trong{' '}
             <span className='font-semibold'>{dirtyRowCount} dòng</span>
             {' '}đã được chỉnh sửa, chưa lưu.
           </span>
@@ -1000,7 +795,7 @@ const CostStatementContainer = () => {
 
       {/* ── Table (desktop) / Card list (mobile) ── */}
       <div className='flex-1 overflow-auto px-4 py-4 md:px-6'>
-        {/* Card list — mobile: thông tin chính, vẫn chỉnh sửa inline được */}
+        {/* Card list — mobile */}
         <div className='flex flex-col gap-2 md:hidden'>
           {table.getRowModel().rows.length === 0 ? (
             <div className='py-16 text-center text-xs text-muted-foreground'>
@@ -1018,24 +813,16 @@ const CostStatementContainer = () => {
               ))}
               {/* Tóm tắt tổng */}
               <div className='mt-1 flex flex-col gap-1 rounded-md border border-border bg-muted/30 p-3 text-xs'>
-                <div className='flex justify-between'>
-                  <span className='text-muted-foreground'>Cước phí</span>
-                  <span className='tabular-nums'>{formatVND(totalFreight)}</span>
-                </div>
-                <div className='flex justify-between'>
-                  <span className='text-muted-foreground'>Phụ phí</span>
-                  <span className='tabular-nums'>{formatVND(totalSurcharge)}</span>
-                </div>
                 <div className='flex justify-between border-t border-border pt-1 font-semibold'>
-                  <span>Tổng cộng ({visibleRows.length} bản ghi)</span>
-                  <span className='tabular-nums text-primary'>{formatVND(grandTotal)}</span>
+                  <span>Tổng tiền ({visibleRows.length} bản ghi)</span>
+                  <span className='tabular-nums text-primary'>{formatVND(totalAmount)}</span>
                 </div>
               </div>
             </>
           )}
         </div>
 
-        {/* Table — từ sm trở lên, scroll ngang khi nhiều cột */}
+        {/* Table — từ md trở lên, scroll ngang khi nhiều cột */}
         <div className='hidden w-full min-w-max rounded-md border border-border md:block'>
           <table className='w-full border-collapse text-sm'>
             <thead>
@@ -1097,20 +884,14 @@ const CostStatementContainer = () => {
             {table.getRowModel().rows.length > 0 && (
               <tfoot>
                 <tr className='border-t-2 border-border bg-muted/30 font-semibold'>
-                  {/* STT + billCode + createdDate + customer + route + cargoType + quantity */}
-                  <td colSpan={7} className='px-3 py-2 text-xs text-muted-foreground'>
+                  {/* STT + Mã đơn + Mã booking + Số container + Loại cont + Tuyến + Dịch vụ + Số hoá đơn */}
+                  <td colSpan={8} className='px-3 py-2 text-xs text-muted-foreground'>
                     Tổng ({visibleRows.length} bản ghi)
                   </td>
-                  <td className='px-3 py-2 text-right text-xs tabular-nums'>
-                    {formatVND(totalFreight)}
-                  </td>
-                  <td className='px-3 py-2 text-right text-xs tabular-nums'>
-                    {formatVND(totalSurcharge)}
-                  </td>
                   <td className='px-3 py-2 text-right text-xs font-bold tabular-nums text-primary'>
-                    {formatVND(grandTotal)}
+                    {formatVND(totalAmount)}
                   </td>
-                  <td colSpan={2} />
+                  <td />
                 </tr>
               </tfoot>
             )}

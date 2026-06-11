@@ -5,8 +5,6 @@ export interface IUser {
   phoneCode: string;
   phoneNumber: string;
   permissions: Array<string>;
-  a_supplier_id?: string | null;
-  a_customer_id?: string | null;
 }
 
 export interface IExprires {

@@ -23,10 +23,4 @@ export class CreateTokenDto {
   @ApiProperty()
   @IsEnum(ETypeUser)
   typeUser: string;
-
-  @ApiProperty({ required: false })
-  a_supplier_id?: string;
-
-  @ApiProperty({ required: false })
-  a_customer_id?: string;
 }

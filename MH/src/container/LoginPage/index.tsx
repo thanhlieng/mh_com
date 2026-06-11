@@ -8,10 +8,19 @@ import { useState } from 'react';
 
 import VInput from '@/components/common/VInput';
 
-import { ACCSESS_TOKEN, REFRESH_TOKEN, USER } from '@/contants/Storage';
+import {
+  ACCSESS_TOKEN,
+  ACTIVE_CUSTOMER_ID,
+  ACTIVE_SUPPLIER_ID,
+  A_LINK_IDS,
+  A_LINK_TYPE,
+  REFRESH_TOKEN,
+  USER,
+} from '@/contants/Storage';
 import { UsersRole } from '@/contants/types';
 import { MANAGER_BOOKINGS, SUPPLIER_COST_STATEMENT } from '@/routes/routes';
 import AuthenService from '@/services/Authen.service';
+import { getAccountLinks } from '@/services/supplier.services';
 import storage from '@/utils/storage';
 
 const LoginPage = () => {
@@ -19,7 +28,7 @@ const LoginPage = () => {
   const [isLoading, setLoading] = useState<boolean>(false);
   const [form] = useForm();
   const router = useRouter();
-  const { setItem } = storage();
+  const { setItem, removeItem } = storage();
 
   const handleLogin = async (e: any) => {
     e.preventDefault();
@@ -37,9 +46,31 @@ const LoginPage = () => {
       setItem(ACCSESS_TOKEN, res.tokens.access.token);
       setItem(REFRESH_TOKEN, res.tokens.refresh.token);
       setItem(USER, JSON.stringify(res.user));
-      const destination = res.user.a_supplier_id
-        ? SUPPLIER_COST_STATEMENT
-        : MANAGER_BOOKINGS;
+
+      // Multi-link: xác định loại liên kết (supplier/customer) + chọn id active
+      // mặc định. Account chỉ thuộc đúng MỘT loại.
+      let destination: string = MANAGER_BOOKINGS;
+      // Xoá id active cũ để tránh lẫn phiên trước.
+      removeItem(ACTIVE_SUPPLIER_ID);
+      removeItem(ACTIVE_CUSTOMER_ID);
+      try {
+        const links = await getAccountLinks();
+        setItem(A_LINK_TYPE, links.linkType ?? '');
+        setItem(A_LINK_IDS, JSON.stringify(links.ids ?? []));
+
+        if (links.linkType === 'supplier' && links.ids.length > 0) {
+          setItem(ACTIVE_SUPPLIER_ID, links.ids[0]);
+          destination = SUPPLIER_COST_STATEMENT;
+        } else if (links.linkType === 'customer' && links.ids.length > 0) {
+          setItem(ACTIVE_CUSTOMER_ID, links.ids[0]);
+          destination = MANAGER_BOOKINGS;
+        }
+      } catch {
+        // Không lấy được liên kết → coi như khách hàng thường, vào booking.
+        setItem(A_LINK_TYPE, '');
+        setItem(A_LINK_IDS, '[]');
+      }
+
       router.push(destination);
       setLoading(false);
     } catch (error) {

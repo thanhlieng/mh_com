@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Query,
+  Headers,
   Body,
   UseGuards,
   UseInterceptors,
@@ -13,7 +14,7 @@ import { AnyFilesInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from 'src/common/guards/jwt.guard';
 import { GetUser } from 'src/common/decorators/user.decorator';
 import { UserEntity } from '../users/user.entity';
-import { assertSupplierLinked } from 'src/common/helper/supplier.helper';
+import { ActiveLinkService } from 'src/common/services/active-link.service';
 import { SupplierChiHoFilesService } from './supplier-chiho-files.service';
 
 /**
@@ -25,15 +26,20 @@ import { SupplierChiHoFilesService } from './supplier-chiho-files.service';
 export class SupplierChiHoFilesController {
   constructor(
     private readonly supplierChiHoFilesService: SupplierChiHoFilesService,
+    private readonly activeLinkService: ActiveLinkService,
   ) {}
 
   @Get()
   async listFiles(
     @GetUser() user: UserEntity,
+    @Headers('x-active-supplier-id') activeSupplierId: string,
     @Query('order_id') orderId: string,
     @Query('include_inactive') includeInactive?: string,
   ) {
-    const a_supplier_id = assertSupplierLinked(user);
+    const a_supplier_id = await this.activeLinkService.resolveSupplier(
+      user,
+      activeSupplierId,
+    );
     if (!orderId) {
       throw new BadRequestException('order_id is required.');
     }
@@ -51,10 +57,14 @@ export class SupplierChiHoFilesController {
   @UseInterceptors(AnyFilesInterceptor())
   async uploadFiles(
     @GetUser() user: UserEntity,
+    @Headers('x-active-supplier-id') activeSupplierId: string,
     @Body('order_id') orderId: string,
     @UploadedFiles() files: Express.Multer.File[],
   ) {
-    const a_supplier_id = assertSupplierLinked(user);
+    const a_supplier_id = await this.activeLinkService.resolveSupplier(
+      user,
+      activeSupplierId,
+    );
     if (!orderId) {
       throw new BadRequestException('order_id is required.');
     }
