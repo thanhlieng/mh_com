@@ -252,3 +252,148 @@ Mục đích: giúp team hiểu được những gì đang được làm mà kh�
 **Lý do / bối cảnh:** Upload Excel tạo batch yêu cầu thay đổi giá PENDING (CREATE/REPLACE) chờ duyệt trên hệ thống A, không đổi giá ngay.
 
 **Ảnh hưởng fullstack:** Dùng `POST /api/supplier/prices/import` (đã có ở B, proxy sang A). API danh sách yêu cầu thay đổi giá ở B: `GET /api/supplier/price-changes` (đã có sẵn) + service `getSupplierPriceChanges` + màn `/supplier/price-changes`.
+
+---
+
+## [2026-06-12 18:30] — Đổi tên hệ thống system-a→mhvn, system-b→mhcom (cập nhật comment tài liệu)
+
+**Yêu cầu:** Đổi quy ước đặt tên 2 hệ thống: system-a = mhvn, system-b = mhcom.
+
+**Các file đã thay đổi:**
+- `src/services/supplier.services.ts`: sửa comment tham chiếu tài liệu `api/system-b-supplier-*.md` → `api/mhcom-supplier-*.md` (theo file doc đã đổi tên ở backend mhvn).
+
+**Ảnh hưởng fullstack:** Wire đổi đồng bộ ở 2 backend (iss='mhcom', aud='mhvn', path `/api/mhcom/...`). FE không gọi trực tiếp path `/api/mhcom/...` (đi qua proxy mhcom/MH-api), nên không đổi code gọi API.
+
+---
+
+## [2026-06-12 18:30] — Tab "Kết nối mhvn" ở màn quản trị khách hàng (liên kết account ↔ supplier/customer mhvn)
+
+**Yêu cầu:** Tại view `/administrator/customer` (list + sửa khách hàng), thêm tab "Kết nối mhvn" với dropdown chọn account này liên kết với supplier hay customer nào bên mhvn. Được chọn nhiều, nhưng chỉ một loại (supplier HOẶC customer), không thể cả hai cùng lúc.
+
+**Các file đã thay đổi:**
+- `src/customer/components/MhvnConnect/MhvnConnect.tsx` (mới): component tab — Radio chọn loại (supplier/customer), Select multiple (search) lấy options từ danh mục mhvn, nạp liên kết hiện tại, nút "Lưu liên kết". Đổi loại → xoá lựa chọn (đảm bảo chỉ một loại). Nếu account chưa có user → hiện cảnh báo.
+- `src/customer/components/ModalCustomer/EditCustomer.tsx`: import `MhvnConnect` + `USER`; tính `isAdmin` từ localStorage; thêm `Tabs.TabPane` "Kết nối mhvn" (chỉ hiện với admin), truyền `userId={value?.userId}`.
+- `src/services/supplier.services.ts`: thêm `getMhvnSuppliers`, `getMhvnCustomers` (danh mục mhvn), `getAccountLinksByUser`, `setAccountLinksByUser` (quản lý liên kết theo userId) + interface `MhvnDirectoryEntity`.
+
+**Lý do / bối cảnh:** Admin cần ánh xạ tài khoản mhcom sang một/nhiều thực thể bên mhvn để token gửi sang mhvn định danh đúng. Theo mô hình multi-link: một account chỉ thuộc đúng một loại.
+
+**Ảnh hưởng fullstack:** Phụ thuộc các endpoint backend (chỉ ADMIN):
+- `GET /api/directory/suppliers?q=`, `GET /api/directory/customers?q=` → `{ message, suppliers|customers: [...] }`.
+- `GET /api/admin/account-links/:userId` → `{ linkType, ids }`.
+- `PUT /api/admin/account-links/:userId` body `{ linkType: 'supplier'|'customer'|null, ids: string[] }` → thay thế toàn bộ liên kết.
+
+## [2026-06-14 00:00] — Thêm nút "Tải lại" cho các bảng route NCC (supplier/*)
+
+**Yêu cầu:** Trong các trang `supplier/*` có các bảng hiển thị dữ liệu, thêm nút reload để tải lại data các bảng.
+
+**Các file đã thay đổi:**
+- `src/container/ShippingRateContainer/index.tsx`: thêm import `RefreshCwIcon`; thêm nút "Tải lại" (variant outline) ở page header, gọi `apiQuery.refetch()`, disable + icon quay khi `isFetching`.
+- `src/container/SupplierPriceChangeContainer/index.tsx`: thêm import `RefreshCwIcon`; lấy thêm `refetch` từ `useQuery`; thêm nút "Tải lại" cạnh bộ lọc trạng thái, gọi `refetch()`.
+- `src/container/CostStatementContainer/index.tsx`: thêm import `RefreshCwIcon`; gom phần thống kê + nút "Tải lại" vào một cụm bên phải header; nút refetch theo view hiện tại (`apiQuery` cho bảng kê, `changeRequestsQuery` cho đề nghị thay đổi).
+- `src/container/PaymentManagementContainer/index.tsx`: thêm import `RefreshCwIcon`; thêm nút "Tải lại" cạnh nút Tìm kiếm (chỉ hiện khi đã có `searchQuery`), gọi `apiQuery.refetch()` để chạy lại tìm kiếm hiện tại.
+
+**Lý do / bối cảnh:** Người dùng NCC cần làm mới dữ liệu bảng mà không phải reload cả trang. Tất cả bảng đã dùng react-query `useQuery` nên chỉ cần expose `refetch`/`isFetching` và gắn nút bấm.
+
+**Ảnh hưởng fullstack:** Không thay đổi API. Nút chỉ refetch lại các endpoint hiện có (`getSupplierPrices`, `getSupplierPriceChanges`, `getSupplierTransactions`/`getChangeRequests`, `getOrderByCode`).
+
+---
+
+## [2026-06-14 10:30] — Nối API thật cho ô tìm kiếm màn Quản lý chi hộ
+
+**Yêu cầu:** Ô input search ở màn "Quản lý chi hộ" tra cứu đơn theo số booking/bill (match exact). Thay MOCK bằng API thật.
+
+**Các file đã thay đổi:**
+- `src/services/supplier.services.ts` (`getOrderByCode`): bỏ `MOCK_ORDER` và mock `setTimeout`; gọi `axiosClient2.get('/supplier/order-by-booking', { params: { q } })`.
+- `src/container/PaymentManagementContainer/index.tsx`: cập nhật placeholder ("Nhập chính xác số booking / bill...") và text gợi ý empty-state cho đúng logic tìm theo booking/bill khớp chính xác.
+
+**Lý do / bối cảnh:** Backend mhcom đã có proxy `GET /api/supplier/order-by-booking` → mhvn (`SupplierOrderByBookingAPI`, match exact `booking_bill_number`).
+
+**Ảnh hưởng fullstack:** Gọi endpoint mới `GET /api/supplier/order-by-booking?q=<booking>` (cần header `X-Active-Supplier-Id` khi account đa liên kết). Response giữ nguyên shape `OrderByCodeResponse` nên phần map/UI không đổi.
+
+---
+
+## [2026-06-14 14:00] — Hiển thị trạng thái duyệt file Chi hộ (màn Quản lý chi hộ)
+
+**Yêu cầu:** File chi hộ NCC upload nay phải qua bước duyệt của mhgs trước khi lưu vào đơn. FE cần cho NCC thấy trạng thái duyệt của từng file.
+
+**Các file đã thay đổi:**
+- `src/services/supplier.services.ts`: `ChiHoFile` thêm `approval_status` (PENDING/APPROVED/REJECTED), `approved_by`, `approved_at`; thêm type `ChiHoApprovalStatus`.
+- `src/container/PaymentManagementContainer/types.ts`: `UploadedFile` thêm `approvalStatus`.
+- `src/container/PaymentManagementContainer/index.tsx` + `FileUploadPanel.tsx`: map `approval_status` → `approvalStatus`; panel hiển thị badge "Chờ duyệt / Đã duyệt / Từ chối" cạnh tên file.
+
+**Lý do / bối cảnh:** Backend mhgs thêm bước duyệt; file upload từ mhcom khởi tạo ở PENDING.
+
+**Ảnh hưởng fullstack:** Phụ thuộc field mới `approval_status` từ `GET /api/supplier/chiho-files` (proxy → mhvn). Không đổi cách gọi API.
+
+---
+
+## [2026-06-14 15:10] — Danh sách yêu cầu tải lên + filter trạng thái (panel chi hộ)
+
+**Yêu cầu:** Trong panel chỉ thấy file đã tải/đã duyệt. Cần 1 list riêng xem danh sách đã yêu cầu tải lên, có filter trạng thái — KHÔNG thêm màn hình mới, KHÔNG thêm tab.
+
+**Các file đã thay đổi:**
+- `src/container/PaymentManagementContainer/FileUploadPanel.tsx`: đổi mục "File đã tải lên" → "Danh sách yêu cầu tải lên"; thêm bộ lọc trạng thái dạng chip (Tất cả / Chờ duyệt / Đã duyệt / Từ chối) kèm số đếm từng trạng thái; danh sách render theo filter (`visibleFiles`), có empty-state riêng cho từng trường hợp.
+
+**Lý do / bối cảnh:** NCC cần theo dõi mọi file đã yêu cầu tải lên và lọc nhanh theo trạng thái duyệt, ngay trong slide-over hiện có (không tạo route/tab mới).
+
+**Ảnh hưởng fullstack:** Không. Dùng lại field `approval_status` (đã có) từ `GET /api/supplier/chiho-files`; thuần FE.
+
+---
+
+## [2026-06-14 16:00] — Tab "Danh sách yêu cầu tải lên" (gộp mọi đơn) màn Quản lý chi hộ
+
+**Yêu cầu:** Thêm 1 tab ở màn Quản lý chi hộ hiển thị bảng tất cả file đã yêu cầu tải lên across mọi đơn: đơn nào, trạng thái, tên file, ngày tải, nút tải/xem trực tiếp.
+
+**Các file đã thay đổi:**
+- `src/services/supplier.services.ts`: thêm `ChiHoUploadRow`, `ChiHoUploadsListResponse`, `listChiHoUploads(status?)` gọi `GET /api/supplier/chiho-files/uploads`.
+- `src/container/PaymentManagementContainer/UploadRequestsTab.tsx` (mới): bảng (Mã đơn, Booking/Bill, Tên file, Trạng thái, Ngày tải, nút Xem/ExternalLink + Tải/Download) + filter trạng thái dạng chip + nút Tải lại.
+- `src/container/PaymentManagementContainer/index.tsx`: thêm thanh tab ("Tra cứu & tải lên" | "Danh sách yêu cầu tải lên"), render có điều kiện theo tab.
+- `src/container/PaymentManagementContainer/FileUploadPanel.tsx`: hoàn lại mục danh sách file trong panel về "File đã tải lên" (bỏ filter cục bộ thêm ở bản trước) để tab mới là danh sách chuẩn; giữ badge trạng thái mỗi file.
+
+**Lý do / bối cảnh:** Người dùng làm rõ muốn 1 tab bảng tổng hợp mọi đơn (không phải filter trong panel theo từng đơn).
+
+**Ảnh hưởng fullstack:** Phụ thuộc endpoint mới `GET /api/supplier/chiho-files/uploads?status=` (proxy → mhvn `GET /api/mhcom/supplier/chiho-files/uploads/`).
+
+---
+
+## [2026-06-14 17:00] — Gộp màn "Yêu cầu thay đổi giá" thành tab của "Thiết lập giá vận chuyển"
+
+**Yêu cầu:** Chuyển màn "Yêu cầu thay đổi giá" thành 1 tab trong màn "Thiết lập giá vận chuyển".
+
+**Các file đã thay đổi:**
+- `src/container/SupplierPriceChangeContainer/PriceChangeList.tsx` (mới): tách phần filter trạng thái + bảng yêu cầu thay đổi giá (bỏ header/title + HOC) thành component tái dùng.
+- `src/container/SupplierPriceChangeContainer/index.tsx`: **đã xóa** (wrapper standalone không còn dùng).
+- `src/container/ShippingRateContainer/index.tsx`: thêm thanh tab "Thiết lập giá" | "Yêu cầu thay đổi giá"; tab giá giữ toolbar (Tải lại/Upload Excel) + bảng + dirty bar; tab còn lại render `<PriceChangeList />`. Badge số thay đổi trên nhãn tab. Sau khi gửi/upload yêu cầu tự chuyển sang tab "Yêu cầu thay đổi giá" (thay `router.push`). Hỗ trợ deep-link `?tab=changes`.
+- `src/container/SupplierSidebar/index.tsx`: bỏ menu "Yêu cầu thay đổi giá"; bỏ import `TagIcon` + `SUPPLIER_PRICE_CHANGES` không dùng.
+- `src/pages/supplier/price-changes.tsx`: redirect sang `/supplier/shipping-rate?tab=changes`.
+
+**Lý do / bối cảnh:** Gom thao tác giá vào một màn để supplier sửa giá và xem trạng thái yêu cầu cùng chỗ.
+
+**Ảnh hưởng fullstack:** Không. Thuần FE, dùng lại service `getSupplierPrices`, `updateSupplierPrices`, `getSupplierPriceChanges`, `deleteSupplierPriceChange`.
+
+---
+
+## [2026-06-14 17:40] — Đồng bộ kiểu bảng màn "Yêu cầu thay đổi giá" với các màn khác
+
+**Yêu cầu:** Đổi kiểu bảng ở màn (tab) "Yêu cầu thay đổi giá" cho giống các bảng ở màn khác.
+
+**Các file đã thay đổi:**
+- `src/container/SupplierPriceChangeContainer/PriceChangeList.tsx`: thay Ant Design `Table`/`Tag`/`Spin`/`Select`/`Popconfirm` bằng bảng HTML + Tailwind giống `ChangeRequestList`/`PaymentManagementContainer` (header `bg-muted/40`, sọc dòng `bg-muted/10`, `Badge` shadcn cho Loại/Trạng thái, cột "Giá cũ → Giá mới" tách dấu mũi tên). Thêm card list cho mobile; filter trạng thái dạng chip (thay Select); xóa yêu cầu PENDING bằng nút icon `Trash2` + `window.confirm` (thay Popconfirm).
+- `src/container/SupplierPriceChangeContainer/types.ts`: bỏ `CHANGE_TYPE_COLOR`, `STATUS_COLOR` (màu antd Tag không còn dùng).
+
+**Lý do / bối cảnh:** Thống nhất giao diện bảng trong khu vực supplier (đều dùng bảng Tailwind + `Badge`, không trộn antd Table).
+
+**Ảnh hưởng fullstack:** Không. Thuần FE, dùng lại service hiện có.
+
+---
+
+## [2026-06-14 18:30] — Đồng bộ type Bảng kê chi phí với cờ khóa sửa mới
+
+**Yêu cầu:** API transactions thêm cờ khóa sửa cho code đã trong request / đơn COMPLETED.
+
+**Các file đã thay đổi:**
+- `src/services/supplier.services.ts`: `SupplierTransaction` thêm `in_request?`, `order_completed?`, `lock_reason?`; cập nhật chú thích `editable` (false khi hóa đơn MH / in_request / order_completed).
+
+**Lý do / bối cảnh:** Backend mhvn nay set `editable=false` cho các dòng bị khóa và kèm lý do. FE Bảng kê chi phí đã khóa ô Tiền theo `editable` nên không cần đổi logic; có sẵn `lock_reason` để hiển thị lý do nếu cần.
+
+**Ảnh hưởng fullstack:** Phụ thuộc field mới từ `GET /api/supplier/transactions` (proxy → mhvn `/api/mhcom/supplier/transactions/`).

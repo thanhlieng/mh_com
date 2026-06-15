@@ -9,7 +9,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { TokensService } from './token.service';
-import { SystemBJwtService } from './system-b-jwt.service';
+import { MhcomJwtService } from './mhcom-jwt.service';
 
 @Module({
   imports: [
@@ -25,7 +25,7 @@ import { SystemBJwtService } from './system-b-jwt.service';
   ],
 
   controllers: [AuthController],
-  providers: [JwtStrategy, AuthService, TokensService, UserRepository, SystemBJwtService],
-  exports: [JwtModule, AuthService, SystemBJwtService],
+  providers: [JwtStrategy, AuthService, TokensService, UserRepository, MhcomJwtService],
+  exports: [JwtModule, AuthService, MhcomJwtService],
 })
 export class AuthModule {}

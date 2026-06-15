@@ -46,14 +46,16 @@ import { VirtualDeliveryAddressModule } from './modules/virtual-delivery-address
 import { MlExchangeRateModule } from './modules/ml-exchange-rate/ml-exchange-rate.module';
 import { PostcodeDataModule } from './modules/postcode-data/postcode-data.module';
 import { FileStorageModule } from './modules/file-storage/file-storage.module';
-import { SystemAIntegrationModule } from './modules/system-a-integration/system-a-integration.module';
+import { MhvnIntegrationModule } from './modules/mhvn-integration/mhvn-integration.module';
 import { BangKeModule } from './modules/bangke/bangke.module';
 import { SupplierTransactionsModule } from './modules/supplier-transactions/supplier-transactions.module';
 import { SupplierPricesModule } from './modules/supplier-prices/supplier-prices.module';
 import { SupplierChiHoFilesModule } from './modules/supplier-chiho-files/supplier-chiho-files.module';
+import { SupplierOrderSearchModule } from './modules/supplier-order-search/supplier-order-search.module';
 import { SupplierChangeRequestsModule } from './modules/supplier-change-requests/supplier-change-requests.module';
 import { AccountLinksModule } from './modules/account-links/account-links.module';
 import { ServicesCatalogModule } from './modules/services-catalog/services-catalog.module';
+import { MhvnDirectoryModule } from './modules/mhvn-directory/mhvn-directory.module';
 import { Module } from '@nestjs/common';
 
 @Module({
@@ -101,14 +103,16 @@ import { Module } from '@nestjs/common';
     MlExchangeRateModule,
     PostcodeDataModule,
     FileStorageModule,
-    SystemAIntegrationModule,
+    MhvnIntegrationModule,
     BangKeModule,
     SupplierTransactionsModule,
     SupplierPricesModule,
     SupplierChiHoFilesModule,
+    SupplierOrderSearchModule,
     SupplierChangeRequestsModule,
     AccountLinksModule,
     ServicesCatalogModule,
+    MhvnDirectoryModule,
   ],
   controllers: [AppController],
   providers: [GlobalSeed, AppService],

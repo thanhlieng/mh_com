@@ -19,6 +19,8 @@ export interface PaymentOrder {
 
 export type UploadedFileType = 'pdf' | 'excel' | 'image' | 'other';
 
+export type ChiHoApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
 export interface UploadedFile {
   id: string;
   name: string;
@@ -26,6 +28,8 @@ export interface UploadedFile {
   size: number;            // bytes
   uploadedAt: string;      // ISO datetime string
   url?: string;            // object URL hoặc link tải từ server
+  /** Trạng thái duyệt của file (mhgs duyệt trước khi lưu vào đơn) */
+  approvalStatus?: ChiHoApprovalStatus;
   /** File gốc khi upload từ trình duyệt (chưa gửi backend) */
   raw?: File;
 }

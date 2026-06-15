@@ -8,6 +8,36 @@ các file frontend (../MH) cần được cập nhật tương ứng.
 
 ---
 
+## [2026-06-12 00:00] — Đổi tên thuật ngữ system-a/system-b sang mhvn/mhcom (breaking change đồng bộ với repo Django)
+
+**Yêu cầu:** Đổi toàn bộ thuật ngữ "System A" (hệ thống dữ liệu) → **mhvn** và "System B" (hệ thống ký token, repo này) → **mhcom** ở mọi nơi: giá trị wire của JWT (`iss`/`aud`), prefix endpoint gọi sang hệ thống dữ liệu, biến môi trường, tên class/file/thư mục, method, comment và tài liệu. Đây là breaking change phối hợp: phía Django thay đổi song song với CÙNG mapping wire.
+
+**Mapping wire (phải khớp tuyệt đối với phía Django):**
+- JWT `iss`: `system-b` → `mhcom`
+- JWT `aud`: `system-a` → `mhvn`
+- Prefix endpoint gọi sang hệ thống dữ liệu: `/api/system-b/...` → `/api/mhcom/...` (giữ nguyên phần còn lại của path)
+- Env: `SYSTEM_A_API_BASE_URL` → `MHVN_API_BASE_URL`; `SYSTEM_B_PRIVATE_KEY_PATH` → `MHCOM_PRIVATE_KEY_PATH`; `SYSTEM_B_PUBLIC_KEY_PATH` → `MHCOM_PUBLIC_KEY_PATH`
+
+**Các file đã đổi tên (git mv):**
+- `src/modules/auth/system-b-jwt.service.ts` → `src/modules/auth/mhcom-jwt.service.ts`
+- `src/modules/system-a-integration/` → `src/modules/mhvn-integration/` (kèm `system-a-integration.{service,module}.ts` → `mhvn-integration.{service,module}.ts`)
+
+**Các file đã thay đổi nội dung:**
+- `src/modules/auth/mhcom-jwt.service.ts`: class `SystemBJwtService` → `MhcomJwtService`, interface `SystemBTokenPayload` → `MhcomTokenPayload`, giá trị `iss`/`aud`, đọc env `MHCOM_PRIVATE_KEY_PATH`, JSDoc.
+- `src/modules/mhvn-integration/mhvn-integration.service.ts`: class `SystemAIntegrationService` → `MhvnIntegrationService`, method `callSystemA`/`callSystemAMultipart` → `callMhvn`/`callMhvnMultipart`, env `MHVN_API_BASE_URL`, field lỗi `systemAError` → `mhvnError`, comment/log.
+- `src/modules/mhvn-integration/mhvn-integration.module.ts`: module `SystemAIntegrationModule` → `MhvnIntegrationModule`.
+- `src/modules/auth/auth.module.ts`: cập nhật import/provider/export `MhcomJwtService`.
+- `src/app.module.ts`: cập nhật import + registration `MhvnIntegrationModule`.
+- Các module/service/controller tiêu thụ cập nhật import path, tên class, biến `mhvnIntegrationService`, lời gọi `callMhvn*`, endpoint `/api/mhcom/...`, comment: `bangke`, `services-catalog`, `supplier-transactions`, `supplier-prices`, `supplier-chiho-files`, `supplier-change-requests`.
+- `.env`, `sample.env`: đổi tên key env (giữ nguyên giá trị).
+- `docs/key-generation.md`, `CLAUDE.md`: cập nhật mô tả, tên module, env.
+
+**Lý do / bối cảnh:** Chuẩn hóa định danh hai hệ thống theo tên mới (mhvn = data system, mhcom = supplier-facing/token signer). Vì giá trị `iss`/`aud` và prefix path là wire-level, đây là breaking change phải deploy đồng bộ với phía Django dùng cùng mapping.
+
+**Ảnh hưởng fullstack:** Không đổi endpoint mà frontend (`../MH`) gọi. Breaking-deploy chỉ ở wire giữa mhcom ↔ mhvn (JWT claims + prefix `/api/mhcom/`) — phải deploy đồng thời với repo Django (mhvn) để xác thực token không gãy.
+
+---
+
 ## [2026-06-11 00:00] — Thêm module supplier-prices (proxy giá supplier sang hệ thống A)
 
 **Yêu cầu:** Bổ sung module `supplier-prices` ở System B proxy các thao tác giá (ServiceSupplierPrice) của supplier sang hệ thống A, mirror đúng cấu trúc/convention của module `supplier-transactions` và `supplier-chiho-files`.
@@ -155,3 +185,121 @@ Frontend đã thêm service tương ứng trong `MH/src/services/supplier.servic
 - Endpoint mới `GET /api/supplier/price-changes` (hỗ trợ `?status=`) trả về danh sách yêu cầu thay đổi giá của supplier.
 - Endpoint mới `DELETE /api/supplier/price-changes/:id` xóa yêu cầu PENDING; A trả `204` khi thành công, `400` nếu không PENDING, `404` nếu không thuộc supplier.
 - Cả hai cần header `X-Active-Supplier-Id` khi account có nhiều liên kết. FE màn quản lý giá cần bổ sung gọi hai service mới này.
+
+---
+
+## [2026-06-12 16:40] — Fix import file giá báo "No file provided" (thiếu Content-Length khi proxy multipart)
+
+**Yêu cầu:** Upload file giá từ web hệ thống B luôn báo `No file provided`.
+
+**Nguyên nhân (đã tái hiện & xác minh):** `callSystemAMultipart` gửi form-data qua `HttpService` (axios) **không kèm `Content-Length`** → request đi ở dạng `Transfer-Encoding: chunked`. Django/WSGI **không đọc được multipart body dạng chunked** → `request.FILES` rỗng → A trả `{"error":"No file provided"}`. (File vẫn tới B đầy đủ, `file.buffer` có dữ liệu — lỗi nằm ở khâu B→A.)
+
+**Các file đã thay đổi:**
+- `src/modules/system-a-integration/system-a-integration.service.ts` (`callSystemAMultipart`): thêm header `'Content-Length': form.getLengthSync()` khi POST multipart sang A.
+
+**Xác minh:** Sau khi thêm Content-Length, A nhận được file (qua được bước kiểm tra file + supplier, đi vào xử lý). Trước fix: "No file provided".
+
+**Ảnh hưởng:** Sửa cho **mọi** upload multipart proxy B→A — gồm import giá (`/api/supplier/prices/import`) và upload file Chi hộ (`/api/supplier/chiho-files`). Cần **build lại + restart** server B (`yarn build` đã chạy; restart `node dist/main`).
+
+---
+
+## [2026-06-12 17:30] — API danh mục supplier/customer (service token) cho web admin tạo tài khoản NCC
+
+**Yêu cầu:** Hệ thống mhcom có web admin để tạo tài khoản cho NCC. Cần API lấy danh sách customer và supplier từ mhvn (mhgs_log_be) trả về cho mhcom backend để màn admin chọn liên kết.
+
+**Bối cảnh token:** Đây là dữ liệu danh mục (master data) — KHÔNG gắn với một supplier/customer cụ thể. Vì vậy proxy dùng **service token** (không truyền `a_supplier_id`/`a_customer_id` → `MhvnIntegrationService` tự phát service token). Phía mhvn chốt bằng `ServiceTokenOnly` để token supplier/customer KHÔNG thể liệt kê toàn bộ danh mục.
+
+**Các file đã thay đổi (mhcom / MH-api — hệ thống B):**
+- `src/modules/mhvn-directory/mhvn-directory.service.ts` (mới): `getSuppliers()` / `getCustomers()` proxy sang `/api/mhcom/suppliers/` và `/api/mhcom/customers/` của mhvn bằng service token; truyền tiếp `?q=` và `?is_active=`.
+- `src/modules/mhvn-directory/mhvn-directory.controller.ts` (mới): `GET /api/directory/suppliers`, `GET /api/directory/customers`. `JwtAuthGuard` + chốt `typeUser === ADMIN` (ném `403` nếu không phải admin).
+- `src/modules/mhvn-directory/mhvn-directory.module.ts` (mới): khai báo module (import `MhvnIntegrationModule`, `AuthModule`).
+- `src/app.module.ts`: đăng ký `MhvnDirectoryModule`.
+
+**Các file đã thay đổi (mhvn / mhgs_log_be — hệ thống A):**
+- `mhcom/directory_views.py` (mới): `MhcomSupplierDirectoryAPI`, `MhcomCustomerDirectoryAPI` — `permission_classes = [ServiceTokenOnly]`; lọc `q`, `is_active` (mặc định chỉ active), cap 1000 bản ghi; trả `id, company_name, tax_number, secondary_name, is_active, managed_company{id, company_name}`.
+- `prj/urls.py`: route `api/mhcom/suppliers/`, `api/mhcom/customers/`.
+
+**Ảnh hưởng fullstack:**
+- Endpoint mới (chỉ ADMIN): `GET /api/directory/suppliers?q=&is_active=` → `{ message, suppliers: [...] }`.
+- Endpoint mới (chỉ ADMIN): `GET /api/directory/customers?q=&is_active=` → `{ message, customers: [...] }`.
+- FE web admin (màn tạo/liên kết tài khoản NCC) gọi hai endpoint này để render bộ chọn supplier/customer. Không cần header `X-Active-*` (không gắn đối tượng).
+
+---
+
+## [2026-06-12 18:30] — Admin API quản lý liên kết account ↔ mhvn (phục vụ tab "Kết nối mhvn")
+
+**Yêu cầu:** Hỗ trợ tab "Kết nối mhvn" ở màn quản trị khách hàng (FE): admin gán một account liên kết với nhiều supplier HOẶC nhiều customer bên mhvn (chỉ một loại).
+
+**Các file đã thay đổi:**
+- `src/common/services/active-link.service.ts`: thêm `getLinksForUser(userId)` và `setLinksForUser(userId, linkType, ids)`. `setLinksForUser` chạy transaction xoá sạch liên kết cũ rồi ghi lại theo một `linkType` → KHÔNG thể tồn tại cả hai loại; chuẩn hoá id (bỏ trùng/rỗng); `linkType=null`/`ids=[]` để gỡ liên kết.
+- `src/modules/account-links/admin-account-links.controller.ts` (mới): `GET /api/admin/account-links/:userId`, `PUT /api/admin/account-links/:userId`. `JwtAuthGuard` + chốt `typeUser === ADMIN` (403 nếu không phải admin).
+- `src/modules/account-links/dto/set-account-links.dto.ts` (mới): validate body (`linkType` optional/nullable enum, `ids` mảng string).
+- `src/modules/account-links/account-links.module.ts`: import `AuthModule`, đăng ký `AdminAccountLinksController`.
+
+**Lý do / bối cảnh:** Trước đây chỉ có `GET /api/account/a-links` cho account hiện tại; chưa có cách để admin đọc/ghi liên kết của account khác. Liên kết lưu ở bảng `user_a_links` (`UserALinkEntity`).
+
+**Ảnh hưởng fullstack:**
+- Endpoint mới (chỉ ADMIN): `GET /api/admin/account-links/:userId` → `{ linkType, ids }`.
+- Endpoint mới (chỉ ADMIN): `PUT /api/admin/account-links/:userId` body `{ linkType, ids }` → thay thế toàn bộ liên kết, trả `{ linkType, ids }`.
+- FE: `MH/src/customer/components/MhvnConnect/MhvnConnect.tsx` (tab "Kết nối mhvn"). Kết hợp với `GET /api/directory/suppliers|customers`.
+
+---
+
+## [2026-06-14 10:30] — API tìm đơn theo booking/bill (màn Quản lý chi hộ)
+
+**Yêu cầu:** Ở màn "Quản lý chi hộ" của mhcom có ô input search. Cần tạo API ở mhvn (mhgs_log_be) để mhcom tra cứu đơn hàng theo `booking_bill_number`, logic **match exact**.
+
+**Các file đã thay đổi (mhcom / MH-api — hệ thống B):**
+- `src/modules/supplier-order-search/supplier-order-search.service.ts` (mới): `findByBooking()` proxy `GET /api/mhcom/supplier/order-by-booking/?booking_bill_number=<value>` sang mhvn bằng token supplier (`a_supplier_id`).
+- `src/modules/supplier-order-search/supplier-order-search.controller.ts` (mới): `GET /api/supplier/order-by-booking?q=` (alias `booking_bill_number`). `JwtAuthGuard` + resolve supplier active qua `ActiveLinkService` (header `X-Active-Supplier-Id`).
+- `src/modules/supplier-order-search/supplier-order-search.module.ts` (mới): import `MhvnIntegrationModule`, `ActiveLinkModule`.
+- `src/app.module.ts`: đăng ký `SupplierOrderSearchModule`.
+
+**Các file đã thay đổi (mhvn / mhgs_log_be — hệ thống A):**
+- `mhcom/supplier_order_search_views.py` (mới): `SupplierOrderByBookingAPI` — `permission_classes = [SupplierTokenOnly]`; tìm `Order` theo `booking_bill_number` **exact match**, chỉ trả nếu supplier (trong token) có OrderChiHo trên đơn (parity bảo mật với upload file Chi hộ); nhiều đơn cùng booking → lấy đơn mới nhất; trả đơn + các chihos thuộc supplier (id, amount, amount_after_vat, services[], contract_number, customer_name, invoice_exporter).
+- `prj/urls.py`: route `api/mhcom/supplier/order-by-booking/`.
+
+**Lý do / bối cảnh:** Trước đó FE dùng MOCK cho `getOrderByCode`. Nay nối chuỗi FE → MH-api → mhvn thật để tra cứu đơn theo số booking/bill.
+
+**Ảnh hưởng fullstack:**
+- Endpoint mới: `GET /api/supplier/order-by-booking?q=<booking>` → trả `OrderByCodeResponse` (`{ id, order_code, booking_bill_number, bl, status, order_type, customer_name, shipper, chihos[] }`); `404` nếu không khớp / supplier không tham gia. Cần header `X-Active-Supplier-Id` khi account liên kết nhiều supplier.
+- FE: `MH/src/services/supplier.services.ts` `getOrderByCode` đã trỏ sang endpoint này (bỏ MOCK).
+
+---
+
+## [2026-06-14 14:00] — Thêm bước duyệt file Chi hộ (contract proxy thay đổi)
+
+**Yêu cầu:** Màn Quản lý chi hộ đang upload file thẳng vào đơn của mhgs. Thêm bước duyệt file trước khi lưu vào đơn; user nội bộ mhgs (admin/kế toán/cus/GD) duyệt.
+
+**Thay đổi ở MH-api:** Không sửa code (module `supplier-chiho-files` proxy JSON nguyên trạng sang mhvn). Ghi log vì **contract proxy thay đổi**:
+- `GET /api/supplier/chiho-files` nay trả thêm mỗi file: `approval_status` (PENDING/APPROVED/REJECTED), `approved_by`, `approved_at`.
+- `POST /api/supplier/chiho-files` (upload từ NCC) — file tạo ra ở trạng thái **PENDING**, chưa được coi là đã lưu vào đơn cho tới khi mhgs duyệt.
+
+**Bối cảnh (hệ thống A — mhgs_log_be):** `OrderChiHoFiles` thêm `approval_status/approved_by/approved_at`; endpoint duyệt nội bộ `GET|PATCH /api/order-chiho-files/approvals/` (role admin/KT/GD/PT).
+
+**Ảnh hưởng fullstack:** FE mhcom (`MH/src/container/PaymentManagementContainer`) hiển thị badge trạng thái duyệt từng file. FE nội bộ mhgs (MH-logistic) có màn "Duyệt file chi hộ".
+
+---
+
+## [2026-06-14 16:00] — API list file Chi hộ đã upload (gộp mọi đơn) cho tab mới
+
+**Yêu cầu:** Tab "Danh sách yêu cầu tải lên" ở màn Quản lý chi hộ cần bảng tất cả file NCC đã yêu cầu tải lên across mọi đơn.
+
+**Các file đã thay đổi:**
+- `src/modules/supplier-chiho-files/supplier-chiho-files.service.ts`: thêm `listAllUploads(a_supplier_id, status?, includeInactive?)` proxy `GET /api/mhcom/supplier/chiho-files/uploads/` sang mhvn.
+- `src/modules/supplier-chiho-files/supplier-chiho-files.controller.ts`: thêm `GET /api/supplier/chiho-files/uploads?status=` (đặt trước route `@Get()` order_id). Resolve supplier qua `ActiveLinkService`.
+
+**Ảnh hưởng fullstack:** Endpoint mới `GET /api/supplier/chiho-files/uploads?status=PENDING|APPROVED|REJECTED` → `{ source_ids, count, data:[{ order_id, order_code, booking_bill_number, file_name, file_url, approval_status, created_at }] }`. Cần header `X-Active-Supplier-Id` khi account đa liên kết. FE `MH/src/services/supplier.services.ts#listChiHoUploads`.
+
+---
+
+## [2026-06-14 18:30] — Bảng kê chi phí: cờ khóa sửa (in_request / order COMPLETED)
+
+**Yêu cầu:** `api/supplier/transactions` vẫn lấy các code đã thêm trong request nhưng thêm trường báo code không thể sửa; ngoài ra code thuộc đơn COMPLETED cũng không sửa được.
+
+**Thay đổi ở MH-api:** Không sửa code (module `supplier-transactions` proxy JSON nguyên trạng sang mhvn). Ghi log vì **contract proxy thay đổi**:
+- `GET /api/supplier/transactions` nay mỗi dòng trả thêm `in_request` (bool), `order_completed` (bool), `lock_reason` (`invoice_mh|in_request|order_completed|chi_ho|null`). `editable` đã gộp các điều kiện khóa (hóa đơn MH / đã có trong request / đơn COMPLETED).
+
+**Bối cảnh (hệ thống A — mhgs_log_be):** `mhcom/supplier_statement_views.py` đối chiếu `request_items` (PNL↔'Trucking', Chi hộ↔'Chi hộ') và `order.status`.
+
+**Ảnh hưởng fullstack:** FE Bảng kê chi phí (`MH/src/container/CostStatementContainer`) đã khóa ô Tiền theo `editable` nên tự động không cho sửa các dòng bị khóa; có thể dùng `lock_reason` để hiển thị lý do.

@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
-import { SystemAIntegrationModule } from '../system-a-integration/system-a-integration.module';
+import { MhvnIntegrationModule } from '../mhvn-integration/mhvn-integration.module';
 import { ActiveLinkModule } from 'src/common/services/active-link.module';
 import { BangKeService } from './bangke.service';
 import { BangKeController } from './bangke.controller';
 
 @Module({
-  imports: [SystemAIntegrationModule, ActiveLinkModule],
+  imports: [MhvnIntegrationModule, ActiveLinkModule],
   providers: [BangKeService],
   controllers: [BangKeController],
   exports: [BangKeService],

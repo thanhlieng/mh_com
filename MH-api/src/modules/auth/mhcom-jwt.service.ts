@@ -8,7 +8,7 @@ import { sign } from "jsonwebtoken";
 import * as fs from "fs";
 import * as path from "path";
 
-interface SystemBTokenPayload {
+interface MhcomTokenPayload {
   iss: string;
   aud: string;
   type: "supplier" | "customer" | "service";
@@ -17,16 +17,16 @@ interface SystemBTokenPayload {
 }
 
 @Injectable()
-export class SystemBJwtService {
+export class MhcomJwtService {
   private privateKeyPem: string;
   private cachedServiceToken: string | null = null;
   private serviceTokenExpiry: number = 0;
 
   constructor(private configService: ConfigService) {
-    const keyPath = this.configService.get<string>("SYSTEM_B_PRIVATE_KEY_PATH");
+    const keyPath = this.configService.get<string>("MHCOM_PRIVATE_KEY_PATH");
     if (!keyPath) {
       throw new Error(
-        "SYSTEM_B_PRIVATE_KEY_PATH environment variable is not set",
+        "MHCOM_PRIVATE_KEY_PATH environment variable is not set",
       );
     }
     // Read private key from file
@@ -35,15 +35,15 @@ export class SystemBJwtService {
       this.privateKeyPem = fs.readFileSync(absolutePath, "utf-8");
     } catch (error) {
       throw new Error(
-        `Failed to read SYSTEM_B_PRIVATE_KEY from file "${keyPath}": ${error.message}`,
+        `Failed to read MHCOM_PRIVATE_KEY from file "${keyPath}": ${error.message}`,
       );
     }
   }
 
   /**
    * Issue a supplier token (RS256)
-   * This token represents a specific supplier from System A
-   * @param aSupplierIdId - The supplier ID from System A (maps to Supplier#id in A)
+   * This token represents a specific supplier from mhvn
+   * @param aSupplierIdId - The supplier ID from mhvn (maps to Supplier#id in mhvn)
    * @returns JWT token string
    * @throws ConflictException if a_supplier_id is null/undefined
    */
@@ -54,12 +54,12 @@ export class SystemBJwtService {
       );
     }
 
-    const payload: SystemBTokenPayload = {
-      iss: "system-b",
-      aud: "system-a",
+    const payload: MhcomTokenPayload = {
+      iss: "mhcom",
+      aud: "mhvn",
       type: "supplier",
       sub: a_supplier_id,
-      // exp is set to 200 days (matching B's current JWT lifetime)
+      // exp is set to 200 days (matching mhcom's current JWT lifetime)
       exp: Math.floor(Date.now() / 1000) + 200 * 24 * 60 * 60,
     };
 
@@ -77,9 +77,9 @@ export class SystemBJwtService {
       );
     }
 
-    const payload: SystemBTokenPayload = {
-      iss: "system-b",
-      aud: "system-a",
+    const payload: MhcomTokenPayload = {
+      iss: "mhcom",
+      aud: "mhvn",
       type: "customer",
       sub: a_customer_id,
       exp: Math.floor(Date.now() / 1000) + 200 * 24 * 60 * 60,
@@ -94,7 +94,7 @@ export class SystemBJwtService {
 
   /**
    * Issue a service token (RS256)
-   * This token represents System B itself (not tied to a specific supplier)
+   * This token represents mhcom itself (not tied to a specific supplier)
    * Use for master data APIs or system-to-system calls
    * @returns JWT token string
    */
@@ -106,9 +106,9 @@ export class SystemBJwtService {
     }
 
     const expiry = now + 200 * 24 * 60 * 60;
-    const payload: SystemBTokenPayload = {
-      iss: "system-b",
-      aud: "system-a",
+    const payload: MhcomTokenPayload = {
+      iss: "mhcom",
+      aud: "mhvn",
       type: "service",
       exp: expiry,
     };

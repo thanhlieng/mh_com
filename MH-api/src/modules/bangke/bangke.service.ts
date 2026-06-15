@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { SystemAIntegrationService } from '../system-a-integration/system-a-integration.service';
+import { MhvnIntegrationService } from '../mhvn-integration/mhvn-integration.service';
 
 interface UserIdentity {
   a_supplier_id?: string;
@@ -9,14 +9,14 @@ interface UserIdentity {
 @Injectable()
 export class BangKeService {
   constructor(
-    private systemAIntegrationService: SystemAIntegrationService,
+    private mhvnIntegrationService: MhvnIntegrationService,
   ) {}
 
   async getBangKe(identity: UserIdentity, query: any = {}) {
     const queryParams = new URLSearchParams(query).toString();
     const endpoint = `/api/bangke${queryParams ? '?' + queryParams : ''}`;
 
-    return this.systemAIntegrationService.callSystemA({
+    return this.mhvnIntegrationService.callMhvn({
       method: 'GET',
       endpoint,
       a_supplier_id: identity.a_supplier_id,
@@ -27,7 +27,7 @@ export class BangKeService {
   async getBangKeById(identity: UserIdentity, bangkeId: string) {
     const endpoint = `/api/bangke/${bangkeId}`;
 
-    return this.systemAIntegrationService.callSystemA({
+    return this.mhvnIntegrationService.callMhvn({
       method: 'GET',
       endpoint,
       a_supplier_id: identity.a_supplier_id,

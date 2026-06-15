@@ -11,6 +11,7 @@ import {
   InfoIcon,
   Loader2Icon,
   PencilIcon,
+  RefreshCwIcon,
   RotateCcwIcon,
   RouteIcon,
   UploadCloudIcon,
@@ -25,7 +26,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
-import { SUPPLIER_PRICE_CHANGES } from '@/routes/routes';
 import { withPrivateRouteSupplier } from '@/routes/withPrivateRouteSupplier';
 import type { SupplierPrice } from '@/services/supplier.services';
 import {
@@ -33,7 +33,10 @@ import {
   updateSupplierPrices,
 } from '@/services/supplier.services';
 
+import { PriceChangeList } from '../SupplierPriceChangeContainer/PriceChangeList';
 import { UploadRateModal } from './UploadRateModal';
+
+type TabKey = 'rates' | 'changes';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -212,18 +215,18 @@ function buildColumns(
         />
       ),
     },
-    {
-      accessorKey: 'amount_next_cont',
-      size: 130,
-      header: () => (
-        <span className='block text-right text-xs font-semibold'>
-          Cont tiếp theo
-        </span>
-      ),
-      cell: ({ row }) => (
-        <TextCell value={formatDisplay(row.original.amount_next_cont)} align='right' />
-      ),
-    },
+    // {
+    //   accessorKey: 'amount_next_cont',
+    //   size: 130,
+    //   header: () => (
+    //     <span className='block text-right text-xs font-semibold'>
+    //       Cont tiếp theo
+    //     </span>
+    //   ),
+    //   cell: ({ row }) => (
+    //     <TextCell value={formatDisplay(row.original.amount_next_cont)} align='right' />
+    //   ),
+    // },
     {
       accessorKey: 'vat',
       size: 80,
@@ -248,6 +251,14 @@ function buildColumns(
 const ShippingRateContainer = () => {
   const router = useRouter();
   const queryClient = useQueryClient();
+
+  const [activeTab, setActiveTab] = React.useState<TabKey>('rates');
+  // Cho phép deep-link tới tab "Yêu cầu thay đổi giá" qua ?tab=changes.
+  React.useEffect(() => {
+    if (router.isReady && router.query.tab === 'changes') {
+      setActiveTab('changes');
+    }
+  }, [router.isReady, router.query.tab]);
 
   const apiQuery = useQuery(['supplier-prices'], getSupplierPrices, {
     keepPreviousData: true,
@@ -275,7 +286,7 @@ const ShippingRateContainer = () => {
       placement: 'top',
     });
     queryClient.invalidateQueries(['supplier-prices']);
-    router.push(SUPPLIER_PRICE_CHANGES);
+    setActiveTab('changes');
   };
 
   React.useEffect(() => {
@@ -318,7 +329,7 @@ const ShippingRateContainer = () => {
       originalDataRef.current = data.map((r) => ({ ...r }));
       setDirtyMap({});
       queryClient.invalidateQueries(['supplier-prices']);
-      router.push(SUPPLIER_PRICE_CHANGES);
+      setActiveTab('changes');
     },
     onError: (e: any) => {
       notification.error({
@@ -354,20 +365,63 @@ const ShippingRateContainer = () => {
   return (
     <div className='flex flex-1 flex-col overflow-hidden'>
       {/* ── Page header ── */}
-      <div className='flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-border px-4 py-2 md:h-14 md:flex-nowrap md:px-6 md:py-0'>
+      <div className='flex shrink-0 items-center gap-3 border-b border-border px-4 py-2 md:px-6'>
         <RouteIcon className='h-4 w-4 shrink-0 text-muted-foreground' />
         <h1 className='text-sm font-semibold'>Thiết lập giá vận chuyển</h1>
-        {dirtyRowCount > 0 && (
-          <Badge variant='warning' className='gap-1'>
-            <PencilIcon className='h-3 w-3' />
-            {dirtyRowCount} thay đổi
-          </Badge>
-        )}
-        <div className='flex w-full items-center gap-3 md:ml-auto md:w-auto'>
-          <span className='hidden items-center gap-1 text-xs text-muted-foreground lg:flex'>
-            <InfoIcon className='h-3.5 w-3.5 shrink-0' />
-            Chỉnh sửa đơn giá rồi gửi yêu cầu — thay đổi cần được duyệt.
-          </span>
+      </div>
+
+      {/* ── Tabs ── */}
+      <div className='flex shrink-0 items-center gap-1 border-b border-border px-4 md:px-6'>
+        {([
+          { key: 'rates', label: 'Thiết lập giá' },
+          { key: 'changes', label: 'Yêu cầu thay đổi giá' },
+        ] as { key: TabKey; label: string }[]).map((t) => (
+          <button
+            key={t.key}
+            type='button'
+            onClick={() => setActiveTab(t.key)}
+            className={cn(
+              '-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-medium transition-colors',
+              activeTab === t.key
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            )}
+          >
+            {t.label}
+            {t.key === 'rates' && dirtyRowCount > 0 && (
+              <Badge variant='warning' className='gap-1'>
+                <PencilIcon className='h-3 w-3' />
+                {dirtyRowCount}
+              </Badge>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'changes' && <PriceChangeList />}
+
+      {activeTab === 'rates' && (
+        <>
+      {/* ── Rates toolbar ── */}
+      <div className='flex shrink-0 flex-wrap items-center gap-3 border-b border-border px-4 py-2 md:px-6'>
+        <span className='hidden items-center gap-1 text-xs text-muted-foreground lg:flex'>
+          <InfoIcon className='h-3.5 w-3.5 shrink-0' />
+          Chỉnh sửa đơn giá rồi gửi yêu cầu — thay đổi cần được duyệt.
+        </span>
+        <div className='flex items-center gap-3 md:ml-auto'>
+          <Button
+            variant='outline'
+            size='sm'
+            className='h-8 shrink-0 gap-1.5 text-xs'
+            onClick={() => apiQuery.refetch()}
+            disabled={apiQuery.isFetching}
+            title='Tải lại dữ liệu'
+          >
+            <RefreshCwIcon
+              className={cn('h-3.5 w-3.5', apiQuery.isFetching && 'animate-spin')}
+            />
+            Tải lại
+          </Button>
           <Button
             size='sm'
             className='h-8 shrink-0 gap-1.5 text-xs'
@@ -494,6 +548,8 @@ const ShippingRateContainer = () => {
           onClose={() => setShowUpload(false)}
           onUploaded={handleUploaded}
         />
+      )}
+        </>
       )}
     </div>
   );

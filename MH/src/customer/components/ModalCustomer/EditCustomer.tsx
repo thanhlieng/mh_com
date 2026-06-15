@@ -18,10 +18,13 @@ import { generateOrderCode } from '@/services/booking.services';
 import { updateCustomer } from '@/services/customer.services';
 import { resetPass } from '@/services/post.service';
 
+import { USER } from '@/contants/Storage';
+
 import ContractCustomer from '../ContractCustomer/ContractCustomer';
 import InfoCustomer from '../InfoCustomer/InfoCustomer';
 import InFoNew from '../InfoNew/InforNew';
 import InfoStaff from '../InfoStaff/InfoStaff';
+import MhvnConnect from '../MhvnConnect/MhvnConnect';
 import OrdersCode from '../OrdersCode/OrdersCode';
 
 interface IProps {
@@ -30,6 +33,16 @@ interface IProps {
 }
 const ModalEditCustomer = ({ onClose, value }: IProps) => {
   const { permissions } = useGetPermission();
+  const isAdmin = (() => {
+    try {
+      const raw =
+        typeof window !== 'undefined' ? localStorage.getItem(USER) : null;
+        console.error(JSON.parse(raw)?.typeUser)
+      return raw ? (JSON.parse(raw)?.typeUser as string).toLocaleLowerCase() === 'admin' : false;
+    } catch {
+      return false;
+    }
+  })();
   const [form] = Form.useForm();
   const [detailsContract, setDetailsContract] = useState<Array<any>>([]);
   const [infoStaff, setInfoStaff] = useState<Array<any>>([]);
@@ -271,6 +284,11 @@ const ModalEditCustomer = ({ onClose, value }: IProps) => {
                 handleUpdateStaff={handleUpdateStaff}
               />
             </Tabs.TabPane>
+            {isAdmin && (
+              <Tabs.TabPane tab='Kết nối mhvn' key='MhvnConnect'>
+                <MhvnConnect userId={value?.userId} />
+              </Tabs.TabPane>
+            )}
           </Tabs>
         ) : (
           <Tabs type='card'>

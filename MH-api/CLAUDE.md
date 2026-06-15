@@ -47,18 +47,20 @@ src/
 | `pu-deliveries` | Pickup & Delivery |
 | `invoices` | Hóa đơn |
 | `bangke` | Bảng kê (cargo list) |
-| `system-a-integration` | Proxy gọi API hệ thống A (gắn token RS256 supplier/customer/service) |
-| `account-links` | `GET /api/account/a-links` — danh sách supplier/customer (bên A) mà account được liên kết. Một account liên kết **nhiều** supplier HOẶC nhiều customer (đúng một loại). Resolver `ActiveLinkService` chọn thực thể active theo header `X-Active-Supplier-Id` / `X-Active-Customer-Id` và kiểm tra quyền truy cập. |
-| `supplier-transactions` | `GET /api/supplier/transactions` — proxy danh sách giao dịch (PNL + Chi hộ) của supplier từ A (màn Bảng kê chi phí) |
-| `supplier-prices` | `GET/PATCH /api/supplier/prices`, `POST /api/supplier/prices/import`, `GET /api/supplier/price-changes` (hỗ trợ `?status=`), `DELETE /api/supplier/price-changes/:id` — proxy thao tác giá (ServiceSupplierPrice) của supplier sang A: liệt kê, cập nhật theo lô, import từ file (multipart); liệt kê & xóa yêu cầu thay đổi giá (chỉ xóa được khi PENDING) |
-| `supplier-chiho-files` | `GET/POST /api/supplier/chiho-files` — liệt kê & upload file Chi hộ theo order, proxy sang A (màn Quản lý chi hộ) |
-| `supplier-change-requests` | `GET /api/supplier/change-requests`, `GET /api/supplier/change-requests/:id`, `POST /api/supplier/change-requests` — proxy yêu cầu thay đổi cost PNL từ NCC sang A (màn Đề nghị thay đổi) |
+| `mhvn-integration` | Proxy gọi API hệ thống mhvn (gắn token RS256 supplier/customer/service) |
+| `account-links` | `GET /api/account/a-links` — danh sách supplier/customer (bên mhvn) mà account được liên kết. Một account liên kết **nhiều** supplier HOẶC nhiều customer (đúng một loại). Resolver `ActiveLinkService` chọn thực thể active theo header `X-Active-Supplier-Id` / `X-Active-Customer-Id` và kiểm tra quyền truy cập. **Admin** (chỉ ADMIN): `GET /api/admin/account-links/:userId` và `PUT /api/admin/account-links/:userId` (body `{ linkType, ids }`) — đọc/thay thế toàn bộ liên kết của một account; phục vụ tab "Kết nối mhvn" ở màn quản trị khách hàng. |
+| `supplier-transactions` | `GET /api/supplier/transactions` — proxy danh sách giao dịch (PNL + Chi hộ) của supplier từ mhvn (màn Bảng kê chi phí) |
+| `supplier-prices` | `GET/PATCH /api/supplier/prices`, `POST /api/supplier/prices/import`, `GET /api/supplier/price-changes` (hỗ trợ `?status=`), `DELETE /api/supplier/price-changes/:id` — proxy thao tác giá (ServiceSupplierPrice) của supplier sang mhvn: liệt kê, cập nhật theo lô, import từ file (multipart); liệt kê & xóa yêu cầu thay đổi giá (chỉ xóa được khi PENDING) |
+| `supplier-chiho-files` | `GET/POST /api/supplier/chiho-files` — liệt kê & upload file Chi hộ theo order; `GET /api/supplier/chiho-files/uploads?status=` — liệt kê **tất cả** file supplier đã upload gộp mọi đơn (tab "Danh sách yêu cầu tải lên"). Proxy sang mhvn (màn Quản lý chi hộ). File NCC upload tạo ở trạng thái **PENDING**, mhgs (admin/KT/GD/PT) duyệt mới được lưu vào đơn; GET trả thêm `approval_status`/`approved_by`/`approved_at` |
+| `supplier-order-search` | `GET /api/supplier/order-by-booking?q=` (alias `booking_bill_number`) — tra cứu đơn theo `booking_bill_number` **match exact**, proxy sang mhvn (ô tìm kiếm màn Quản lý chi hộ). Trả đơn + chihos thuộc supplier; `404` nếu không khớp / supplier không tham gia |
+| `supplier-change-requests` | `GET /api/supplier/change-requests`, `GET /api/supplier/change-requests/:id`, `POST /api/supplier/change-requests` — proxy yêu cầu thay đổi cost PNL từ NCC sang mhvn (màn Đề nghị thay đổi) |
 | `roles` | Phân quyền động (RBAC) |
 | `finance-statistical` | Báo cáo tài chính & thống kê |
 | `homepage` | Nội dung trang chủ website |
 | `posts` | Tin tức / bài viết |
 | `cron-job` | Tác vụ chạy định kỳ (scheduler) |
 | `connect-bill` | Kết nối bill với đối tác |
+| `mhvn-directory` | `GET /api/directory/suppliers`, `GET /api/directory/customers` (hỗ trợ `?q=`, `?is_active=`) — proxy danh mục supplier/customer (master data) từ mhvn bằng **service token** cho màn web admin tạo/liên kết tài khoản NCC. **Chỉ ADMIN** (`typeUser === ADMIN`). |
 
 ---
 

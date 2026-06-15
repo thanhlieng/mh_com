@@ -4,6 +4,7 @@ import {
   HandCoinsIcon,
   Loader2Icon,
   PaperclipIcon,
+  RefreshCwIcon,
   SearchIcon,
   FileTextIcon,
 } from 'lucide-react';
@@ -24,7 +25,10 @@ import {
 } from '@/services/supplier.services';
 import type { ChiHoFile, OrderByCodeResponse } from '@/services/supplier.services';
 import { FileUploadPanel } from './FileUploadPanel';
+import { UploadRequestsTab } from './UploadRequestsTab';
 import { type PaymentOrder, type PaymentStatus, type UploadedFile } from './types';
+
+type TabKey = 'search' | 'uploads';
 
 const formatVND = (n: number) =>
   n.toLocaleString('vi-VN', { style: 'currency', currency: 'VND' });
@@ -57,6 +61,7 @@ function mapChiHoFileToUploaded(f: ChiHoFile): UploadedFile {
     size: 0,
     uploadedAt: f.created_at,
     url: f.file_url ?? undefined,
+    approvalStatus: f.approval_status,
   };
 }
 
@@ -79,6 +84,7 @@ const STATUS_BADGE: Record<
 };
 
 const PaymentManagementContainer = () => {
+  const [activeTab, setActiveTab] = React.useState<TabKey>('search');
   const [rawSearch, setRawSearch] = React.useState('');
   const [searchQuery, setSearchQuery] = React.useState<string | null>(null);
 
@@ -137,6 +143,17 @@ const PaymentManagementContainer = () => {
   const fileCountOf = (o: PaymentOrder) =>
     filesByOrder[o.id]?.length ?? o.fileCount;
 
+  const returnError = (error: any) => {
+    if (error && error?.response && error?.response?.status == 404) {
+      return <div className='py-16 text-center text-xs text-destructive'>
+           Không tìm thấy đơn hàng phù hợp với từ khóa &quot;{searchQuery}&quot;
+          </div>
+    }
+    return( <div className='py-16 text-center text-xs text-destructive'>
+            Có lỗi xảy ra khi tìm kiếm. Vui lòng liên hệ MHGS
+          </div>)
+  }
+
   return (
     <div className='flex flex-1 flex-col overflow-hidden'>
       {/* ── Page header ── */}
@@ -145,6 +162,32 @@ const PaymentManagementContainer = () => {
         <h1 className='text-sm font-semibold'>Quản lý chi hộ</h1>
       </div>
 
+      {/* ── Tabs ── */}
+      <div className='flex shrink-0 items-center gap-1 border-b border-border px-4 md:px-6'>
+        {([
+          { key: 'search', label: 'Tra cứu & tải lên' },
+          { key: 'uploads', label: 'Danh sách yêu cầu tải lên' },
+        ] as { key: TabKey; label: string }[]).map((t) => (
+          <button
+            key={t.key}
+            type='button'
+            onClick={() => setActiveTab(t.key)}
+            className={cn(
+              '-mb-px border-b-2 px-3 py-2 text-xs font-medium transition-colors',
+              activeTab === t.key
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'uploads' && <UploadRequestsTab />}
+
+      {activeTab === 'search' && (
+        <>
       {/* ── Search bar ── */}
       <div className='shrink-0 border-b border-border bg-muted/20 px-4 py-4 md:px-6'>
         <div className='flex items-center gap-2'>
@@ -154,7 +197,7 @@ const PaymentManagementContainer = () => {
               value={rawSearch}
               onChange={(e) => setRawSearch(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder='Nhập mã đơn, khách hàng, tuyến...'
+              placeholder='Nhập chính xác số booking / bill...'
               className='h-9 pl-8 text-sm'
             />
           </div>
@@ -166,6 +209,21 @@ const PaymentManagementContainer = () => {
             )}
             {apiQuery.isFetching ? 'Đang tìm...' : 'Tìm kiếm'}
           </Button>
+          {searchQuery && (
+            <Button
+              variant='outline'
+              size='sm'
+              className='h-9 gap-1.5 text-xs'
+              onClick={() => apiQuery.refetch()}
+              disabled={apiQuery.isFetching}
+              title='Tải lại kết quả'
+            >
+              <RefreshCwIcon
+                className={cn('h-3.5 w-3.5', apiQuery.isFetching && 'animate-spin')}
+              />
+              Tải lại
+            </Button>
+          )}
         </div>
       </div>
 
@@ -175,10 +233,10 @@ const PaymentManagementContainer = () => {
           <div className='flex flex-col items-center justify-center py-20 text-center'>
             <FileTextIcon className='mb-3 h-10 w-10 text-muted-foreground/40' />
             <p className='text-sm font-medium text-muted-foreground'>
-              Nhập thông tin đơn hàng và nhấn Tìm kiếm
+              Nhập số booking / bill và nhấn Tìm kiếm
             </p>
             <p className='text-xs text-muted-foreground/60'>
-              Có thể tìm theo mã đơn, khách hàng hoặc tuyến đường
+              Tìm theo số booking / bill (khớp chính xác)
             </p>
           </div>
         )}
@@ -191,9 +249,8 @@ const PaymentManagementContainer = () => {
         )}
 
         {apiQuery.isError && searchQuery && (
-          <div className='py-16 text-center text-xs text-destructive'>
-            Có lỗi xảy ra khi tìm kiếm. Vui lòng thử lại.
-          </div>
+          returnError(apiQuery.error)
+          
         )}
 
         {apiQuery.data && orders.length === 0 && (
@@ -319,6 +376,8 @@ const PaymentManagementContainer = () => {
           onClose={() => setSelectedId(null)}
           onFilesChange={handleFilesChange}
         />
+      )}
+        </>
       )}
     </div>
   );

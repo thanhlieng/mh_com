@@ -109,8 +109,19 @@ function mapChiHoFileToUploaded(f: ChiHoFile): UploadedFile {
     size: 0,
     uploadedAt: f.created_at,
     url: f.file_url ?? undefined,
+    approvalStatus: f.approval_status,
   };
 }
+
+// Nhãn trạng thái duyệt file Chi hộ (mhgs duyệt trước khi lưu vào đơn).
+const APPROVAL_BADGE: Record<
+  NonNullable<UploadedFile['approvalStatus']>,
+  { label: string; variant: React.ComponentProps<typeof Badge>['variant'] }
+> = {
+  PENDING: { label: 'Chờ duyệt', variant: 'warning' },
+  APPROVED: { label: 'Đã duyệt', variant: 'success' },
+  REJECTED: { label: 'Từ chối', variant: 'destructive' },
+};
 
 export function FileUploadPanel({
   order,
@@ -327,9 +338,19 @@ export function FileUploadPanel({
                   >
                     <span className='shrink-0'>{TYPE_ICON[file.type]}</span>
                     <div className='min-w-0 flex-1'>
-                      <p className='truncate text-xs font-medium text-foreground'>
-                        {file.name}
-                      </p>
+                      <div className='flex items-center gap-1.5'>
+                        <p className='truncate text-xs font-medium text-foreground'>
+                          {file.name}
+                        </p>
+                        {file.approvalStatus && (
+                          <Badge
+                            variant={APPROVAL_BADGE[file.approvalStatus].variant}
+                            className='shrink-0'
+                          >
+                            {APPROVAL_BADGE[file.approvalStatus].label}
+                          </Badge>
+                        )}
+                      </div>
                       <p className='text-[10px] text-muted-foreground'>
                         {formatSize(file.size)} · {formatDateTime(file.uploadedAt)}
                         {file.raw && ' · Mới'}

@@ -18,8 +18,8 @@ import { ActiveLinkService } from 'src/common/services/active-link.service';
 import { SupplierChiHoFilesService } from './supplier-chiho-files.service';
 
 /**
- * System B endpoint phục vụ màn "Quản lý chi hộ".
- * Liệt kê & upload file Chi hộ theo order, proxy sang hệ thống A theo supplier.
+ * mhcom endpoint phục vụ màn "Quản lý chi hộ".
+ * Liệt kê & upload file Chi hộ theo order, proxy sang hệ thống mhvn theo supplier.
  */
 @Controller('api/supplier/chiho-files')
 @UseGuards(JwtAuthGuard)
@@ -28,6 +28,27 @@ export class SupplierChiHoFilesController {
     private readonly supplierChiHoFilesService: SupplierChiHoFilesService,
     private readonly activeLinkService: ActiveLinkService,
   ) {}
+
+  @Get('uploads')
+  async listAllUploads(
+    @GetUser() user: UserEntity,
+    @Headers('x-active-supplier-id') activeSupplierId: string,
+    @Query('status') status?: string,
+    @Query('include_inactive') includeInactive?: string,
+  ) {
+    const a_supplier_id = await this.activeLinkService.resolveSupplier(
+      user,
+      activeSupplierId,
+    );
+    const include = ['true', '1', 'yes'].includes(
+      String(includeInactive).toLowerCase(),
+    );
+    return this.supplierChiHoFilesService.listAllUploads(
+      a_supplier_id,
+      status,
+      include,
+    );
+  }
 
   @Get()
   async listFiles(

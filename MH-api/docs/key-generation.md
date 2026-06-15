@@ -1,4 +1,4 @@
-# Hướng dẫn sinh cặp khóa RS256 (System B ↔ A)
+# Hướng dẫn sinh cặp khóa RS256 (mhcom ↔ mhvn)
 
 ## 1. Sinh cặp khóa
 
@@ -18,24 +18,24 @@ openssl rsa -in keys/private.pem -pubout -out keys/b_public.pem
 
 | File | Nơi giữ | Ghi chú |
 |---|---|---|
-| `keys/private.pem` | **Chỉ BE B** | KHÔNG commit, KHÔNG chia sẻ |
-| `keys/b_public.pem` | Copy sang repo A | Đặt vào `keys/b_public.pem` phía A |
+| `keys/private.pem` | **Chỉ BE mhcom** | KHÔNG commit, KHÔNG chia sẻ |
+| `keys/b_public.pem` | Copy sang repo mhvn | Đặt vào `keys/b_public.pem` phía mhvn |
 
 ## 3. Biến môi trường
 
-Thêm vào `.env` của BE B:
+Thêm vào `.env` của BE mhcom:
 
 ```
-SYSTEM_B_PRIVATE_KEY_PATH=./keys/private.pem
+MHCOM_PRIVATE_KEY_PATH=./keys/private.pem
 ```
 
-Thêm vào `.env` (hoặc settings) của BE A:
+Thêm vào `.env` (hoặc settings) của BE mhvn:
 
 ```
-SYSTEM_B_PUBLIC_KEY_PATH=./keys/b_public.pem
+MHCOM_PUBLIC_KEY_PATH=./keys/b_public.pem
 ```
 
 ## 4. Lưu ý bảo mật
 
 - `keys/private.pem` đã được thêm vào `.gitignore` — không bao giờ commit file này.
-- Khi rotate khóa: sinh cặp mới, cập nhật `b_public.pem` ở A trước, deploy A, rồi mới deploy B với private key mới.
+- Khi rotate khóa: sinh cặp mới, cập nhật `b_public.pem` ở mhvn trước, deploy mhvn, rồi mới deploy mhcom với private key mới.

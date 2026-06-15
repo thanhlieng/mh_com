@@ -19,6 +19,7 @@ import {
   ListChecksIcon,
   Loader2Icon,
   PencilIcon,
+  RefreshCwIcon,
   RotateCcwIcon,
   SearchIcon,
   TableIcon,
@@ -638,24 +639,52 @@ const CostStatementContainer = () => {
             {dirtyCellCount} thay đổi
           </Badge>
         )}
-        {view === 'statement' && (
-          <div className='flex w-full flex-wrap items-center gap-x-4 gap-y-1 text-xs md:ml-auto md:w-auto'>
-            <span className='text-muted-foreground'>
-              {apiQuery.isFetching && (
-                <Loader2Icon className='mr-1 inline h-3 w-3 animate-spin' />
+        <div className='flex w-full flex-wrap items-center gap-x-4 gap-y-1 text-xs md:ml-auto md:w-auto'>
+          {view === 'statement' && (
+            <>
+              <span className='text-muted-foreground'>
+                {apiQuery.isFetching && (
+                  <Loader2Icon className='mr-1 inline h-3 w-3 animate-spin' />
+                )}
+                {visibleRows.length} bản ghi
+                {apiQuery.data && (
+                  <span className='text-[10px] text-muted-foreground/60'>
+                    {' '}/ {apiQuery.data.total}
+                  </span>
+                )}
+              </span>
+              <span className='rounded bg-primary/10 px-2 py-0.5 font-semibold text-primary'>
+                Tổng tiền: {formatVND(totalAmount)}
+              </span>
+            </>
+          )}
+          <Button
+            variant='outline'
+            size='sm'
+            className='h-8 shrink-0 gap-1.5 text-xs'
+            onClick={() =>
+              view === 'statement'
+                ? apiQuery.refetch()
+                : changeRequestsQuery.refetch()
+            }
+            disabled={
+              view === 'statement'
+                ? apiQuery.isFetching
+                : changeRequestsQuery.isFetching
+            }
+            title='Tải lại dữ liệu'
+          >
+            <RefreshCwIcon
+              className={cn(
+                'h-3.5 w-3.5',
+                (view === 'statement'
+                  ? apiQuery.isFetching
+                  : changeRequestsQuery.isFetching) && 'animate-spin'
               )}
-              {visibleRows.length} bản ghi
-              {apiQuery.data && (
-                <span className='text-[10px] text-muted-foreground/60'>
-                  {' '}/ {apiQuery.data.total}
-                </span>
-              )}
-            </span>
-            <span className='rounded bg-primary/10 px-2 py-0.5 font-semibold text-primary'>
-              Tổng tiền: {formatVND(totalAmount)}
-            </span>
-          </div>
-        )}
+            />
+            Tải lại
+          </Button>
+        </div>
       </div>
 
       {/* ── Tab bar (view con) ── */}

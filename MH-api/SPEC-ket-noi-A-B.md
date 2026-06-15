@@ -46,17 +46,17 @@ Có hai hệ thống độc lập, do cùng một team kiểm soát (sửa đư�
 | Nguồn | `iss` | `type` | Thuật toán | Đại diện | Dùng cho |
 |---|---|---|---|---|---|
 | Web A (sẵn có) | (SimpleJWT mặc định) | — | HS256 | user của A | Website A |
-| B — supplier | `system-b` | `supplier` | RS256 | một supplier | API dữ liệu theo supplier |
-| B — service | `system-b` | `service` | RS256 | hệ thống B | API thường (master data) |
+| B — supplier | `mhcom` | `supplier` | RS256 | một supplier | API dữ liệu theo supplier |
+| B — service | `mhcom` | `service` | RS256 | hệ thống B | API thường (master data) |
 
 **Claim token supplier (B → A):**
 ```json
-{ "iss": "system-b", "aud": "system-a", "type": "supplier", "sub": "<a_supplier_id>", "exp": "10m" }
+{ "iss": "mhcom", "aud": "mhvn", "type": "supplier", "sub": "<a_supplier_id>", "exp": "10m" }
 ```
 
 **Claim token service (B → A):**
 ```json
-{ "iss": "system-b", "aud": "system-a", "type": "service", "exp": "10m" }
+{ "iss": "mhcom", "aud": "mhvn", "type": "service", "exp": "10m" }
 ```
 
 > `sub` của token supplier chính là `a_supplier_id` → A query thẳng `Supplier` theo id này, không cần bảng mapping.
@@ -78,7 +78,7 @@ Có hai hệ thống độc lập, do cùng một team kiểm soát (sửa đư�
 ### 6.3. Phía A (Django / DRF)
 - Một `BaseAuthentication` class duy nhất (`MultiSourceJWTAuthentication`) xử lý cả 3 loại token:
   - Đọc `iss` (chưa verify) để chọn nhánh.
-  - Nhánh `iss == 'system-b'`: verify bằng public key của B, RS256, **bắt buộc kiểm `aud='system-a'` và `iss='system-b'` và `exp`**. Phân biệt `type`:
+  - Nhánh `iss == 'mhcom'`: verify bằng public key của B, RS256, **bắt buộc kiểm `aud='mhvn'` và `iss='mhcom'` và `exp`**. Phân biệt `type`:
     - `supplier`: gắn `request.supplier_id = sub`, trả về một principal nhẹ (KHÔNG phải `User` DB).
     - `service`: `request.supplier_id = None`.
   - Nhánh còn lại (token web A): dùng `JWTAuthentication` của SimpleJWT như cũ; gắn `request.supplier_id = None`. **Không** ép `aud`/`iss` lên nhánh này (token A hiện không có các claim đó).

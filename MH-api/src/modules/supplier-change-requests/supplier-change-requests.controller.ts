@@ -17,8 +17,8 @@ import { SupplierChangeRequestsService } from './supplier-change-requests.servic
 import { CreateChangeRequestDto } from './dto/create-change-request.dto';
 
 /**
- * System B endpoint phục vụ màn "Đề nghị thay đổi" (change request) của NCC.
- * Proxy CRUD yêu cầu thay đổi cost PNL sang hệ thống A theo supplier.
+ * mhcom endpoint phục vụ màn "Đề nghị thay đổi" (change request) của NCC.
+ * Proxy CRUD yêu cầu thay đổi cost PNL sang hệ thống mhvn theo supplier.
  */
 @ApiTags('supplier-change-requests')
 @ApiBearerAuth()
@@ -68,12 +68,13 @@ export class SupplierChangeRequestsController {
   async create(
     @GetUser() user: UserEntity,
     @Headers('x-active-supplier-id') activeSupplierId: string,
-    @Body() dto: CreateChangeRequestDto,
+    @Body() dto: CreateChangeRequestDto[],
   ) {
     const a_supplier_id = await this.activeLinkService.resolveSupplier(
       user,
       activeSupplierId,
     );
+    console.log(dto)
     return this.service.create(a_supplier_id, dto);
   }
 }

@@ -10,9 +10,9 @@ import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
 import { AxiosError } from 'axios';
 import FormDataNode from 'form-data';
-import { SystemBJwtService } from '../auth/system-b-jwt.service';
+import { MhcomJwtService } from '../auth/mhcom-jwt.service';
 
-interface CallSystemAOptions {
+interface CallMhvnOptions {
   method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
   endpoint: string; // e.g., "/api/bangke", "/api/services"
   data?: any;
@@ -22,28 +22,28 @@ interface CallSystemAOptions {
 }
 
 @Injectable()
-export class SystemAIntegrationService {
+export class MhvnIntegrationService {
   private baseUrl: string;
   private requestTimeout: number = 10000;
 
   constructor(
     private httpService: HttpService,
     private configService: ConfigService,
-    private systemBJwtService: SystemBJwtService,
+    private mhcomJwtService: MhcomJwtService,
   ) {
     this.baseUrl = this.configService.get<string>(
-      'SYSTEM_A_API_BASE_URL',
+      'MHVN_API_BASE_URL',
       'http://localhost:8000',
     );
   }
 
   /**
-   * Call System A API with automatic token injection
+   * Call mhvn API with automatic token injection
    * @param options - Call options
-   * @returns Response data from System A
+   * @returns Response data from mhvn
    * @throws HttpException with appropriate status code if call fails
    */
-  async callSystemA<T = any>(options: CallSystemAOptions): Promise<T> {
+  async callMhvn<T = any>(options: CallMhvnOptions): Promise<T> {
     const {
       method,
       endpoint,
@@ -57,11 +57,11 @@ export class SystemAIntegrationService {
 
     try {
       if (a_supplier_id) {
-        token = this.systemBJwtService.issueSupplierToken(a_supplier_id);
+        token = this.mhcomJwtService.issueSupplierToken(a_supplier_id);
       } else if (a_customer_id) {
-        token = this.systemBJwtService.issueCustomerToken(a_customer_id);
+        token = this.mhcomJwtService.issueCustomerToken(a_customer_id);
       } else {
-        token = this.systemBJwtService.issueServiceToken();
+        token = this.mhcomJwtService.issueServiceToken();
       }
     } catch (error) {
       // If token generation fails (e.g., supplier not linked), propagate error
@@ -69,7 +69,7 @@ export class SystemAIntegrationService {
         throw error; // Re-throw conflict/409 errors as-is
       }
       throw new InternalServerErrorException(
-        'Failed to generate System A token',
+        'Failed to generate mhvn token',
       );
     }
 
@@ -123,10 +123,10 @@ export class SystemAIntegrationService {
   }
 
   /**
-   * Call System A with a multipart/form-data body (e.g. file upload).
-   * Token được gắn tự động giống callSystemA. Dùng cho upload Chi hộ.
+   * Call mhvn with a multipart/form-data body (e.g. file upload).
+   * Token được gắn tự động giống callMhvn. Dùng cho upload Chi hộ.
    */
-  async callSystemAMultipart<T = any>(options: {
+  async callMhvnMultipart<T = any>(options: {
     endpoint: string;
     form: FormDataNode;
     a_supplier_id?: string;
@@ -144,27 +144,31 @@ export class SystemAIntegrationService {
     let token: string;
     try {
       if (a_supplier_id) {
-        token = this.systemBJwtService.issueSupplierToken(a_supplier_id);
+        token = this.mhcomJwtService.issueSupplierToken(a_supplier_id);
       } else if (a_customer_id) {
-        token = this.systemBJwtService.issueCustomerToken(a_customer_id);
+        token = this.mhcomJwtService.issueCustomerToken(a_customer_id);
       } else {
-        token = this.systemBJwtService.issueServiceToken();
+        token = this.mhcomJwtService.issueServiceToken();
       }
     } catch (error) {
       if (error.status === HttpStatus.CONFLICT) {
         throw error;
       }
       throw new InternalServerErrorException(
-        'Failed to generate System A token',
+        'Failed to generate mhvn token',
       );
     }
 
     const url = `${this.baseUrl}${endpoint}`;
     try {
+      // QUAN TRỌNG: phải set Content-Length tường minh. Nếu thiếu, axios/HttpService
+      // gửi body dạng "Transfer-Encoding: chunked" → Django/WSGI không đọc được
+      // multipart body → request.FILES rỗng → mhvn báo "No file provided".
       const response = await firstValueFrom(
         this.httpService.post<T>(url, form, {
           headers: {
             ...form.getHeaders(),
+            'Content-Length': form.getLengthSync(),
             Authorization: `Bearer ${token}`,
           },
           timeout,
@@ -179,19 +183,19 @@ export class SystemAIntegrationService {
   }
 
   /**
-   * Handle errors from System A API calls
+   * Handle errors from mhvn API calls
    */
   private handleError(error: any, endpoint: string): never {
     // Handle axios/HTTP errors
     if (error.response) {
       const { status, data } = error.response;
 
-      // A returned an error response
+      // mhvn returned an error response
       throw new HttpException(
         {
           statusCode: status,
-          message: data?.message || 'Gọi API hệ thống A thất bại',
-          systemAError: data,
+          message: data?.message || 'Gọi API hệ thống mhvn thất bại',
+          mhvnError: data,
         },
         status,
       );
@@ -200,7 +204,7 @@ export class SystemAIntegrationService {
       throw new HttpException(
         {
           statusCode: HttpStatus.SERVICE_UNAVAILABLE,
-          message: 'Hệ thống A không phản hồi (timeout)',
+          message: 'Hệ thống mhvn không phản hồi (timeout)',
         },
         HttpStatus.SERVICE_UNAVAILABLE,
       );
@@ -209,16 +213,16 @@ export class SystemAIntegrationService {
       throw new HttpException(
         {
           statusCode: HttpStatus.SERVICE_UNAVAILABLE,
-          message: 'Hệ thống A không khả dụng',
+          message: 'Hệ thống mhvn không khả dụng',
         },
         HttpStatus.SERVICE_UNAVAILABLE,
       );
     }
 
     // Unknown error - log and return 500
-    console.error(`[SystemAIntegration] Error calling ${endpoint}:`, error);
+    console.error(`[MhvnIntegration] Error calling ${endpoint}:`, error);
     throw new InternalServerErrorException(
-      'Lỗi khi gọi API hệ thống A',
+      'Lỗi khi gọi API hệ thống mhvn',
     );
   }
 }

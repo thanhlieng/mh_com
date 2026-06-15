@@ -21,8 +21,8 @@ import { ActiveLinkService } from 'src/common/services/active-link.service';
 import { SupplierPricesService } from './supplier-prices.service';
 
 /**
- * System B endpoint phục vụ màn quản lý giá (ServiceSupplierPrice).
- * Proxy thao tác giá của supplier sang hệ thống A theo supplier active.
+ * mhcom endpoint phục vụ màn quản lý giá (ServiceSupplierPrice).
+ * Proxy thao tác giá của supplier sang hệ thống mhvn theo supplier active.
  */
 @Controller('api/supplier/prices')
 @UseGuards(JwtAuthGuard)

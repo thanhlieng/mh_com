@@ -2,11 +2,11 @@ import { Module } from '@nestjs/common';
 import { HttpModule } from '@nestjs/axios';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from '../auth/auth.module';
-import { SystemAIntegrationService } from './system-a-integration.service';
+import { MhvnIntegrationService } from './mhvn-integration.service';
 
 @Module({
   imports: [HttpModule, ConfigModule, AuthModule],
-  providers: [SystemAIntegrationService],
-  exports: [SystemAIntegrationService],
+  providers: [MhvnIntegrationService],
+  exports: [MhvnIntegrationService],
 })
-export class SystemAIntegrationModule {}
+export class MhvnIntegrationModule {}

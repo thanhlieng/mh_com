@@ -149,4 +149,50 @@ export class ActiveLinkService {
     }
     return { linkType: null, ids: [] };
   }
+
+  /**
+   * (Admin) Lấy liên kết hiện tại của một account bất kỳ theo userId.
+   * Dùng cho màn admin chỉnh liên kết tài khoản ↔ mhvn.
+   */
+  getLinksForUser(
+    userId: string,
+  ): Promise<{ linkType: EALinkType | null; ids: string[] }> {
+    return this.listLinks({ id: userId });
+  }
+
+  /**
+   * (Admin) Thay thế TOÀN BỘ liên kết của một account.
+   *
+   * Một account chỉ thuộc đúng MỘT loại (supplier HOẶC customer). Hàm xoá
+   * sạch liên kết cũ rồi ghi lại theo `linkType` mới → không thể tồn tại cả
+   * hai loại cùng lúc. Truyền `linkType=null` hoặc `ids` rỗng để gỡ liên kết.
+   */
+  async setLinksForUser(
+    userId: string,
+    linkType: EALinkType | null,
+    ids: string[],
+  ): Promise<{ linkType: EALinkType | null; ids: string[] }> {
+    if (linkType && !Object.values(EALinkType).includes(linkType)) {
+      throw new BadRequestException('linkType không hợp lệ.');
+    }
+
+    // Chuẩn hoá: bỏ trùng, bỏ rỗng.
+    const cleanIds = Array.from(
+      new Set((ids || []).map((s) => String(s).trim()).filter(Boolean)),
+    );
+
+    await this.dataSource.transaction(async (manager) => {
+      const repo = manager.getRepository(UserALinkEntity);
+      await repo.delete({ userId });
+      if (linkType && cleanIds.length > 0) {
+        await repo.save(
+          cleanIds.map((aEntityId) =>
+            repo.create({ userId, linkType, aEntityId }),
+          ),
+        );
+      }
+    });
+
+    return this.getLinksForUser(userId);
+  }
 }

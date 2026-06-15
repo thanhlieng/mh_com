@@ -1,16 +1,16 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import FormData from 'form-data';
-import { SystemAIntegrationService } from '../system-a-integration/system-a-integration.service';
+import { MhvnIntegrationService } from '../mhvn-integration/mhvn-integration.service';
 
 @Injectable()
 export class SupplierChiHoFilesService {
   constructor(
-    private readonly systemAIntegrationService: SystemAIntegrationService,
+    private readonly mhvnIntegrationService: MhvnIntegrationService,
   ) {}
 
   /**
    * Liệt kê file Chi hộ của một order do supplier này upload từ hệ thống B.
-   * Proxy tới: GET /api/system-b/supplier/chiho-files/ (token supplier).
+   * Proxy tới: GET /api/mhcom/supplier/chiho-files/ (token supplier).
    */
   async listFiles(
     a_supplier_id: string,
@@ -21,8 +21,31 @@ export class SupplierChiHoFilesService {
     params.set('order_id', String(orderId));
     if (includeInactive) params.set('include_inactive', 'true');
 
-    const endpoint = `/api/system-b/supplier/chiho-files/?${params.toString()}`;
-    return this.systemAIntegrationService.callSystemA({
+    const endpoint = `/api/mhcom/supplier/chiho-files/?${params.toString()}`;
+    return this.mhvnIntegrationService.callMhvn({
+      method: 'GET',
+      endpoint,
+      a_supplier_id,
+    });
+  }
+
+  /**
+   * Liệt kê TẤT CẢ file Chi hộ supplier này đã upload, gộp mọi đơn.
+   * Proxy tới: GET /api/mhcom/supplier/chiho-files/uploads/ (token supplier).
+   * Phục vụ tab "Danh sách yêu cầu tải lên".
+   */
+  async listAllUploads(
+    a_supplier_id: string,
+    fileStatus?: string,
+    includeInactive?: boolean,
+  ) {
+    const params = new URLSearchParams();
+    if (fileStatus) params.set('status', fileStatus);
+    if (includeInactive) params.set('include_inactive', 'true');
+
+    const qs = params.toString();
+    const endpoint = `/api/mhcom/supplier/chiho-files/uploads/${qs ? `?${qs}` : ''}`;
+    return this.mhvnIntegrationService.callMhvn({
       method: 'GET',
       endpoint,
       a_supplier_id,
@@ -31,7 +54,7 @@ export class SupplierChiHoFilesService {
 
   /**
    * Upload một hoặc nhiều file Chi hộ vào order.
-   * Proxy tới: POST /api/system-b/supplier/chiho-files/ (multipart, token supplier).
+   * Proxy tới: POST /api/mhcom/supplier/chiho-files/ (multipart, token supplier).
    */
   async uploadFiles(
     a_supplier_id: string,
@@ -51,8 +74,8 @@ export class SupplierChiHoFilesService {
       });
     });
 
-    return this.systemAIntegrationService.callSystemAMultipart({
-      endpoint: '/api/system-b/supplier/chiho-files/',
+    return this.mhvnIntegrationService.callMhvnMultipart({
+      endpoint: '/api/mhcom/supplier/chiho-files/',
       form,
       a_supplier_id,
     });

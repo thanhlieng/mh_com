@@ -15,8 +15,8 @@ import {
 } from "./supplier-transactions.service";
 
 /**
- * System B endpoint phục vụ màn "Bảng kê chi phí".
- * Proxy danh sách giao dịch (PNL + Chi hộ) từ hệ thống A theo supplier.
+ * mhcom endpoint phục vụ màn "Bảng kê chi phí".
+ * Proxy danh sách giao dịch (PNL + Chi hộ) từ hệ thống mhvn theo supplier.
  */
 @Controller("api/supplier/transactions")
 @UseGuards(JwtAuthGuard)

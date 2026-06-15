@@ -16,6 +16,61 @@ export const getAccountLinks = (): Promise<AccountLinks> => {
   return axiosClient2.get('/account/a-links') as Promise<AccountLinks>;
 };
 
+// ─── (Admin) Danh mục mhvn + quản lý liên kết account ↔ mhvn ───────────────────
+// Dùng cho tab "Kết nối mhvn" ở màn quản trị khách hàng. Chỉ ADMIN gọi được.
+
+/** Một thực thể (supplier hoặc customer) bên mhvn để render dropdown chọn. */
+export interface MhvnDirectoryEntity {
+  id: number;
+  company_name: string;
+  tax_number: string | null;
+  secondary_name: string | null;
+  is_active: boolean;
+  managed_company?: { id: number | null; company_name: string | null };
+}
+
+/** Danh sách supplier (bên mhvn) — service token, chỉ ADMIN. */
+export const getMhvnSuppliers = (
+  q?: string,
+): Promise<{ message: string; suppliers: MhvnDirectoryEntity[] }> => {
+  return axiosClient2.get('/directory/suppliers', {
+    params: q ? { q } : {},
+  }) as Promise<{ message: string; suppliers: MhvnDirectoryEntity[] }>;
+};
+
+/** Danh sách customer (bên mhvn) — service token, chỉ ADMIN. */
+export const getMhvnCustomers = (
+  q?: string,
+): Promise<{ message: string; customers: MhvnDirectoryEntity[] }> => {
+  return axiosClient2.get('/directory/customers', {
+    params: q ? { q } : {},
+  }) as Promise<{ message: string; customers: MhvnDirectoryEntity[] }>;
+};
+
+/** Lấy liên kết mhvn hiện tại của một account (theo userId). Chỉ ADMIN. */
+export const getAccountLinksByUser = (
+  userId: string,
+): Promise<AccountLinks> => {
+  return axiosClient2.get(
+    `/admin/account-links/${userId}`,
+  ) as Promise<AccountLinks>;
+};
+
+/**
+ * Thay thế toàn bộ liên kết mhvn của một account. Chỉ ADMIN.
+ * `linkType=null` + `ids=[]` để gỡ liên kết. Backend đảm bảo account chỉ
+ * thuộc đúng MỘT loại (supplier HOẶC customer).
+ */
+export const setAccountLinksByUser = (
+  userId: string,
+  body: { linkType: ALinkType | null; ids: string[] },
+): Promise<AccountLinks> => {
+  return axiosClient2.put(
+    `/admin/account-links/${userId}`,
+    body,
+  ) as Promise<AccountLinks>;
+};
+
 // ─── Export cost statement ────────────────────────────────────────────────────
 
 export interface CostStatementExportParams {
@@ -77,7 +132,7 @@ export const uploadShippingRates = (file: File): Promise<unknown> => {
 
 // ─── Supplier transactions (màn Bảng kê chi phí) ───────────────────────────────
 // Gọi system B: GET /api/supplier/transactions → proxy sang hệ thống A.
-// Doc: api/system-b-supplier-transactions.md
+// Doc: api/mhcom-supplier-transactions.md
 
 export interface SupplierTransactionsParams {
   start_date?: string; // YYYY-MM-DD
@@ -105,7 +160,12 @@ export interface SupplierTransaction {
   amount: number; // cột "Tiền" (pnl.cost hoặc chiho.amount)
   expense_type: 'normal' | 'invoice_mh' | null; // null với chi_ho
   category: 'cost' | 'invoice_mh' | 'chi_ho'; // cột "Loại"
-  editable: boolean; // true chỉ với pnl & expense_type !== 'invoice_mh'
+  // editable=false khi: hóa đơn MH, đã có trong request (in_request),
+  // hoặc đơn đã COMPLETED (order_completed). chi_ho luôn false.
+  editable: boolean;
+  in_request?: boolean; // code đã được thêm vào một request → không cho sửa
+  order_completed?: boolean; // đơn hàng status=COMPLETED → không cho sửa
+  lock_reason?: 'invoice_mh' | 'in_request' | 'order_completed' | 'chi_ho' | null;
   // Các trường phụ trợ (vẫn dùng được nếu cần)
   created_at: string;
   invoice_date: string | null;
@@ -135,7 +195,9 @@ export const getSupplierTransactions = (
 
 // ─── Chi hộ files (màn Quản lý chi hộ) ─────────────────────────────────────────
 // Gọi system B: GET/POST /api/supplier/chiho-files → proxy sang hệ thống A.
-// Doc: api/system-b-supplier-chiho-files.md
+// Doc: api/mhcom-supplier-chiho-files.md
+
+export type ChiHoApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
 export interface ChiHoFile {
   id: number;
@@ -145,6 +207,10 @@ export interface ChiHoFile {
   is_active: boolean;
   source_system: string;
   source_id: string;
+  /** Trạng thái duyệt của file (mhgs duyệt trước khi lưu vào đơn). */
+  approval_status: ChiHoApprovalStatus;
+  approved_by: string | null;
+  approved_at: string | null;
   created_at: string;
   created_by: string;
 }
@@ -174,6 +240,38 @@ export const listChiHoFiles = (
       ...(includeInactive ? { include_inactive: true } : {}),
     },
   }) as Promise<ChiHoFilesListResponse>;
+};
+
+/** Một dòng trong bảng "Danh sách yêu cầu tải lên" (gộp mọi đơn). */
+export interface ChiHoUploadRow {
+  id: number;
+  order_id: number;
+  order_code: string | null;
+  booking_bill_number: string | null;
+  file_url: string | null;
+  file_name: string | null;
+  approval_status: ChiHoApprovalStatus;
+  approved_by: string | null;
+  approved_at: string | null;
+  created_at: string;
+}
+
+export interface ChiHoUploadsListResponse {
+  source_ids: string[];
+  count: number;
+  data: ChiHoUploadRow[];
+}
+
+/**
+ * Liệt kê TẤT CẢ file Chi hộ supplier đã yêu cầu tải lên, gộp mọi đơn.
+ * Phục vụ tab "Danh sách yêu cầu tải lên" ở màn Quản lý chi hộ.
+ */
+export const listChiHoUploads = (
+  status?: ChiHoApprovalStatus,
+): Promise<ChiHoUploadsListResponse> => {
+  return axiosClient2.get('/supplier/chiho-files/uploads', {
+    params: status ? { status } : {},
+  }) as Promise<ChiHoUploadsListResponse>;
 };
 
 /** Upload một hoặc nhiều file Chi hộ cho một đơn hàng */
@@ -410,52 +508,15 @@ export interface OrderByCodeResponse {
   chihos: ChihosItem[];
 }
 
-const MOCK_ORDER: OrderByCodeResponse = {
-  id: 88,
-  order_code: 'XK250608001',
-  booking_bill_number: 'BOOKING-12345',
-  bl: 'BL-001',
-  status: 'IN_PROGRESS',
-  order_type: 'EXPORT',
-  customer_name: 'Công ty TNHH ABC Logistics',
-  shipper: 'ABC Logistics',
-  chihos: [
-    {
-      id: 101,
-      amount: 5_000_000,
-      amount_after_vat: 5_500_000,
-      services: ['Thủ tục hải quan', 'Vận chuyển nội địa'],
-      contract_number: 'HD-2024-001',
-      customer_name: 'Công ty TNHH ABC Logistics',
-      invoice_exporter: 'Kho HCM',
-    },
-    {
-      id: 102,
-      amount: 12_000_000,
-      amount_after_vat: 13_200_000,
-      services: ['Vận chuyển đường biển'],
-      contract_number: 'HD-2024-002',
-      customer_name: 'Công ty TNHH ABC Logistics',
-      invoice_exporter: 'Cảng Cát Lái',
-    },
-  ],
-};
-
 /**
- * Tra cứu đơn hàng theo mã (order_code hoặc booking_bill_number).
- * TODO: thay MOCK bằng API call thật khi có proxy endpoint trên system B:
- *   GET /api/order_by_code/?q=<code>
+ * Tra cứu đơn hàng theo booking_bill_number (match exact) cho màn
+ * "Quản lý chi hộ". Gọi system B: GET /api/supplier/order-by-booking?q=<value>,
+ * proxy sang mhvn. Trả về đơn + các bản ghi Chi hộ thuộc supplier.
  */
 export const getOrderByCode = (
   q: string,
 ): Promise<OrderByCodeResponse> => {
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      if (q.toLowerCase().startsWith('not')) {
-        reject(new Error('Không tìm thấy đơn hàng'));
-        return;
-      }
-      resolve({ ...MOCK_ORDER, order_code: q });
-    }, 600);
-  });
+  return axiosClient2.get('/supplier/order-by-booking', {
+    params: { q },
+  }) as Promise<OrderByCodeResponse>;
 };

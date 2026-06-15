@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { SystemAIntegrationService } from '../system-a-integration/system-a-integration.service';
+import { MhvnIntegrationService } from '../mhvn-integration/mhvn-integration.service';
 
 export interface SupplierTransactionsQuery {
   start_date?: string; // YYYY-MM-DD
@@ -12,12 +12,12 @@ export interface SupplierTransactionsQuery {
 @Injectable()
 export class SupplierTransactionsService {
   constructor(
-    private readonly systemAIntegrationService: SystemAIntegrationService,
+    private readonly mhvnIntegrationService: MhvnIntegrationService,
   ) {}
 
   /**
-   * Lấy danh sách giao dịch hợp nhất (PNL + Chi hộ) của supplier từ hệ thống A.
-   * Proxy tới: GET /api/system-b/supplier/transactions/ (token supplier).
+   * Lấy danh sách giao dịch hợp nhất (PNL + Chi hộ) của supplier từ hệ thống mhvn.
+   * Proxy tới: GET /api/mhcom/supplier/transactions/ (token supplier).
    */
   async getTransactions(
     a_supplier_id: string,
@@ -31,9 +31,9 @@ export class SupplierTransactionsService {
     if (query.page_size != null) params.set('page_size', String(query.page_size));
 
     const qs = params.toString();
-    const endpoint = `/api/system-b/supplier/transactions/${qs ? `?${qs}` : ''}`;
+    const endpoint = `/api/mhcom/supplier/transactions/${qs ? `?${qs}` : ''}`;
 
-    return this.systemAIntegrationService.callSystemA({
+    return this.mhvnIntegrationService.callMhvn({
       method: 'GET',
       endpoint,
       a_supplier_id,
