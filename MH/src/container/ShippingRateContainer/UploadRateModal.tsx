@@ -19,26 +19,8 @@ const ROUTE_TYPE_OPTIONS = [
   { value: 'DOMESTIC_PORT', label: 'Cảng ↔ Nội địa' },
 ];
 
-// Cột template để khách điền giá
-const TEMPLATE_HEADERS = [
-  'Mã tuyến',
-  'Điểm đi',
-  'Điểm đến',
-  'Loại phương tiện',
-  'Đơn vị tính',
-  'Đơn giá (VND)',
-  'Ngày áp dụng (YYYY-MM-DD)',
-];
-
-const TEMPLATE_SAMPLE = [
-  'TR-HCM-HN',
-  'Hồ Chí Minh',
-  'Hà Nội',
-  'Xe tải 5 tấn',
-  'Chuyến',
-  '12000000',
-  '2024-01-01',
-];
+// File mẫu tĩnh đặt trong public/assets — Next.js serve tại /assets/...
+const TEMPLATE_FILE_URL = '/assets/de-nghi-bao-gia.xlsx';
 
 const ACCEPTED_EXT = ['xls', 'xlsx', 'csv'];
 const ACCEPT_ATTR =
@@ -76,22 +58,14 @@ export function UploadRateModal({ onClose, onUploaded }: UploadRateModalProps) {
     setFile(f);
   };
 
-  // Tạo & tải template CSV (mở được bằng Excel) — chạy hoàn toàn ở client
+  // Tải file mẫu "Đề nghị báo giá" (.xlsx tĩnh trong public/assets)
   const handleDownloadTemplate = () => {
-    const rows = [TEMPLATE_HEADERS, TEMPLATE_SAMPLE];
-    const csv = rows
-      .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(','))
-      .join('\r\n');
-    // BOM để Excel đọc đúng tiếng Việt
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url;
-    a.download = 'mau-gia-van-chuyen.csv';
+    a.href = TEMPLATE_FILE_URL;
+    a.download = 'de-nghi-bao-gia.xlsx';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    URL.revokeObjectURL(url);
   };
 
   const handleSubmit = async () => {

@@ -5,6 +5,18 @@ Mục đích: giúp team hiểu được những gì đang được làm mà kh�
 
 ---
 
+## [2026-06-16 00:00] — Nút "Tải template" dùng file Excel thật thay vì sinh CSV ở client
+
+**Yêu cầu:** Modal Upload Excel giá ở màn Thiết lập giá vận chuyển cần tải về file mẫu thật (đã có file `de-nghi-bao-gia.xlsx`), thay cho CSV sinh runtime.
+
+**Các file đã thay đổi:**
+- `MH/public/assets/de-nghi-bao-gia.xlsx`: thêm file mẫu tĩnh (Next.js serve tại `/assets/de-nghi-bao-gia.xlsx`).
+- `MH/src/container/ShippingRateContainer/UploadRateModal.tsx`: xoá hằng `TEMPLATE_HEADERS`/`TEMPLATE_SAMPLE` và logic sinh CSV bằng Blob; `handleDownloadTemplate` giờ trỏ thẳng tới file static qua thẻ `<a download>`.
+
+**Lý do / bối cảnh:** File mẫu chính thức là `.xlsx` có định dạng sẵn, nên phục vụ dưới dạng static asset thay vì dựng CSV thô ở client.
+
+---
+
 ## [2026-06-16 00:00] — Sửa sort cột "Đơn giá" không hoạt động ở màn Thiết lập giá vận chuyển
 
 **Yêu cầu:** Sortable ở cột Đơn giá không hoạt động khi click icon sort.
