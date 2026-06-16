@@ -3,7 +3,6 @@ import { parseISO } from 'date-fns';
 import {
   HandCoinsIcon,
   Loader2Icon,
-  PaperclipIcon,
   RefreshCwIcon,
   SearchIcon,
   FileTextIcon,
@@ -12,7 +11,6 @@ import * as React from 'react';
 
 import { cn } from '@/lib/utils';
 
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -26,27 +24,9 @@ import {
 import type { ChiHoFile, OrderByCodeResponse } from '@/services/supplier.services';
 import { FileUploadPanel } from './FileUploadPanel';
 import { UploadRequestsTab } from './UploadRequestsTab';
-import { type PaymentOrder, type PaymentStatus, type UploadedFile } from './types';
+import { type UploadedFile } from './types';
 
 type TabKey = 'search' | 'uploads';
-
-const formatVND = (n: number) =>
-  n.toLocaleString('vi-VN', { style: 'currency', currency: 'VND' });
-
-function mapChiHoToOrder(order: OrderByCodeResponse, item: OrderByCodeResponse['chihos'][number]): PaymentOrder {
-  return {
-    id: String(item.id),
-    code: order.order_code,
-    aOrderId: order.id,
-    createdDate: '',
-    customer: item.customer_name ?? order.customer_name,
-    route: item.services?.join(', ') ?? '',
-    amount: item.amount_after_vat ?? 0,
-    status: 'Chờ chi hộ' as PaymentStatus,
-    fileCount: 0,
-    note: item.invoice_exporter ?? '',
-  };
-}
 
 function mapChiHoFileToUploaded(f: ChiHoFile): UploadedFile {
   const ext = f.file_name?.split('.').pop()?.toLowerCase() ?? '';
@@ -73,16 +53,6 @@ const formatDate = (iso: string) => {
   }
 };
 
-const STATUS_BADGE: Record<
-  PaymentOrder['status'],
-  React.ComponentProps<typeof Badge>['variant']
-> = {
-  'Chờ chi hộ': 'warning',
-  'Đã chi hộ': 'success',
-  'Đã đối soát': 'secondary',
-  'Đã hủy': 'destructive',
-};
-
 const PaymentManagementContainer = () => {
   const [activeTab, setActiveTab] = React.useState<TabKey>('search');
   const [rawSearch, setRawSearch] = React.useState('');
@@ -94,29 +64,26 @@ const PaymentManagementContainer = () => {
     { enabled: !!searchQuery, retry: false }
   );
 
-  const orders = React.useMemo<PaymentOrder[]>(
-    () =>
-      (apiQuery.data?.chihos ?? []).map((item) =>
-        mapChiHoToOrder(apiQuery.data!, item),
-      ),
+  const orders = React.useMemo<OrderByCodeResponse[]>(
+    () => (apiQuery.data ? [apiQuery.data] : []),
     [apiQuery.data]
   );
 
   const [filesByOrder, setFilesByOrder] = React.useState<
-    Record<string, UploadedFile[]>
+    Record<number, UploadedFile[]>
   >({});
 
-  const [selectedId, setSelectedId] = React.useState<string | null>(null);
+  const [selectedId, setSelectedId] = React.useState<number | null>(null);
   const selectedOrder = orders.find((o) => o.id === selectedId) ?? null;
 
   const filesQuery = useQuery(
-    ['chiho-files', selectedOrder?.aOrderId],
-    () => listChiHoFiles(selectedOrder!.aOrderId!),
-    { enabled: !!selectedOrder?.aOrderId, retry: false }
+    ['chiho-files', selectedOrder?.id],
+    () => listChiHoFiles(selectedOrder!.id),
+    { enabled: !!selectedOrder?.id, retry: false }
   );
 
   React.useEffect(() => {
-    if (!filesQuery.data || !selectedId) return;
+    if (!filesQuery.data || selectedId == null) return;
     const mapped = filesQuery.data.data.map(mapChiHoFileToUploaded);
     setFilesByOrder((prev) => ({ ...prev, [selectedId]: mapped }));
   }, [filesQuery.data, selectedId]);
@@ -133,15 +100,12 @@ const PaymentManagementContainer = () => {
   };
 
   const handleFilesChange = React.useCallback(
-    (orderId: string, files: UploadedFile[]) => {
+    (orderId: number, files: UploadedFile[]) => {
       setFilesByOrder((prev) => ({ ...prev, [orderId]: files }));
       filesQuery.refetch();
     },
     [filesQuery]
   );
-
-  const fileCountOf = (o: PaymentOrder) =>
-    filesByOrder[o.id]?.length ?? o.fileCount;
 
   const returnError = (error: any) => {
     if (error && error?.response && error?.response?.status == 404) {
@@ -274,16 +238,18 @@ const PaymentManagementContainer = () => {
                 >
                   <div className='flex items-center justify-between gap-2'>
                     <span className='text-sm font-semibold text-primary'>
-                      {o.code}
+                      {o.order_code}
                     </span>
-                    <Badge variant={STATUS_BADGE[o.status]}>{o.status}</Badge>
+                    <span className='text-sm font-semibold text-primary'>
+                      {o.booking_bill_number}
+                    </span>
                   </div>
-                  <div className='text-xs text-foreground'>{o.customer}</div>
+                  {/* <div className='text-xs text-foreground'>{o.customer}</div> */}
                   <div className='flex items-center justify-between text-xs text-muted-foreground'>
-                    <span>{o.route}</span>
-                    <span>{formatDate(o.createdDate)}</span>
+                    <span>{o.created_by}</span>
+                    <span>{formatDate(o.created_at)}</span>
                   </div>
-                  <div className='flex items-center justify-between'>
+                  {/* <div className='flex items-center justify-between'>
                     <span className='text-sm font-semibold tabular-nums text-foreground'>
                       {formatVND(o.amount)}
                     </span>
@@ -298,7 +264,7 @@ const PaymentManagementContainer = () => {
                       <PaperclipIcon className='h-3 w-3' />
                       {fileCountOf(o)} chứng từ
                     </span>
-                  </div>
+                  </div> */}
                 </button>
               ))}
             </div>
@@ -309,16 +275,12 @@ const PaymentManagementContainer = () => {
                   <tr className='border-b border-border bg-muted/40 text-left'>
                     <th className='px-3 py-2 text-xs font-semibold'>STT</th>
                     <th className='px-3 py-2 text-xs font-semibold'>Mã đơn</th>
+                    <th className='px-3 py-2 text-xs font-semibold'>Mã booking</th>
                     <th className='px-3 py-2 text-xs font-semibold'>Ngày tạo</th>
-                    <th className='px-3 py-2 text-xs font-semibold'>Khách hàng</th>
-                    <th className='px-3 py-2 text-xs font-semibold'>Tuyến đường</th>
-                    <th className='px-3 py-2 text-right text-xs font-semibold'>
-                      Số tiền chi hộ
-                    </th>
-                    <th className='px-3 py-2 text-xs font-semibold'>Trạng thái</th>
-                    <th className='px-3 py-2 text-center text-xs font-semibold'>
+                    <th className='px-3 py-2 text-xs font-semibold'>Người liên hệ</th>
+                    {/* <th className='px-3 py-2 text-center text-xs font-semibold'>
                       Chứng từ
-                    </th>
+                    </th> */}
                   </tr>
                 </thead>
                 <tbody>
@@ -335,30 +297,13 @@ const PaymentManagementContainer = () => {
                         {i + 1}
                       </td>
                       <td className='px-3 py-2 text-xs font-medium text-primary'>
-                        {o.code}
+                        {o.order_code}
                       </td>
-                      <td className='px-3 py-2 text-xs'>{formatDate(o.createdDate)}</td>
-                      <td className='px-3 py-2 text-xs'>{o.customer}</td>
-                      <td className='px-3 py-2 text-xs'>{o.route}</td>
-                      <td className='px-3 py-2 text-right text-xs font-semibold tabular-nums'>
-                        {formatVND(o.amount)}
-                      </td>
-                      <td className='px-3 py-2 text-xs'>
-                        <Badge variant={STATUS_BADGE[o.status]}>{o.status}</Badge>
-                      </td>
-                      <td className='px-3 py-2 text-center'>
-                        <span
-                          className={cn(
-                            'inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px]',
-                            fileCountOf(o) > 0
-                              ? 'bg-blue-50 text-blue-600'
-                              : 'text-muted-foreground'
-                          )}
-                        >
-                          <PaperclipIcon className='h-3 w-3' />
-                          {fileCountOf(o)}
-                        </span>
-                      </td>
+                      <td className='px-3 py-2 text-xs'>{o.booking_bill_number}</td>  
+                      <td className='px-3 py-2 text-xs'>{formatDate(o.created_at)}</td>
+                      <td className='px-3 py-2 text-xs'>{o.created_by}</td>
+
+                      
                     </tr>
                   ))}
                 </tbody>

@@ -19,8 +19,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
 import { uploadChiHoFiles } from '@/services/supplier.services';
-import type { ChiHoFile } from '@/services/supplier.services';
-import { type PaymentOrder, type UploadedFile, type UploadedFileType } from './types';
+import type { ChiHoFile, OrderByCodeResponse } from '@/services/supplier.services';
+import { type UploadedFile, type UploadedFileType } from './types';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -74,26 +74,13 @@ const TYPE_ICON: Record<UploadedFileType, React.ReactNode> = {
   other: <FileIcon className='h-4 w-4 text-muted-foreground' />,
 };
 
-const STATUS_BADGE: Record<
-  PaymentOrder['status'],
-  React.ComponentProps<typeof Badge>['variant']
-> = {
-  'Chờ chi hộ': 'warning',
-  'Đã chi hộ': 'success',
-  'Đã đối soát': 'secondary',
-  'Đã hủy': 'destructive',
-};
-
-const formatVND = (n: number) =>
-  n.toLocaleString('vi-VN', { style: 'currency', currency: 'VND' });
-
 // ─── Component ──────────────────────────────────────────────────────────────
 
 interface FileUploadPanelProps {
-  order: PaymentOrder;
+  order: OrderByCodeResponse;
   files: UploadedFile[];
   onClose: () => void;
-  onFilesChange: (orderId: string, files: UploadedFile[]) => void;
+  onFilesChange: (orderId: number, files: UploadedFile[]) => void;
 }
 
 function mapChiHoFileToUploaded(f: ChiHoFile): UploadedFile {
@@ -130,12 +117,14 @@ export function FileUploadPanel({
   onFilesChange,
 }: FileUploadPanelProps) {
   const [isDragging, setIsDragging] = React.useState(false);
-  const [isProcessing, setIsProcessing] = React.useState(false);
   const [rejected, setRejected] = React.useState<string[]>([]);
+  // File đã chọn nhưng CHƯA upload — chờ user bấm "Xác nhận tải lên".
+  const [staged, setStaged] = React.useState<{ key: string; file: File }[]>([]);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const folderInputRef = React.useRef<HTMLInputElement>(null);
+  const keySeq = React.useRef(0);
 
-  // Upload files lên server qua API
+  // Upload các file đang chờ lên server qua API
   const uploadMutation = useMutation(
     (params: { aOrderId: number; files: File[] }) =>
       uploadChiHoFiles(params.aOrderId, params.files),
@@ -143,6 +132,7 @@ export function FileUploadPanel({
       onSuccess: (res) => {
         const serverFiles = res.data.map(mapChiHoFileToUploaded);
         onFilesChange(order.id, [...files, ...serverFiles]);
+        setStaged([]); // đã upload xong → dọn danh sách chờ
       },
       onError: () => {
         // TODO: show error notification
@@ -150,41 +140,43 @@ export function FileUploadPanel({
     }
   );
 
-  const processFiles = React.useCallback(
-    async (fileList: FileList | File[]) => {
-      setIsProcessing(true);
-      setRejected([]);
-      const incoming = Array.from(fileList);
-      const toUpload: File[] = [];
-      const denied: string[] = [];
-
-      for (const file of incoming) {
-        if (!isAccepted(file.name)) {
-          denied.push(file.name);
-          continue;
-        }
-        toUpload.push(file);
+  // Thêm file vào danh sách chờ (KHÔNG upload ngay).
+  const addFiles = React.useCallback((fileList: FileList | File[]) => {
+    const incoming = Array.from(fileList);
+    const accepted: { key: string; file: File }[] = [];
+    const denied: string[] = [];
+    for (const file of incoming) {
+      if (!isAccepted(file.name)) {
+        denied.push(file.name);
+        continue;
       }
+      keySeq.current += 1;
+      accepted.push({ key: `staged-${keySeq.current}`, file });
+    }
+    setRejected(denied);
+    if (accepted.length) setStaged((prev) => [...prev, ...accepted]);
+  }, []);
 
-      if (toUpload.length > 0 && order.aOrderId) {
-        await uploadMutation.mutateAsync({ aOrderId: order.aOrderId, files: toUpload });
-      }
+  const removeStaged = (key: string) =>
+    setStaged((prev) => prev.filter((s) => s.key !== key));
 
-      if (denied.length) setRejected(denied);
-      setIsProcessing(false);
-    },
-    [files, order.id, order.aOrderId, onFilesChange, uploadMutation]
-  );
+  const handleConfirmUpload = () => {
+    if (!staged.length || !order.id || uploadMutation.isLoading) return;
+    uploadMutation.mutate({
+      aOrderId: order.id,
+      files: staged.map((s) => s.file),
+    });
+  };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
     const items = e.dataTransfer.files;
-    if (items?.length) void processFiles(items);
+    if (items?.length) addFiles(items);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files?.length) void processFiles(e.target.files);
+    if (e.target.files?.length) addFiles(e.target.files);
     e.target.value = ''; // cho phép chọn lại cùng file
   };
 
@@ -214,15 +206,18 @@ export function FileUploadPanel({
           <div className='flex flex-col gap-1'>
             <div className='flex items-center gap-2'>
               <span className='text-sm font-semibold text-foreground'>
-                {order.code}
+                {order.order_code}
               </span>
-              <Badge variant={STATUS_BADGE[order.status]}>{order.status}</Badge>
+              {order.booking_bill_number && (
+                <Badge variant='secondary'>{order.booking_bill_number}</Badge>
+              )}
             </div>
             <p className='text-xs text-muted-foreground'>
-              {order.customer} · {order.route} ·{' '}
-              <span className='font-medium text-foreground'>
-                {formatVND(order.amount)}
-              </span>
+              Ngày tạo:{' '}
+              {order.created_at
+                ? new Date(order.created_at).toLocaleDateString('vi-VN')
+                : '—'}
+              {order.created_by ? ` · Người liên hệ: ${order.created_by}` : ''}
             </p>
           </div>
           <button
@@ -250,18 +245,13 @@ export function FileUploadPanel({
                 : 'border-border bg-muted/20'
             )}
           >
-            {isProcessing ? (
-              <Loader2Icon className='h-8 w-8 animate-spin text-primary' />
-            ) : (
-              <UploadCloudIcon className='h-8 w-8 text-muted-foreground' />
-            )}
+            <UploadCloudIcon className='h-8 w-8 text-muted-foreground' />
             <p className='text-sm font-medium text-foreground'>
-              {isProcessing
-                ? 'Đang xử lý & tách file...'
-                : 'Kéo thả file vào đây'}
+              Kéo thả file vào đây
             </p>
             <p className='text-xs text-muted-foreground'>
-              Hỗ trợ PDF, Excel, hình ảnh. Có thể tải lên cả thư mục.
+              Hỗ trợ PDF, Excel, hình ảnh. Có thể chọn cả thư mục. File sẽ chỉ
+              được tải lên sau khi bấm <span className='font-medium'>Xác nhận</span>.
             </p>
 
             <div className='mt-2 flex flex-wrap items-center justify-center gap-2'>
@@ -270,7 +260,7 @@ export function FileUploadPanel({
                 variant='outline'
                 className='h-8 gap-1.5 text-xs'
                 onClick={() => fileInputRef.current?.click()}
-                disabled={isProcessing}
+                disabled={uploadMutation.isLoading}
               >
                 <UploadCloudIcon className='h-3.5 w-3.5' />
                 Chọn file
@@ -280,7 +270,7 @@ export function FileUploadPanel({
                 variant='outline'
                 className='h-8 gap-1.5 text-xs'
                 onClick={() => folderInputRef.current?.click()}
-                disabled={isProcessing}
+                disabled={uploadMutation.isLoading}
               >
                 <FolderUpIcon className='h-3.5 w-3.5' />
                 Chọn thư mục
@@ -311,6 +301,52 @@ export function FileUploadPanel({
             <div className='mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700'>
               {rejected.length} file bị bỏ qua do không đúng định dạng:{' '}
               <span className='font-medium'>{rejected.join(', ')}</span>
+            </div>
+          )}
+
+          {/* Danh sách chờ tải lên (chưa upload) */}
+          {staged.length > 0 && (
+            <div className='mt-5'>
+              <div className='mb-2 flex items-center justify-between'>
+                <h3 className='text-xs font-semibold text-foreground'>
+                  Chờ tải lên
+                </h3>
+                <button
+                  onClick={() => setStaged([])}
+                  disabled={uploadMutation.isLoading}
+                  className='text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-40'
+                >
+                  Xóa hết
+                </button>
+              </div>
+              <ul className='flex flex-col gap-1.5'>
+                {staged.map((s) => (
+                  <li
+                    key={s.key}
+                    className='flex items-center gap-3 rounded-md border border-dashed border-border bg-muted/20 px-3 py-2'
+                  >
+                    <span className='shrink-0'>
+                      {TYPE_ICON[getFileType(s.file.name)]}
+                    </span>
+                    <div className='min-w-0 flex-1'>
+                      <p className='truncate text-xs font-medium text-foreground'>
+                        {s.file.name}
+                      </p>
+                      <p className='text-[10px] text-muted-foreground'>
+                        {formatSize(s.file.size)}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => removeStaged(s.key)}
+                      disabled={uploadMutation.isLoading}
+                      className='rounded p-1 text-muted-foreground hover:bg-red-50 hover:text-red-600 disabled:opacity-40'
+                      title='Bỏ file này'
+                    >
+                      <XIcon className='h-3.5 w-3.5' />
+                    </button>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 
@@ -375,6 +411,21 @@ export function FileUploadPanel({
         <div className='flex shrink-0 items-center justify-end gap-2 border-t border-border px-5 py-3'>
           <Button variant='outline' size='sm' className='h-8 text-xs' onClick={onClose}>
             Đóng
+          </Button>
+          <Button
+            size='sm'
+            className='h-8 gap-1.5 text-xs'
+            onClick={handleConfirmUpload}
+            disabled={staged.length === 0 || uploadMutation.isLoading}
+          >
+            {uploadMutation.isLoading ? (
+              <Loader2Icon className='h-3.5 w-3.5 animate-spin' />
+            ) : (
+              <UploadCloudIcon className='h-3.5 w-3.5' />
+            )}
+            {uploadMutation.isLoading
+              ? 'Đang tải lên...'
+              : `Xác nhận tải lên${staged.length ? ` (${staged.length})` : ''}`}
           </Button>
         </div>
       </div>

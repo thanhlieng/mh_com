@@ -9,8 +9,8 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-import { notification } from 'antd';
-import { format } from 'date-fns';
+import { notification, Tooltip } from 'antd';
+import { format, startOfMonth } from 'date-fns';
 import {
   ArrowUpDownIcon,
   CheckCircleIcon,
@@ -37,7 +37,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 import { withPrivateRouteSupplier } from '@/routes/withPrivateRouteSupplier';
-import { exportCostStatement, getSupplierTransactions, getChangeRequests, createChangeRequest } from '@/services/supplier.services';
+import { exportCostStatement, exportKeCuocChiHoReport, getSupplierTransactions, getChangeRequests, createChangeRequest } from '@/services/supplier.services';
 import type { SupplierTransactionsParams, SupplierTransaction } from '@/services/supplier.services';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 
@@ -157,9 +157,11 @@ function AmountCell({
 }) {
   if (!row.editable) {
     return (
-      <div className='px-1 py-1 text-right text-xs tabular-nums text-foreground'>
-        {formatVND(row.amount)}
-      </div>
+      <Tooltip title='Đã khoá, vui lòng liên hệ MH để thay đổi'>
+        <div className='cursor-not-allowed px-1 py-1 text-right text-xs tabular-nums text-muted-foreground'>
+          {formatVND(row.amount)}
+        </div>
+      </Tooltip>
     );
   }
   return (
@@ -401,11 +403,22 @@ function buildColumns(
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
+/** Khoảng mặc định: từ ngày đầu tháng hiện tại → hôm nay. */
+const getDefaultDateRange = (): DateRange => {
+  const now = new Date();
+  return { from: startOfMonth(now), to: now };
+};
+
 const CostStatementContainer = () => {
-  const [queryParams, setQueryParams] = React.useState<SupplierTransactionsParams>({
+  // Khoảng thời gian mặc định, tính một lần khi mount.
+  const defaultRange = React.useRef<DateRange>(getDefaultDateRange()).current;
+
+  const [queryParams, setQueryParams] = React.useState<SupplierTransactionsParams>(() => ({
     page: 1,
     page_size: 200,
-  });
+    start_date: format(defaultRange.from as Date, 'yyyy-MM-dd'),
+    end_date: format(defaultRange.to as Date, 'yyyy-MM-dd'),
+  }));
   const apiQuery = useQuery(
     ['supplier-transactions', queryParams],
     () => getSupplierTransactions(queryParams),
@@ -437,11 +450,12 @@ const CostStatementContainer = () => {
     }
   }, [apiQuery.data]);
 
-  const [dateRange, setDateRange] = React.useState<DateRange | undefined>();
+  const [dateRange, setDateRange] = React.useState<DateRange | undefined>(defaultRange);
   const [searchText, setSearchText] = React.useState('');
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [isExporting, setIsExporting] = React.useState(false);
+  const [isExportingKeCuoc, setIsExportingKeCuoc] = React.useState(false);
 
   // View con: 'statement' = bảng kê | 'requests' = danh sách đề nghị thay đổi
   const [view, setView] = React.useState<'statement' | 'requests'>('statement');
@@ -588,6 +602,40 @@ const CostStatementContainer = () => {
     }
   };
 
+  // Xuất Báo cáo kê cước & chi hộ (Excel) qua API
+  const handleExportKeCuoc = async () => {
+    setIsExportingKeCuoc(true);
+    try {
+      const params: Parameters<typeof exportKeCuocChiHoReport>[0] = {};
+      if (dateRange?.from) params.from = format(dateRange.from, 'yyyy-MM-dd');
+      if (dateRange?.to) params.to = format(dateRange.to, 'yyyy-MM-dd');
+
+      const blob = await exportKeCuocChiHoReport(params);
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `bao-cao-ke-cuoc-chi-ho-${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+      notification.success({
+        message: 'Xuất báo cáo thành công',
+        placement: 'top',
+      });
+    } catch (err: any) {
+      console.error('[CostStatement] Export ke cuoc failed:', err);
+      notification.error({
+        message: err?.response?.data?.message
+          ? `${err.response.data.message}`
+          : 'Xuất báo cáo thất bại',
+        placement: 'top',
+      });
+    } finally {
+      setIsExportingKeCuoc(false);
+    }
+  };
+
   const columns = React.useMemo(
     () => buildColumns(handleUpdate, dirtyMap),
     [handleUpdate, dirtyMap]
@@ -618,10 +666,16 @@ const CostStatementContainer = () => {
   };
 
   const clearAllFilters = () => {
-    setDateRange(undefined);
+    // Date range không thể clear — reset về khoảng mặc định (đầu tháng → nay).
+    setDateRange(defaultRange);
     setSearchText('');
     setColumnFilters([]);
-    setQueryParams({ page: 1, page_size: 200 });
+    setQueryParams({
+      page: 1,
+      page_size: 200,
+      start_date: format(defaultRange.from as Date, 'yyyy-MM-dd'),
+      end_date: format(defaultRange.to as Date, 'yyyy-MM-dd'),
+    });
   };
 
   const visibleRows = table.getFilteredRowModel().rows;
@@ -737,7 +791,11 @@ const CostStatementContainer = () => {
           <DateRangePicker
             label='Khoảng thời gian'
             value={dateRange}
-            onChange={setDateRange}
+            allowClear={false}
+            onChange={(r) => {
+              // Không cho clear: bỏ qua khi range rỗng.
+              if (r?.from) setDateRange(r);
+            }}
             className='w-full md:w-60'
           />
 
@@ -772,8 +830,8 @@ const CostStatementContainer = () => {
             )}
           </div>
 
-          {/* Export button — pushed to far right (trên desktop) */}
-          <div className='flex items-end md:ml-auto'>
+          {/* Export buttons — pushed to far right (trên desktop) */}
+          <div className='flex items-end gap-2 md:ml-auto'>
             <Button
               variant='outline'
               size='sm'
@@ -786,7 +844,21 @@ const CostStatementContainer = () => {
               ) : (
                 <FileSpreadsheetIcon className='h-3.5 w-3.5 text-green-600' />
               )}
-              {isExporting ? 'Đang xuất...' : 'Xuất Excel'}
+              {isExporting ? 'Đang xuất...' : 'Xuất bảng kê'}
+            </Button>
+            <Button
+              variant='outline'
+              size='sm'
+              className='h-8 gap-1.5 text-xs'
+              onClick={handleExportKeCuoc}
+              disabled={isExportingKeCuoc}
+            >
+              {isExportingKeCuoc ? (
+                <Loader2Icon className='h-3.5 w-3.5 animate-spin' />
+              ) : (
+                <FileSpreadsheetIcon className='h-3.5 w-3.5 text-blue-600' />
+              )}
+              {isExportingKeCuoc ? 'Đang xuất...' : 'Xuất báo cáo kê cước & chi hộ'}
             </Button>
           </div>
         </div>

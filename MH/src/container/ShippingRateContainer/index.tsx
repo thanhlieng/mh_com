@@ -1,12 +1,18 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   type ColumnDef,
+  type ColumnFiltersState,
+  type FilterFn,
+  type SortingState,
   flexRender,
   getCoreRowModel,
+  getFilteredRowModel,
+  getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
 import { notification } from 'antd';
 import {
+  ArrowUpDownIcon,
   CheckCircleIcon,
   InfoIcon,
   Loader2Icon,
@@ -14,6 +20,7 @@ import {
   RefreshCwIcon,
   RotateCcwIcon,
   RouteIcon,
+  SearchIcon,
   UploadCloudIcon,
 } from 'lucide-react';
 import { useRouter } from 'next/router';
@@ -159,6 +166,60 @@ function TextCell({
 const routeLabel = (r: PriceRow): string =>
   r.route_type || (r.route_id != null ? String(r.route_id) : '-');
 
+/** Filter realtime: so khớp text (không phân biệt hoa thường) trên giá trị cột. */
+const textIncludes: FilterFn<PriceRow> = (row, columnId, value) => {
+  const keyword = String(value ?? '').trim().toLowerCase();
+  if (!keyword) return true;
+  const cell = row.getValue(columnId);
+  return String(cell ?? '').toLowerCase().includes(keyword);
+};
+
+// ─── Filterable column header (đồng bộ với màn Bảng kê chi phí) ────────────────
+
+function FilterableHeader({
+  label,
+  column,
+  sortable = false,
+  align = 'left',
+  filterable = true,
+}: {
+  label: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  column: any;
+  sortable?: boolean;
+  align?: 'left' | 'right';
+  filterable?: boolean;
+}) {
+  const filterValue = (column.getFilterValue() as string) ?? '';
+  return (
+    <div className='flex flex-col gap-1 py-1'>
+      <div className={cn('flex items-center gap-1', align === 'right' && 'flex-row-reverse')}>
+        <span className='text-xs font-semibold text-foreground'>{label}</span>
+        {sortable && (
+          <button
+            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+            className='ml-auto opacity-40 hover:opacity-100'
+          >
+            <ArrowUpDownIcon className='h-3 w-3' />
+          </button>
+        )}
+      </div>
+      {filterable && (
+        <div className='relative'>
+          <SearchIcon className='absolute left-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground' />
+          <Input
+            value={filterValue}
+            onChange={(e) => column.setFilterValue(e.target.value)}
+            placeholder='Lọc...'
+            className='h-6 pl-5 text-[10px]'
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Column definitions ───────────────────────────────────────────────────────
 
 type DirtyMap = Record<number, true>;
@@ -171,6 +232,7 @@ function buildColumns(
     {
       id: 'index',
       size: 44,
+      enableColumnFilter: false,
       header: () => <span className='text-xs font-semibold'>STT</span>,
       cell: ({ row }) => (
         <span className='text-xs text-muted-foreground'>{row.index + 1}</span>
@@ -179,32 +241,38 @@ function buildColumns(
     {
       accessorKey: 'service_name',
       size: 180,
-      header: () => <span className='text-xs font-semibold'>Dịch vụ</span>,
+      filterFn: textIncludes,
+      header: ({ column }) => <FilterableHeader label='Dịch vụ' column={column} />,
       cell: ({ row }) => <TextCell value={row.original.service_name} />,
     },
     {
       accessorKey: 'container_name',
       size: 110,
-      header: () => <span className='text-xs font-semibold'>Loại cont</span>,
+      filterFn: textIncludes,
+      header: ({ column }) => <FilterableHeader label='Loại cont' column={column} />,
       cell: ({ row }) => <TextCell value={row.original.container_name} />,
     },
     {
       accessorKey: 'loai_hang_hoa',
       size: 120,
-      header: () => <span className='text-xs font-semibold'>Loại hàng</span>,
+      filterFn: textIncludes,
+      header: ({ column }) => <FilterableHeader label='Loại hàng' column={column} />,
       cell: ({ row }) => <TextCell value={row.original.loai_hang_hoa} />,
     },
     {
       id: 'route',
       size: 120,
-      header: () => <span className='text-xs font-semibold'>Tuyến</span>,
+      accessorFn: (row) => routeLabel(row),
+      filterFn: textIncludes,
+      header: ({ column }) => <FilterableHeader label='Tuyến' column={column} />,
       cell: ({ row }) => <TextCell value={routeLabel(row.original)} />,
     },
     {
       accessorKey: 'amount',
       size: 140,
-      header: () => (
-        <span className='block text-right text-xs font-semibold'>Đơn giá</span>
+      // filterFn: textIncludes,
+      header: ({ column }) => (
+        <FilterableHeader label='Đơn giá' column={column} align='right'  sortable filterable={false}/>
       ),
       cell: ({ row }) => (
         <EditableNumericCell
@@ -354,10 +422,19 @@ const ShippingRateContainer = () => {
     [handleUpdate, dirtyMap]
   );
 
+  const [columnFilters, setColumnFilters] =
+    React.useState<ColumnFiltersState>([]);
+  const [sorting, setSorting] = React.useState<SortingState>([]);
+
   const table = useReactTable({
     data,
     columns,
+    state: { columnFilters, sorting },
+    onColumnFiltersChange: setColumnFilters,
+    onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getSortedRowModel: getSortedRowModel(),
   });
 
   const rows = table.getRowModel().rows;
@@ -480,7 +557,7 @@ const ShippingRateContainer = () => {
                   {hg.headers.map((h) => (
                     <th
                       key={h.id}
-                      className='px-3 py-2 text-left align-middle font-normal'
+                      className='px-3 text-left align-top font-normal'
                       style={{ width: h.getSize(), minWidth: h.getSize() }}
                     >
                       {flexRender(h.column.columnDef.header, h.getContext())}

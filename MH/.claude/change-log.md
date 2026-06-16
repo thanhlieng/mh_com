@@ -5,6 +5,17 @@ Mục đích: giúp team hiểu được những gì đang được làm mà kh�
 
 ---
 
+## [2026-06-16 00:00] — Sửa sort cột "Đơn giá" không hoạt động ở màn Thiết lập giá vận chuyển
+
+**Yêu cầu:** Sortable ở cột Đơn giá không hoạt động khi click icon sort.
+
+**Các file đã thay đổi:**
+- `MH/src/container/ShippingRateContainer/index.tsx` (import + useReactTable): Thêm import `SortingState`, `getSortedRowModel`; thêm state `sorting`; bổ sung `onSortingChange` và `getSortedRowModel()` vào config table.
+
+**Lý do / bối cảnh:** TanStack Table v8 yêu cầu khai báo `getSortedRowModel()` trong config table và truyền `sorting` state vào `state`. Thiếu hai thứ này khiến `column.toggleSorting()` không có tác dụng dù UI đã có nút sort.
+
+---
+
 ## [2026-06-11 00:00] — Thêm màn "Bảng giá dịch vụ" (Supplier) với chỉnh sửa đơn giá inline + gửi yêu cầu thay đổi giá
 
 **Yêu cầu:** Xây màn còn thiếu cho app supplier (System B): liệt kê bảng giá hiện tại của supplier, sửa đơn giá inline, và nút xác nhận → gửi yêu cầu thay đổi giá. Backend + proxy đã có sẵn, chỉ thiếu FE + service.
@@ -397,3 +408,119 @@ Mục đích: giúp team hiểu được những gì đang được làm mà kh�
 **Lý do / bối cảnh:** Backend mhvn nay set `editable=false` cho các dòng bị khóa và kèm lý do. FE Bảng kê chi phí đã khóa ô Tiền theo `editable` nên không cần đổi logic; có sẵn `lock_reason` để hiển thị lý do nếu cần.
 
 **Ảnh hưởng fullstack:** Phụ thuộc field mới từ `GET /api/supplier/transactions` (proxy → mhvn `/api/mhcom/supplier/transactions/`).
+
+---
+
+## [2026-06-14 19:00] — Upload chi hộ: chọn file → xác nhận mới tải lên
+
+**Yêu cầu:** Ở phần upload chi hộ (mhcom), hiện chọn file là upload luôn. Đổi để user chọn file, xoá được file đã chọn, bấm Xác nhận mới upload.
+
+**Các file đã thay đổi:**
+- `src/container/PaymentManagementContainer/FileUploadPanel.tsx`:
+  - Bỏ upload-ngay; thêm state `staged` (file đã chọn, chưa upload). `addFiles` chỉ thêm vào danh sách chờ + lọc định dạng.
+  - Thêm mục "Chờ tải lên": liệt kê file đã chọn, nút X xoá từng file + nút "Xóa hết".
+  - Footer thêm nút "Xác nhận tải lên (n)" — bấm mới gọi `uploadChiHoFiles` cho toàn bộ file chờ; onSuccess dọn danh sách chờ + nạp vào "File đã tải lên".
+  - Dropzone bỏ trạng thái "Đang xử lý", ghi chú rõ file chỉ tải lên sau khi Xác nhận.
+
+**Lý do / bối cảnh:** Cho phép user kiểm tra/loại bớt file trước khi gửi, tránh upload nhầm.
+
+**Ảnh hưởng fullstack:** Không. Vẫn dùng `POST /api/supplier/chiho-files` như cũ, chỉ khác thời điểm gọi (1 lần khi Xác nhận).
+
+---
+
+## [2026-06-14 20:10] — Đồng bộ panel upload chi hộ với màn list rút gọn
+
+**Yêu cầu:** Màn list Quản lý chi hộ đã sửa để hiển thị ít thông tin hơn (Mã đơn, Mã booking, Ngày tạo, Người liên hệ). Điều chỉnh panel upload cho khớp.
+
+**Các file đã thay đổi:**
+- `src/services/supplier.services.ts`: `OrderByCodeResponse` rút gọn theo response mới của A (`id, order_code, booking_bill_number, bl, created_at, created_by`); bỏ `status/order_type/customer_name/shipper/chihos`.
+- `src/container/PaymentManagementContainer/index.tsx`: `orders` nay là `[OrderByCodeResponse]`; bỏ `mapChiHoToOrder`, `STATUS_BADGE` (chết); `selectedId`/`filesByOrder` key theo `id` (number); `filesQuery` + `handleFilesChange` dùng `order.id`; card mobile dùng `order_code`; bỏ import thừa (`Badge`, `PaperclipIcon`).
+- `src/container/PaymentManagementContainer/FileUploadPanel.tsx`: prop `order` đổi sang `OrderByCodeResponse`; header hiển thị **Mã đơn · Mã booking (badge) · Ngày tạo · Người liên hệ**; upload/list file dùng `order.id` thay `aOrderId`; bỏ `STATUS_BADGE`/`formatVND` thừa.
+
+**Lý do / bối cảnh:** Đơn tra cứu theo booking trả về 1 đơn; panel chỉ cần thông tin định danh đơn để đính kèm chứng từ.
+
+**Ảnh hưởng fullstack:** Khớp response mới của `GET /api/supplier/order-by-booking` (A đã trả `created_at`/`created_by`, bỏ chihos). Không đổi cách gọi API upload.
+
+---
+
+## [2026-06-14 21:00] — Tooltip "Đã khoá" cho cost không sửa được (Bảng kê chi phí)
+
+**Yêu cầu:** Ở route `supplier/cost-statement`, các cost không thể sửa khi hover vào giá hiển thị: "Đã khoá, vui lòng liên hệ MH để thay đổi".
+
+**Các file đã thay đổi:**
+- `src/container/CostStatementContainer/index.tsx`: ô Tiền read-only (`!row.editable`) bọc trong antd `Tooltip` title "Đã khoá, vui lòng liên hệ MH để thay đổi"; thêm `cursor-not-allowed` + màu `text-muted-foreground` để báo hiệu khoá. Import thêm `Tooltip` từ antd.
+
+**Lý do / bối cảnh:** Cost bị khoá khi đã có trong request / đơn COMPLETED / hóa đơn MH (theo `editable` từ API). Cần cho NCC biết lý do & cách xử lý.
+
+**Ảnh hưởng fullstack:** Không. Dùng lại field `editable` (đã có) từ `GET /api/supplier/transactions`.
+
+---
+
+## [2026-06-14 22:30] — Nối export Excel Bảng kê chi phí với backend thật
+
+**Yêu cầu:** Kết nối nút "Xuất Excel" màn Bảng kê chi phí với API export mới (mhvn qua MH-api).
+
+**Các file đã thay đổi:**
+- `src/services/supplier.services.ts` (`exportCostStatement`): cập nhật chú thích — backend đã hiện thực `GET /api/supplier/cost-statement/export` (proxy sang mhvn `/api/mhcom/supplier/transactions/export/`), `from`/`to` → `start_date`/`end_date`. Không đổi code gọi (đã `responseType: 'blob'`, params from/to/q).
+
+**Lý do / bối cảnh:** Trước đó là TODO chưa có backend; nay đã có endpoint thật.
+
+**Ảnh hưởng fullstack:** Phụ thuộc endpoint mới `GET /api/supplier/cost-statement/export?from=&to=` trả `.xlsx`. `q` chưa dùng ở export.
+
+---
+
+## [2026-06-14 23:10] — Bảng kê chi phí: mặc định khoảng thời gian + không cho clear; báo lỗi theo mhvn
+
+**Yêu cầu:** Mặc định date từ ngày đầu tháng hiện tại → hôm nay, không thể clear date range. API lỗi từ mhvn thông báo theo lỗi mhvn.
+
+**Các file đã thay đổi:**
+- `src/container/CostStatementContainer/index.tsx`: thêm `getDefaultDateRange()` (đầu tháng → nay); khởi tạo `dateRange` + `queryParams` (`start_date`/`end_date`) theo khoảng mặc định; `clearAllFilters` reset date về mặc định (không về rỗng); `DateRangePicker` truyền `allowClear={false}` + `onChange` bỏ qua range rỗng.
+- `src/components/DateRangePicker/index.tsx`: thêm prop `allowClear` (mặc định true) — ẩn nút "Xóa" khi `false`.
+
+**Lý do / bối cảnh:** Màn luôn cần lọc theo khoảng thời gian, mặc định tháng hiện tại; tránh trạng thái không có khoảng.
+
+**Ảnh hưởng fullstack:** Lỗi từ mhvn nay hiển thị đúng nhờ MH-api propagate `detail`/`error` (xem MH-api change-log). Các `notification.error` đọc `e.response.data.message` không đổi.
+
+---
+
+## [2026-06-15 09:30] — Nút "Xuất báo cáo kê cước & chi hộ" (màn Bảng kê chi phí)
+
+**Yêu cầu:** Thêm tính năng xuất báo cáo kê cước & chi hộ (Excel) ở mhcom.
+
+**Các file đã thay đổi:**
+- `src/services/supplier.services.ts`: thêm `exportKeCuocChiHoReport(params)` gọi `GET /supplier/cost-statement/ke-cuoc-chi-ho/export` (responseType blob).
+- `src/container/CostStatementContainer/index.tsx`: thêm state `isExportingKeCuoc` + `handleExportKeCuoc` (tải file theo `dateRange`); thêm nút "Xuất báo cáo kê cước & chi hộ" cạnh nút export bảng kê (đổi nhãn nút cũ thành "Xuất bảng kê").
+
+**Ảnh hưởng fullstack:** Phụ thuộc endpoint mới `GET /api/supplier/cost-statement/ke-cuoc-chi-ho/export?from=&to=` (proxy → mhvn `/api/mhcom/supplier/bao-cao-ke-cuoc-chi-ho/export/`). PNL lọc theo ngày container.
+
+---
+
+## [2026-06-15 10:30] — Filter search realtime theo từng cột (Thiết lập giá vận chuyển)
+
+**Yêu cầu:** Thêm filter search trên các cột ở bảng thiết lập giá vận chuyển (mhcom), search realtime.
+
+**Các file đã thay đổi:**
+- `src/container/ShippingRateContainer/index.tsx`:
+  - Thêm `getFilteredRowModel` + state `columnFilters` (`ColumnFiltersState`) vào `useReactTable`.
+  - Hàm filter dùng chung `textIncludes` (so khớp chuỗi, không phân biệt hoa thường) gắn `filterFn` cho các cột: Dịch vụ, Loại cont, Loại hàng, Tuyến (thêm `accessorFn` = routeLabel), Đơn giá, VAT, Tiền tệ. Cột STT `enableColumnFilter: false`.
+  - Thêm hàng `<th>` filter dưới header: mỗi cột có ô `Input` (placeholder "Tìm..."), gõ tới đâu lọc realtime tới đó qua `column.setFilterValue`.
+
+**Lý do / bối cảnh:** Bảng giá dài, cần lọc nhanh theo từng cột.
+
+**Ảnh hưởng fullstack:** Không. Lọc thuần client trên dữ liệu đã tải (`getSupplierPrices`).
+
+---
+
+## [2026-06-15 11:00] — Đồng bộ thiết kế bảng: Thiết lập giá ↔ Bảng kê chi phí
+
+**Yêu cầu:** Đồng bộ thiết kế bảng giữa màn quản lý bảng kê (CostStatement) và màn thiết lập giá (ShippingRate).
+
+**Các file đã thay đổi:**
+- `src/container/ShippingRateContainer/index.tsx`: chỉnh table theo đúng style của `CostStatementContainer`:
+  - Thêm component `FilterableHeader` (label + ô filter inline có icon search, placeholder "Lọc...", optional sort) giống màn Bảng kê chi phí; thay các header cũ bằng `FilterableHeader` cho mọi cột dữ liệu (Dịch vụ/Loại cont/Loại hàng/Tuyến/Đơn giá/VAT/Tiền tệ).
+  - Bỏ hàng filter riêng dưới header (bản trước) — filter giờ nằm trong từng header như CostStatement; vẫn realtime qua `column.setFilterValue` + `getFilteredRowModel`.
+  - `<th>` đổi `px-3 py-2 align-middle` → `px-3 align-top font-normal` cho khớp layout 2 dòng (label + ô lọc). Phần body (zebra, hover, dirty, `px-3 py-0.5`) vốn đã giống nhau.
+
+**Lý do / bối cảnh:** Thống nhất trải nghiệm bảng trong khu vực supplier (header có ô lọc inline + sọc dòng + hover giống nhau).
+
+**Ảnh hưởng fullstack:** Không. Thuần FE.

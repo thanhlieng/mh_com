@@ -39,4 +39,46 @@ export class SupplierTransactionsService {
       a_supplier_id,
     });
   }
+
+  /**
+   * Export Excel bảng kê chi phí của supplier (PNL + Chi hộ) theo khoảng thời gian.
+   * Proxy tới: GET /api/mhcom/supplier/transactions/export/ (token supplier).
+   */
+  async exportCostStatement(
+    a_supplier_id: string,
+    query: { from?: string; to?: string } = {},
+  ) {
+    const params = new URLSearchParams();
+    if (query.from) params.set('start_date', query.from);
+    if (query.to) params.set('end_date', query.to);
+
+    const qs = params.toString();
+    const endpoint = `/api/mhcom/supplier/transactions/export/${qs ? `?${qs}` : ''}`;
+
+    return this.mhvnIntegrationService.callMhvnDownload({
+      endpoint,
+      a_supplier_id,
+    });
+  }
+
+  /**
+   * Export Excel Báo cáo kê cước & chi hộ của supplier theo khoảng thời gian.
+   * Proxy tới: GET /api/mhcom/supplier/bao-cao-ke-cuoc-chi-ho/export/ (token supplier).
+   */
+  async exportKeCuocChiHo(
+    a_supplier_id: string,
+    query: { from?: string; to?: string } = {},
+  ) {
+    const params = new URLSearchParams();
+    if (query.from) params.set('start_date', query.from);
+    if (query.to) params.set('end_date', query.to);
+
+    const qs = params.toString();
+    const endpoint = `/api/mhcom/supplier/bao-cao-ke-cuoc-chi-ho/export/${qs ? `?${qs}` : ''}`;
+
+    return this.mhvnIntegrationService.callMhvnDownload({
+      endpoint,
+      a_supplier_id,
+    });
+  }
 }

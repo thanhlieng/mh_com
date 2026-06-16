@@ -183,6 +183,71 @@ export class MhvnIntegrationService {
   }
 
   /**
+   * Tải file nhị phân (vd Excel) từ mhvn. Token gắn tự động giống callMhvn.
+   * Trả về buffer + content-type + content-disposition để controller stream lại.
+   */
+  async callMhvnDownload(options: {
+    endpoint: string;
+    a_supplier_id?: string;
+    a_customer_id?: string;
+    timeout?: number;
+  }): Promise<{
+    data: Buffer;
+    contentType?: string;
+    contentDisposition?: string;
+  }> {
+    const {
+      endpoint,
+      a_supplier_id,
+      a_customer_id,
+      timeout = this.requestTimeout,
+    } = options;
+
+    let token: string;
+    try {
+      if (a_supplier_id) {
+        token = this.mhcomJwtService.issueSupplierToken(a_supplier_id);
+      } else if (a_customer_id) {
+        token = this.mhcomJwtService.issueCustomerToken(a_customer_id);
+      } else {
+        token = this.mhcomJwtService.issueServiceToken();
+      }
+    } catch (error) {
+      if (error.status === HttpStatus.CONFLICT) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to generate mhvn token');
+    }
+
+    const url = `${this.baseUrl}${endpoint}`;
+    try {
+      const response = await firstValueFrom(
+        this.httpService.get(url, {
+          headers: { Authorization: `Bearer ${token}` },
+          timeout,
+          responseType: 'arraybuffer',
+        }),
+      );
+      return {
+        data: Buffer.from(response.data),
+        contentType: response.headers?.['content-type'],
+        contentDisposition: response.headers?.['content-disposition'],
+      };
+    } catch (error) {
+      // Lỗi từ mhvn khi responseType=arraybuffer có body là Buffer → parse về
+      // JSON để handleError đọc được message.
+      if (error?.response?.data instanceof Buffer) {
+        try {
+          error.response.data = JSON.parse(error.response.data.toString('utf8'));
+        } catch {
+          // giữ nguyên nếu không phải JSON
+        }
+      }
+      this.handleError(error, endpoint);
+    }
+  }
+
+  /**
    * Handle errors from mhvn API calls
    */
   private handleError(error: any, endpoint: string): never {
@@ -190,11 +255,20 @@ export class MhvnIntegrationService {
     if (error.response) {
       const { status, data } = error.response;
 
+      // Trích message lỗi THỰC TẾ từ mhvn (DRF dùng `detail`/`error`, đôi khi
+      // `message`, hoặc body là chuỗi) để FE hiển thị đúng lỗi từ mhvn.
+      const mhvnMessage =
+        (typeof data === 'string' && data) ||
+        data?.detail ||
+        data?.error ||
+        data?.message ||
+        'Gọi API hệ thống mhvn thất bại';
+
       // mhvn returned an error response
       throw new HttpException(
         {
           statusCode: status,
-          message: data?.message || 'Gọi API hệ thống mhvn thất bại',
+          message: mhvnMessage,
           mhvnError: data,
         },
         status,

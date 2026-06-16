@@ -86,15 +86,30 @@ export interface CostStatementExportParams {
  * Request the backend to generate and return an Excel file for the
  * cost-statement report matching the given filters.
  *
- * TODO (backend): implement GET /supplier/cost-statement/export
- *   - Accept query params: from, to, q
- *   - Return Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
- *   - Suggested Content-Disposition: attachment; filename="bang-ke-chi-phi.xlsx"
+ * Backend: GET /api/supplier/cost-statement/export (MH-api) → proxy sang mhvn
+ * `GET /api/mhcom/supplier/transactions/export/`. `from`/`to` map sang
+ * `start_date`/`end_date` (PNL lọc theo ngày container, Chi hộ theo invoice_date).
+ * Trả file .xlsx (bảng kê cước). Tham số `q` hiện chưa dùng ở export.
  */
 export const exportCostStatement = (
   params: CostStatementExportParams,
 ): Promise<Blob> => {
   return axiosClient2.get('/supplier/cost-statement/export', {
+    params,
+    responseType: 'blob',
+  }) as Promise<Blob>;
+};
+
+/**
+ * Xuất Báo cáo kê cước & chi hộ (Excel) theo khoảng thời gian.
+ * Backend: GET /api/supplier/cost-statement/ke-cuoc-chi-ho/export → proxy sang
+ * mhvn `GET /api/mhcom/supplier/bao-cao-ke-cuoc-chi-ho/export/`.
+ * `from`/`to` → `start_date`/`end_date` (PNL lọc theo ngày container).
+ */
+export const exportKeCuocChiHoReport = (
+  params: CostStatementExportParams,
+): Promise<Blob> => {
+  return axiosClient2.get('/supplier/cost-statement/ke-cuoc-chi-ho/export', {
     params,
     responseType: 'blob',
   }) as Promise<Blob>;
@@ -501,11 +516,8 @@ export interface OrderByCodeResponse {
   order_code: string;
   booking_bill_number: string | null;
   bl: string | null;
-  status: string;
-  order_type: string;
-  customer_name: string;
-  shipper: string;
-  chihos: ChihosItem[];
+  created_at: string;
+  created_by: string;
 }
 
 /**

@@ -15,9 +15,17 @@ interface DateRangePickerProps {
   onChange?: (range: DateRange | undefined) => void;
   label?: string;
   className?: string;
+  /** Cho phép xóa khoảng thời gian (hiện nút "Xóa"). Mặc định true. */
+  allowClear?: boolean;
 }
 
-export function DateRangePicker({ value, onChange, label, className }: DateRangePickerProps) {
+export function DateRangePicker({
+  value,
+  onChange,
+  label,
+  className,
+  allowClear = true,
+}: DateRangePickerProps) {
   const [open, setOpen] = React.useState(false);
 
   const displayText = React.useMemo(() => {
@@ -49,7 +57,7 @@ export function DateRangePicker({ value, onChange, label, className }: DateRange
             onSelect={onChange}
             numberOfMonths={2}
           />
-          {value?.from && (
+          {allowClear && value?.from && (
             <div className='border-t border-border p-2 text-right'>
               <Button
                 variant='ghost'

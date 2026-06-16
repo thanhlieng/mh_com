@@ -303,3 +303,42 @@ Frontend đã thêm service tương ứng trong `MH/src/services/supplier.servic
 **Bối cảnh (hệ thống A — mhgs_log_be):** `mhcom/supplier_statement_views.py` đối chiếu `request_items` (PNL↔'Trucking', Chi hộ↔'Chi hộ') và `order.status`.
 
 **Ảnh hưởng fullstack:** FE Bảng kê chi phí (`MH/src/container/CostStatementContainer`) đã khóa ô Tiền theo `editable` nên tự động không cho sửa các dòng bị khóa; có thể dùng `lock_reason` để hiển thị lý do.
+
+---
+
+## [2026-06-14 22:30] — Export Excel Bảng kê chi phí (proxy file nhị phân sang mhvn)
+
+**Yêu cầu:** mhcom kết nối API export Excel bảng kê chi phí mới tạo ở mhvn.
+
+**Các file đã thay đổi:**
+- `src/modules/mhvn-integration/mhvn-integration.service.ts`: thêm `callMhvnDownload()` — GET `responseType: 'arraybuffer'`, gắn token tự động, trả `{ data: Buffer, contentType, contentDisposition }`; parse body lỗi (Buffer→JSON) để handleError đọc message.
+- `src/modules/supplier-transactions/supplier-transactions.service.ts`: thêm `exportCostStatement(a_supplier_id, { from, to })` proxy `GET /api/mhcom/supplier/transactions/export/` (map from→start_date, to→end_date).
+- `src/modules/supplier-transactions/supplier-cost-statement-export.controller.ts` (mới): `GET /api/supplier/cost-statement/export?from=&to=`. `JwtAuthGuard` + resolve supplier (`X-Active-Supplier-Id`); stream file qua `@Res()` với Content-Type/Content-Disposition từ mhvn.
+- `src/modules/supplier-transactions/supplier-transactions.module.ts`: đăng ký controller mới.
+
+**Ảnh hưởng fullstack:** Endpoint mới `GET /api/supplier/cost-statement/export?from=&to=` trả file `.xlsx`. FE `MH/src/services/supplier.services.ts#exportCostStatement` đã trỏ đúng (responseType blob). Cần header `X-Active-Supplier-Id` khi account đa liên kết.
+
+---
+
+## [2026-06-14 23:10] — Propagate đúng message lỗi từ mhvn cho mọi API proxy
+
+**Yêu cầu:** Các API báo lỗi từ mhvn phải thông báo theo lỗi từ mhvn.
+
+**Các file đã thay đổi:**
+- `src/modules/mhvn-integration/mhvn-integration.service.ts` (`handleError`): khi mhvn trả lỗi, trích `message` thực tế theo thứ tự `data` (string) → `data.detail` (DRF) → `data.error` → `data.message`, fallback "Gọi API hệ thống mhvn thất bại". Vẫn giữ `mhvnError: data` (body gốc).
+
+**Lý do / bối cảnh:** Trước đây chỉ đọc `data.message` (DRF thường dùng `detail`/`error`) nên FE hiển thị lỗi chung chung thay vì lỗi thật từ mhvn.
+
+**Ảnh hưởng fullstack:** Áp dụng cho TẤT CẢ endpoint proxy qua `callMhvn`/`callMhvnMultipart`/`callMhvnDownload`. FE đọc `error.response.data.message` sẽ thấy đúng lỗi mhvn. (Riêng response dạng blob/export, body lỗi là Blob nên FE vẫn hiện message mặc định.)
+
+---
+
+## [2026-06-15 09:30] — Export Báo cáo kê cước & chi hộ (proxy file sang mhvn)
+
+**Yêu cầu:** Thêm tính năng xuất Báo cáo kê cước & chi hộ ở mhcom (logic giống bao_cao_ke_cuoc_va_chi_ho của mhvn).
+
+**Các file đã thay đổi:**
+- `src/modules/supplier-transactions/supplier-transactions.service.ts`: thêm `exportKeCuocChiHo(a_supplier_id, { from, to })` proxy `GET /api/mhcom/supplier/bao-cao-ke-cuoc-chi-ho/export/` (callMhvnDownload; map from→start_date, to→end_date).
+- `src/modules/supplier-transactions/supplier-cost-statement-export.controller.ts`: thêm `GET /api/supplier/cost-statement/ke-cuoc-chi-ho/export?from=&to=` — stream file `.xlsx` qua `@Res()`.
+
+**Ảnh hưởng fullstack:** Endpoint mới `GET /api/supplier/cost-statement/ke-cuoc-chi-ho/export?from=&to=` trả `.xlsx`. FE gọi qua `exportKeCuocChiHoReport`. Cần header `X-Active-Supplier-Id` khi account đa liên kết.
