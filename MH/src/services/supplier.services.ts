@@ -208,6 +208,77 @@ export const getSupplierTransactions = (
   }) as Promise<SupplierTransactionsResponse>;
 };
 
+// ─── Kê cước & Chi hộ (pivot theo container — tab màn Bảng kê chi phí) ─────────
+// Gọi system B: GET /api/supplier/transactions/ke-cuoc-chi-ho → proxy sang A
+// `GET /api/mhcom/supplier/ke-cuoc-chi-ho/`. Lọc thời gian theo ngày container.
+
+export interface KeCuocChiHoParams {
+  from?: string; // YYYY-MM-DD
+  to?: string; // YYYY-MM-DD
+}
+
+/**
+ * Một dòng Kê cước & Chi hộ — đã pivot theo từng container ở hệ thống A.
+ * Các cột nhóm "Cước" kèm `*_pnl_ids` để dựng luồng đề nghị thay đổi
+ * (chỉ cho sửa ô có đúng 1 pnl).
+ */
+export interface KeCuocChiHoRow {
+  tt: number;
+  ngay: string; // YYYY-MM-DD (ngày container)
+  order_id: number | null;
+  order_container_id: number | null;
+  ma_don_hang: string;
+  so_bill_booking: string;
+  tuyen: string;
+  so_cont: string;
+  loai_cont: string;
+  loai_hang: string;
+  so_to_khai: string;
+  bien_so_xe: string;
+  order_completed: boolean;
+  // nhóm Cước (editable)
+  cuoc: number;
+  cuoc_pnl_ids: number[];
+  ky_gs: number;
+  ky_gs_pnl_ids: number[];
+  luu_ca_xe: number;
+  luu_ca_xe_pnl_ids: number[];
+  lach_huyen: number;
+  lach_huyen_pnl_ids: number[];
+  phat_sinh: number;
+  phat_sinh_pnl_ids: number[];
+  tong: number;
+  // nhóm Chi hộ về MH
+  so_tien_nang_cont_mh: number;
+  so_tien_ha_cont_mh: number;
+  so_tien_luu_cont_mh: number;
+  so_tien_phat_sinh_mh: number;
+  tong_chi_ho_mh: number;
+  // nhóm Chi hộ về KH
+  so_tien_csht_kh: number;
+  so_tien_nang_cont_kh: number;
+  so_tien_ha_cont_kh: number;
+  so_tien_luu_cont_kh: number;
+  tong_chi_ho_kh: number;
+}
+
+export interface KeCuocChiHoResponse {
+  supplier_ids: string[];
+  start_date: string;
+  end_date: string;
+  total: number;
+  totals: Record<string, number>;
+  results: KeCuocChiHoRow[];
+}
+
+export const getSupplierKeCuocChiHo = (
+  params: KeCuocChiHoParams = {},
+): Promise<KeCuocChiHoResponse> => {
+  return axiosClient2.get('/supplier/transactions/ke-cuoc-chi-ho', {
+    params,
+  }) as Promise<KeCuocChiHoResponse>;
+};
+
 // ─── Chi hộ files (màn Quản lý chi hộ) ─────────────────────────────────────────
 // Gọi system B: GET/POST /api/supplier/chiho-files → proxy sang hệ thống A.
 // Doc: api/mhcom-supplier-chiho-files.md
@@ -511,6 +582,17 @@ export interface ChihosItem {
   invoice_exporter: string | null;
 }
 
+/** Một container (dòng con) của đơn — supplier có PNL trên container này. */
+export interface OrderContainerRow {
+  id: number;
+  container_no: string;
+  container_kind: string;
+  loai_hang_hoa: string;
+  declaration_number: string;
+  license_plate: string;
+  date: string | null;
+}
+
 export interface OrderByCodeResponse {
   id: number;
   order_code: string;
@@ -518,6 +600,8 @@ export interface OrderByCodeResponse {
   bl: string | null;
   created_at: string;
   created_by: string;
+  /** Container của đơn mà supplier có PNL — dùng làm dòng con để upload theo container. */
+  containers?: OrderContainerRow[];
 }
 
 /**

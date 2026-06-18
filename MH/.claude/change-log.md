@@ -536,3 +536,96 @@ Mục đích: giúp team hiểu được những gì đang được làm mà kh�
 **Lý do / bối cảnh:** Thống nhất trải nghiệm bảng trong khu vực supplier (header có ô lọc inline + sọc dòng + hover giống nhau).
 
 **Ảnh hưởng fullstack:** Không. Thuần FE.
+
+## [2026-06-18 22:30] — Tab "Kê cước & chi hộ" (bảng pivot theo container) ở màn cost-statement
+
+**Yêu cầu:** Đổi UI bảng màn /supplier/cost-statement giống file Excel "Báo cáo kê cước và chi hộ" — pivot theo container, nhiều cột tiền nhóm Cước / Chi hộ MH / Chi hộ KH; cho sửa các ô nhóm Cước qua luồng đề nghị thay đổi. Thêm dạng tab mới (giữ bảng phẳng cũ).
+
+**Các file đã thay đổi:**
+- `src/services/supplier.services.ts`: thêm type `KeCuocChiHoRow`/`KeCuocChiHoResponse` + hàm `getSupplierKeCuocChiHo({from,to})` gọi `GET /api/supplier/transactions/ke-cuoc-chi-ho`.
+- `src/container/CostStatementContainer/KeCuocChiHoTable.tsx` (mới): bảng header gộp 2 dòng (Cước / CHI HỘ về MH / CHI HỘ về KH), ô nhóm Cước sửa được (chỉ khi đơn chưa hoàn tất & ô có đúng 1 pnl), gửi đề nghị thay đổi qua `createChangeRequest`; dòng tổng cuối bảng; nút xuất Excel + lọc theo khoảng ngày (ngày container).
+- `src/container/CostStatementContainer/index.tsx`: thêm tab thứ ba `kecuoc`, render `<KeCuocChiHoTable />`; ẩn nút "Tải lại" ở header khi ở tab này (tab tự có nút tải lại).
+
+**Lý do / bối cảnh:** Người dùng muốn bảng trên màn khớp layout Excel; mỗi cột có số là tiền. Logic cột tiền giữ giống API Excel, chỉ khác bộ lọc thời gian dùng container.date.
+
+**Ảnh hưởng fullstack:** Phụ thuộc endpoint mới `GET /api/supplier/transactions/ke-cuoc-chi-ho?from=&to=` (MH-api) → proxy `GET /api/mhcom/supplier/ke-cuoc-chi-ho/` (hệ thống A). Sửa ô Cước dùng lại `POST /api/supplier/change-requests`.
+
+## [2026-06-18 23:10] — Tinh chỉnh bảng "Kê cước & chi hộ"
+
+**Yêu cầu:** Ẩn cột Khách hàng (và API không trả), thu nhỏ cột Số tờ khai, mở rộng cột Tuyến, cột Phát sinh không cho sửa, thêm tìm kiếm real-time ở cột Mã ĐH/Số book-Bill/Số cont/Tuyến, format cột Ngày dạng ngày/tháng.
+
+**Các file đã thay đổi:**
+- `src/container/CostStatementContainer/KeCuocChiHoTable.tsx`: bỏ cột Khách hàng; `SearchHeader` lọc real-time (client) cho Mã ĐH/Số book-Bill/Số cont/Tuyến (`filteredRows`); cột Phát sinh chuyển read-only (loại khỏi `CUOC_FIELDS`, render `Money`); width Tuyến lớn hơn / Số tờ khai nhỏ hơn; `formatNgay` → `dd/MM/yyyy`; tổng & đếm theo `filteredRows`.
+- `src/services/supplier.services.ts`: bỏ field `khach_hang` khỏi `KeCuocChiHoRow`.
+
+**Ảnh hưởng fullstack:** API A không còn trả `khach_hang` ở `GET /api/mhcom/supplier/ke-cuoc-chi-ho/`.
+
+## [2026-06-18 23:40] — Bảng "Kê cước & chi hộ": cột co giãn + Ngày dạng ngày/tháng
+
+**Yêu cầu:** Format cột Ngày dạng ngày/tháng (không năm); cho phép kéo giãn độ rộng các cột.
+
+**Các file đã thay đổi:**
+- `src/container/CostStatementContainer/KeCuocChiHoTable.tsx`: `formatNgay` → `dd/MM`; thêm `LEAF_COLS` (id + width mặc định), state `colWidths` + `onResize`, component `Resizer` (kéo cạnh phải) và `LeafTh`; bảng dùng `<colgroup>` + `table-layout:fixed` (width = tổng cột) để cột resizable độc lập header gộp; ô `Text`/`Money` thêm `truncate`.
+
+**Ảnh hưởng fullstack:** Không. Thuần FE.
+
+## [2026-06-18 23:55] — Bảng "Kê cước & chi hộ": chọn phần hiển thị (Cả hai / Cước / Chi hộ)
+
+**Yêu cầu:** Có cách để hiển thị chỉ phần Chi hộ, hoặc chỉ phần Cước, hoặc cả hai.
+
+**Các file đã thay đổi:**
+- `src/container/CostStatementContainer/KeCuocChiHoTable.tsx`: thêm state `section` ('both'|'cuoc'|'chiho') + segmented control 3 nút ở thanh lọc; suy ra `showCuoc`/`showChiHo`; lọc `visibleLeafCols` (colgroup), `visibleMoneyCols` (dòng tổng), `totalVisibleCols` (empty state); header ẩn nhóm Cước/Chi hộ theo lựa chọn và `headerRowSpan` co về 1 dòng khi chỉ hiện Cước (không còn header gộp 2 tầng); body ẩn các ô tương ứng. Cột thông tin luôn hiển thị.
+
+**Ảnh hưởng fullstack:** Không. Thuần FE.
+
+## [2026-06-19 00:15] — Bảng "Kê cước & chi hộ": cột "Tải file chi hộ" + modal upload
+
+**Yêu cầu:** Thêm cột cuối (thuộc phần Chi hộ), mỗi dòng có nút mở modal upload file chi hộ (giống modal ở /supplier/payment-management) nhưng CHỈ hiển thị file user muốn tải lên (không hiện file đã upload trước đó). Khi đóng modal, nếu còn ở màn này thì hiển thị số file vừa upload.
+
+**Các file đã thay đổi:**
+- `src/container/CostStatementContainer/ChiHoUploadModal.tsx` (mới): slide-over upload (dropzone + chọn file/thư mục + danh sách staged + xác nhận tải lên) dùng `uploadChiHoFiles(orderId, files)`. KHÔNG fetch/hiển thị file đã upload. Báo `onUploaded(total)` số file đã tải (cộng dồn trong phiên) + dòng "Đã tải lên N file".
+- `src/container/CostStatementContainer/KeCuocChiHoTable.tsx`: thêm leaf col `upload` (cuối, thuộc nhóm Chi hộ → chỉ hiện khi `showChiHo`); header "Tải file chi hộ"; mỗi dòng có nút "Tải lên" mở `ChiHoUploadModal` (disable khi thiếu `order_id`), kèm Badge số file đã upload theo đơn (`uploadedCounts`); cập nhật `visibleLeafCols`/`totalVisibleCols`/footer (thêm 1 cột khi hiện Chi hộ); state `uploadRow` + `uploadedCounts`.
+
+**Ảnh hưởng fullstack:** Dùng lại endpoint sẵn có `POST /api/supplier/chiho-files` (qua `uploadChiHoFiles`). Không thêm endpoint mới.
+
+## [2026-06-19 00:45] — File chi hộ gắn theo container (không theo đơn)
+
+**Yêu cầu:** Mỗi file tải lên ứng theo container (order_container) + mã đơn, không phải theo đơn hàng.
+
+**Các file đã thay đổi:**
+- `src/services/supplier.services.ts`: `uploadChiHoFiles(orderId, files, orderContainerId?)` thêm `order_container_id` vào form; type `KeCuocChiHoRow` thêm `order_container_id`.
+- `src/container/CostStatementContainer/ChiHoUploadModal.tsx`: nhận `orderContainerId`/`containerNo`, upload gắn container; header hiển thị số container.
+- `src/container/CostStatementContainer/KeCuocChiHoTable.tsx`: nút "Tải lên" + badge số file đếm theo `order_container_id` (không theo `order_id`); disable khi thiếu container; truyền container vào modal.
+
+**Ảnh hưởng fullstack:** Upload `POST /api/supplier/chiho-files` nay nhận thêm field `order_container_id`. API A `GET /api/mhcom/supplier/ke-cuoc-chi-ho/` trả thêm `order_container_id` mỗi dòng.
+
+## [2026-06-19 01:00] — Bảng "Kê cước & chi hộ": loading rõ ràng hơn
+
+**Yêu cầu:** Thêm loading dễ thấy cho bảng mới vì API có thể tải lâu.
+
+**Các file đã thay đổi:**
+- `src/container/CostStatementContainer/KeCuocChiHoTable.tsx`: lần tải đầu (`apiQuery.isLoading`) hiển thị panel loading lớn (spinner 9x9 + chú thích) thay cho bảng; khi tải lại (đã có dữ liệu) hiển thị overlay spinner mờ phủ lên bảng (`apiQuery.isFetching`).
+
+**Ảnh hưởng fullstack:** Không. Thuần FE.
+
+## [2026-06-19 01:30] — Quản lý chi hộ: dòng con container + upload theo container
+
+**Yêu cầu:** Khi tra cứu đơn ở /supplier/payment-management, API trả thêm danh sách container của đơn (chỉ container mà supplier có PNL). Hiển thị container làm dòng con (mặc định mở). Bấm container → modal upload file chi hộ theo container, giữ số file đã upload khi còn ở màn.
+
+**Các file đã thay đổi:**
+- `src/services/supplier.services.ts`: type `OrderContainerRow` + `OrderByCodeResponse.containers?`.
+- `src/container/PaymentManagementContainer/index.tsx`: dòng con container (desktop: child rows có chevron mở/đóng mặc định mở; mobile: list trong card); nút "Tải file" mỗi container mở `ChiHoUploadModal` (dùng lại từ CostStatementContainer), badge số file đã upload theo `container.id` (`containerUploadedCounts`); giữ panel upload theo đơn cũ.
+
+**Ảnh hưởng fullstack:** `GET /api/supplier/order-by-booking` (proxy A `GET /api/mhcom/supplier/order-by-booking/`) nay trả thêm `containers[]`. Upload dùng `POST /api/supplier/chiho-files` với `order_container_id` (đã có).
+
+## [2026-06-19 02:00] — Hủy upload theo container (giữ upload theo đơn); container chỉ là UI
+
+**Yêu cầu:** Không thêm cột DB; upload giữ nguyên logic theo đơn. Container chỉ để NCC biết đang upload cho container nào; bấm container mở modal upload (không hiển thị file đã upload trước).
+
+**Các file đã thay đổi:**
+- `src/services/supplier.services.ts`: `uploadChiHoFiles(orderId, files)` bỏ tham số `orderContainerId` (upload theo đơn như cũ).
+- `src/container/CostStatementContainer/ChiHoUploadModal.tsx`: bỏ prop `orderContainerId`; upload chỉ theo `orderId`; `containerNo` chỉ để hiển thị.
+- `src/container/CostStatementContainer/KeCuocChiHoTable.tsx`: bỏ truyền `orderContainerId` vào modal; nút "Tải lên" disable theo `order_id`; badge số file vẫn đếm cục bộ theo `order_container_id`.
+- `src/container/PaymentManagementContainer/index.tsx`: bỏ truyền `orderContainerId`; badge đếm cục bộ theo `container.id`.
+
+**Ảnh hưởng fullstack:** `POST /api/supplier/chiho-files` không còn gửi `order_container_id` (quay lại chỉ `order_id`).

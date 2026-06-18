@@ -42,6 +42,7 @@ import type { SupplierTransactionsParams, SupplierTransaction } from '@/services
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 
 import { ChangeRequestList } from './ChangeRequestList';
+import KeCuocChiHoTable from './KeCuocChiHoTable';
 import {
   type ChangeRequest,
   type CostCategory,
@@ -457,8 +458,8 @@ const CostStatementContainer = () => {
   const [isExporting, setIsExporting] = React.useState(false);
   const [isExportingKeCuoc, setIsExportingKeCuoc] = React.useState(false);
 
-  // View con: 'statement' = bảng kê | 'requests' = danh sách đề nghị thay đổi
-  const [view, setView] = React.useState<'statement' | 'requests'>('statement');
+  // View con: 'statement' = bảng kê | 'kecuoc' = kê cước & chi hộ | 'requests' = đề nghị thay đổi
+  const [view, setView] = React.useState<'statement' | 'kecuoc' | 'requests'>('statement');
 
   // Fetch change requests list từ API
   const queryClient = useQueryClient();
@@ -712,32 +713,34 @@ const CostStatementContainer = () => {
               </span>
             </>
           )}
-          <Button
-            variant='outline'
-            size='sm'
-            className='h-8 shrink-0 gap-1.5 text-xs'
-            onClick={() =>
-              view === 'statement'
-                ? apiQuery.refetch()
-                : changeRequestsQuery.refetch()
-            }
-            disabled={
-              view === 'statement'
-                ? apiQuery.isFetching
-                : changeRequestsQuery.isFetching
-            }
-            title='Tải lại dữ liệu'
-          >
-            <RefreshCwIcon
-              className={cn(
-                'h-3.5 w-3.5',
-                (view === 'statement'
+          {view !== 'kecuoc' && (
+            <Button
+              variant='outline'
+              size='sm'
+              className='h-8 shrink-0 gap-1.5 text-xs'
+              onClick={() =>
+                view === 'statement'
+                  ? apiQuery.refetch()
+                  : changeRequestsQuery.refetch()
+              }
+              disabled={
+                view === 'statement'
                   ? apiQuery.isFetching
-                  : changeRequestsQuery.isFetching) && 'animate-spin'
-              )}
-            />
-            Tải lại
-          </Button>
+                  : changeRequestsQuery.isFetching
+              }
+              title='Tải lại dữ liệu'
+            >
+              <RefreshCwIcon
+                className={cn(
+                  'h-3.5 w-3.5',
+                  (view === 'statement'
+                    ? apiQuery.isFetching
+                    : changeRequestsQuery.isFetching) && 'animate-spin'
+                )}
+              />
+              Tải lại
+            </Button>
+          )}
         </div>
       </div>
 
@@ -754,6 +757,18 @@ const CostStatementContainer = () => {
         >
           <TableIcon className='h-3.5 w-3.5' />
           Bảng kê chi phí
+        </button>
+        <button
+          onClick={() => setView('kecuoc')}
+          className={cn(
+            'flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-xs font-medium transition-colors',
+            view === 'kecuoc'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          )}
+        >
+          <TableIcon className='h-3.5 w-3.5' />
+          Kê cước &amp; chi hộ
         </button>
         <button
           onClick={() => setView('requests')}
@@ -773,6 +788,8 @@ const CostStatementContainer = () => {
           )}
         </button>
       </div>
+
+      {view === 'kecuoc' && <KeCuocChiHoTable />}
 
       {view === 'requests' && (
         <ChangeRequestList

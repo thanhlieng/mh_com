@@ -41,6 +41,29 @@ export class SupplierTransactionsService {
   }
 
   /**
+   * Lấy dữ liệu Kê cước & Chi hộ (pivot theo container) của supplier từ hệ thống mhvn.
+   * Proxy tới: GET /api/mhcom/supplier/ke-cuoc-chi-ho/ (token supplier).
+   * Lọc thời gian theo order_container.date; container không có ngày bị bỏ qua.
+   */
+  async getKeCuocChiHo(
+    a_supplier_id: string,
+    query: { from?: string; to?: string } = {},
+  ) {
+    const params = new URLSearchParams();
+    if (query.from) params.set('start_date', query.from);
+    if (query.to) params.set('end_date', query.to);
+
+    const qs = params.toString();
+    const endpoint = `/api/mhcom/supplier/ke-cuoc-chi-ho/${qs ? `?${qs}` : ''}`;
+
+    return this.mhvnIntegrationService.callMhvn({
+      method: 'GET',
+      endpoint,
+      a_supplier_id,
+    });
+  }
+
+  /**
    * Export Excel bảng kê chi phí của supplier (PNL + Chi hộ) theo khoảng thời gian.
    * Proxy tới: GET /api/mhcom/supplier/transactions/export/ (token supplier).
    */

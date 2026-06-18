@@ -41,4 +41,25 @@ export class SupplierTransactionsController {
       query,
     );
   }
+
+  /**
+   * Dữ liệu Kê cước & Chi hộ (pivot theo container) cho tab cùng tên ở màn
+   * "Bảng kê chi phí". Lọc thời gian theo order_container.date.
+   */
+  @Get("ke-cuoc-chi-ho")
+  async getKeCuocChiHo(
+    @GetUser() user: UserEntity,
+    @Headers("x-active-supplier-id") activeSupplierId: string,
+    @Query("from") from: string,
+    @Query("to") to: string,
+  ) {
+    const a_supplier_id = await this.activeLinkService.resolveSupplier(
+      user,
+      activeSupplierId,
+    );
+    return this.supplierTransactionsService.getKeCuocChiHo(a_supplier_id, {
+      from,
+      to,
+    });
+  }
 }

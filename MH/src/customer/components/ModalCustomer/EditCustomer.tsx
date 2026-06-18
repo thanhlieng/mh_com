@@ -36,9 +36,11 @@ const ModalEditCustomer = ({ onClose, value }: IProps) => {
   const isAdmin = (() => {
     try {
       const raw =
-        typeof window !== 'undefined' ? localStorage.getItem(USER) : null;
-        console.error(JSON.parse(raw)?.typeUser)
-      return raw ? (JSON.parse(raw)?.typeUser as string).toLocaleLowerCase() === 'admin' : false;
+        typeof window !== 'undefined' ? (localStorage.getItem(USER) ?? '') : '';
+      console.error(JSON.parse(raw)?.typeUser);
+      return raw
+        ? (JSON.parse(raw)?.typeUser as string).toLocaleLowerCase() === 'admin'
+        : false;
     } catch {
       return false;
     }
@@ -108,7 +110,7 @@ const ModalEditCustomer = ({ onClose, value }: IProps) => {
           placement: 'top',
         });
       },
-    }
+    },
   );
 
   const onSubmit = async () => {
@@ -195,7 +197,7 @@ const ModalEditCustomer = ({ onClose, value }: IProps) => {
       value?.priceList.map((v: any) => ({
         ...v,
         timeApply: [v.timeApplyFrom, v.timeApplyTo],
-      }))
+      })),
     );
   }, [form, value]);
 

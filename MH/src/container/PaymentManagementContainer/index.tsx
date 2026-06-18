@@ -1,16 +1,21 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { parseISO } from 'date-fns';
 import {
+  ChevronDownIcon,
+  ChevronRightIcon,
+  ContainerIcon,
   HandCoinsIcon,
   Loader2Icon,
   RefreshCwIcon,
   SearchIcon,
   FileTextIcon,
+  UploadCloudIcon,
 } from 'lucide-react';
 import * as React from 'react';
 
 import { cn } from '@/lib/utils';
 
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -21,7 +26,12 @@ import {
   getOrderByCode,
   listChiHoFiles,
 } from '@/services/supplier.services';
-import type { ChiHoFile, OrderByCodeResponse } from '@/services/supplier.services';
+import type {
+  ChiHoFile,
+  OrderByCodeResponse,
+  OrderContainerRow,
+} from '@/services/supplier.services';
+import { ChiHoUploadModal } from '@/container/CostStatementContainer/ChiHoUploadModal';
 import { FileUploadPanel } from './FileUploadPanel';
 import { UploadRequestsTab } from './UploadRequestsTab';
 import { type UploadedFile } from './types';
@@ -75,6 +85,21 @@ const PaymentManagementContainer = () => {
 
   const [selectedId, setSelectedId] = React.useState<number | null>(null);
   const selectedOrder = orders.find((o) => o.id === selectedId) ?? null;
+
+  // Mở/đóng danh sách container (dòng con) — mặc định MỞ.
+  const [collapsed, setCollapsed] = React.useState<Record<number, boolean>>({});
+  const isExpanded = (orderId: number) => collapsed[orderId] !== true;
+  const toggleExpand = (orderId: number) =>
+    setCollapsed((prev) => ({ ...prev, [orderId]: !prev[orderId] ? true : false }));
+
+  // Upload file Chi hộ theo container: container đang mở modal + số file đã
+  // upload theo từng container (giữ khi còn ở màn này).
+  const [uploadContainer, setUploadContainer] = React.useState<
+    { order: OrderByCodeResponse; container: OrderContainerRow } | null
+  >(null);
+  const [containerUploadedCounts, setContainerUploadedCounts] = React.useState<
+    Record<number, number>
+  >({});
 
   const filesQuery = useQuery(
     ['chiho-files', selectedOrder?.id],
@@ -231,41 +256,71 @@ const PaymentManagementContainer = () => {
             {/* Card list — mobile */}
             <div className='flex flex-col gap-2 md:hidden'>
               {orders.map((o) => (
-                <button
+                <div
                   key={o.id}
-                  onClick={() => setSelectedId(o.id)}
-                  className='flex w-full flex-col gap-1.5 rounded-md border border-border bg-background p-3 text-left transition-colors hover:bg-primary/5'
+                  className='flex w-full flex-col gap-2 rounded-md border border-border bg-background p-3'
                 >
-                  <div className='flex items-center justify-between gap-2'>
-                    <span className='text-sm font-semibold text-primary'>
-                      {o.order_code}
+                  <button
+                    onClick={() => setSelectedId(o.id)}
+                    className='flex flex-col gap-1.5 text-left'
+                  >
+                    <div className='flex items-center justify-between gap-2'>
+                      <span className='text-sm font-semibold text-primary'>
+                        {o.order_code}
+                      </span>
+                      <span className='text-sm font-semibold text-primary'>
+                        {o.booking_bill_number}
+                      </span>
+                    </div>
+                    <div className='flex items-center justify-between text-xs text-muted-foreground'>
+                      <span>{o.created_by}</span>
+                      <span>{formatDate(o.created_at)}</span>
+                    </div>
+                  </button>
+
+                  {/* Container (dòng con) — upload theo container */}
+                  <div className='flex flex-col gap-1.5 border-t border-border pt-2'>
+                    <span className='text-[11px] font-medium text-muted-foreground'>
+                      Container ({(o.containers ?? []).length})
                     </span>
-                    <span className='text-sm font-semibold text-primary'>
-                      {o.booking_bill_number}
-                    </span>
+                    {(o.containers ?? []).length === 0 ? (
+                      <span className='text-[11px] italic text-muted-foreground'>
+                        Không có container thuộc bạn
+                      </span>
+                    ) : (
+                      (o.containers ?? []).map((c) => (
+                        <div
+                          key={c.id}
+                          className='flex items-center justify-between gap-2 rounded border border-border bg-muted/10 px-2 py-1.5'
+                        >
+                          <div className='flex min-w-0 items-center gap-1.5'>
+                            <ContainerIcon className='h-3.5 w-3.5 shrink-0 text-muted-foreground' />
+                            <span className='truncate text-xs font-medium'>
+                              {c.container_no || '—'}
+                            </span>
+                            {c.container_kind && (
+                              <Badge variant='outline'>{c.container_kind}</Badge>
+                            )}
+                          </div>
+                          <Button
+                            size='sm'
+                            variant='outline'
+                            className='h-7 shrink-0 gap-1.5 text-[11px]'
+                            onClick={() => setUploadContainer({ order: o, container: c })}
+                          >
+                            <UploadCloudIcon className='h-3.5 w-3.5' />
+                            Tải file
+                            {containerUploadedCounts[c.id] > 0 && (
+                              <Badge variant='success' className='ml-0.5 px-1 text-[9px]'>
+                                {containerUploadedCounts[c.id]}
+                              </Badge>
+                            )}
+                          </Button>
+                        </div>
+                      ))
+                    )}
                   </div>
-                  {/* <div className='text-xs text-foreground'>{o.customer}</div> */}
-                  <div className='flex items-center justify-between text-xs text-muted-foreground'>
-                    <span>{o.created_by}</span>
-                    <span>{formatDate(o.created_at)}</span>
-                  </div>
-                  {/* <div className='flex items-center justify-between'>
-                    <span className='text-sm font-semibold tabular-nums text-foreground'>
-                      {formatVND(o.amount)}
-                    </span>
-                    <span
-                      className={cn(
-                        'inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px]',
-                        fileCountOf(o) > 0
-                          ? 'bg-blue-50 text-blue-600'
-                          : 'text-muted-foreground'
-                      )}
-                    >
-                      <PaperclipIcon className='h-3 w-3' />
-                      {fileCountOf(o)} chứng từ
-                    </span>
-                  </div> */}
-                </button>
+                </div>
               ))}
             </div>
             {/* Table — desktop */}
@@ -284,28 +339,91 @@ const PaymentManagementContainer = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {orders.map((o, i) => (
-                    <tr
-                      key={o.id}
-                      onClick={() => setSelectedId(o.id)}
-                      className={cn(
-                        'cursor-pointer border-b border-border transition-colors hover:bg-primary/5',
-                        i % 2 === 0 ? 'bg-background' : 'bg-muted/10'
-                      )}
-                    >
-                      <td className='px-3 py-2 text-xs text-muted-foreground'>
-                        {i + 1}
-                      </td>
-                      <td className='px-3 py-2 text-xs font-medium text-primary'>
-                        {o.order_code}
-                      </td>
-                      <td className='px-3 py-2 text-xs'>{o.booking_bill_number}</td>  
-                      <td className='px-3 py-2 text-xs'>{formatDate(o.created_at)}</td>
-                      <td className='px-3 py-2 text-xs'>{o.created_by}</td>
+                  {orders.map((o, i) => {
+                    const containers = o.containers ?? [];
+                    const expanded = isExpanded(o.id);
+                    return (
+                      <React.Fragment key={o.id}>
+                        <tr
+                          onClick={() => setSelectedId(o.id)}
+                          className={cn(
+                            'cursor-pointer border-b border-border transition-colors hover:bg-primary/5',
+                            i % 2 === 0 ? 'bg-background' : 'bg-muted/10'
+                          )}
+                        >
+                          <td className='px-3 py-2 text-xs text-muted-foreground'>
+                            <div className='flex items-center gap-1'>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleExpand(o.id);
+                                }}
+                                className='rounded p-0.5 hover:bg-accent'
+                                title={expanded ? 'Thu gọn container' : 'Xem container'}
+                              >
+                                {expanded ? (
+                                  <ChevronDownIcon className='h-3.5 w-3.5' />
+                                ) : (
+                                  <ChevronRightIcon className='h-3.5 w-3.5' />
+                                )}
+                              </button>
+                              {i + 1}
+                            </div>
+                          </td>
+                          <td className='px-3 py-2 text-xs font-medium text-primary'>
+                            {o.order_code}
+                          </td>
+                          <td className='px-3 py-2 text-xs'>{o.booking_bill_number}</td>
+                          <td className='px-3 py-2 text-xs'>{formatDate(o.created_at)}</td>
+                          <td className='px-3 py-2 text-xs'>{o.created_by}</td>
+                        </tr>
 
-                      
-                    </tr>
-                  ))}
+                        {/* Dòng con: container của đơn (supplier có PNL) */}
+                        {expanded && containers.length === 0 && (
+                          <tr className='border-b border-border bg-muted/5'>
+                            <td />
+                            <td colSpan={4} className='px-3 py-2 text-xs italic text-muted-foreground'>
+                              Không có container nào thuộc bạn trong đơn này
+                            </td>
+                          </tr>
+                        )}
+                        {expanded &&
+                          containers.map((c) => (
+                            <tr key={`c-${c.id}`} className='border-b border-border bg-muted/5'>
+                              <td className='px-3 py-1.5' />
+                              <td colSpan={2} className='px-3 py-1.5 text-xs'>
+                                <div className='flex items-center gap-2 pl-3'>
+                                  <ContainerIcon className='h-3.5 w-3.5 shrink-0 text-muted-foreground' />
+                                  <span className='font-medium'>{c.container_no || '—'}</span>
+                                  {c.container_kind && (
+                                    <Badge variant='outline'>{c.container_kind}</Badge>
+                                  )}
+                                </div>
+                              </td>
+                              <td className='px-3 py-1.5 text-xs text-muted-foreground'>
+                                {c.loai_hang_hoa || '—'}
+                              </td>
+                              <td className='px-3 py-1.5'>
+                                <Button
+                                  size='sm'
+                                  variant='outline'
+                                  className='h-7 gap-1.5 text-[11px]'
+                                  onClick={() => setUploadContainer({ order: o, container: c })}
+                                >
+                                  <UploadCloudIcon className='h-3.5 w-3.5' />
+                                  Tải file
+                                  {containerUploadedCounts[c.id] > 0 && (
+                                    <Badge variant='success' className='ml-0.5 px-1 text-[9px]'>
+                                      {containerUploadedCounts[c.id]}
+                                    </Badge>
+                                  )}
+                                </Button>
+                              </td>
+                            </tr>
+                          ))}
+                      </React.Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -313,13 +431,31 @@ const PaymentManagementContainer = () => {
         )}
       </div>
 
-      {/* ── Slide-over upload panel ── */}
+      {/* ── Slide-over upload panel (theo đơn) ── */}
       {selectedOrder && (
         <FileUploadPanel
           order={selectedOrder}
           files={filesByOrder[selectedOrder.id] ?? []}
           onClose={() => setSelectedId(null)}
           onFilesChange={handleFilesChange}
+        />
+      )}
+
+      {/* ── Modal upload theo container ── */}
+      {uploadContainer && (
+        <ChiHoUploadModal
+          orderId={uploadContainer.order.id}
+          orderCode={uploadContainer.order.order_code}
+          containerNo={uploadContainer.container.container_no}
+          bookingBillNumber={uploadContainer.order.booking_bill_number ?? undefined}
+          initialUploadedCount={containerUploadedCounts[uploadContainer.container.id] ?? 0}
+          onClose={() => setUploadContainer(null)}
+          onUploaded={(total) =>
+            setContainerUploadedCounts((prev) => ({
+              ...prev,
+              [uploadContainer.container.id]: total,
+            }))
+          }
         />
       )}
         </>

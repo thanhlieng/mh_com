@@ -342,3 +342,35 @@ Frontend đã thêm service tương ứng trong `MH/src/services/supplier.servic
 - `src/modules/supplier-transactions/supplier-cost-statement-export.controller.ts`: thêm `GET /api/supplier/cost-statement/ke-cuoc-chi-ho/export?from=&to=` — stream file `.xlsx` qua `@Res()`.
 
 **Ảnh hưởng fullstack:** Endpoint mới `GET /api/supplier/cost-statement/ke-cuoc-chi-ho/export?from=&to=` trả `.xlsx`. FE gọi qua `exportKeCuocChiHoReport`. Cần header `X-Active-Supplier-Id` khi account đa liên kết.
+
+## [2026-06-18 22:30] — Proxy JSON Kê cước & Chi hộ (pivot theo container) cho màn cost-statement
+
+**Yêu cầu:** Thêm tab bảng "Kê cước & chi hộ" ở màn /supplier/cost-statement, dữ liệu pivot theo container giống file Excel; lọc thời gian theo ngày container.
+
+**Các file đã thay đổi:**
+- `src/modules/supplier-transactions/supplier-transactions.service.ts`: thêm `getKeCuocChiHo(a_supplier_id, { from, to })` — proxy `GET /api/mhcom/supplier/ke-cuoc-chi-ho/` (callMhvn, token supplier; map from→start_date, to→end_date).
+- `src/modules/supplier-transactions/supplier-transactions.controller.ts`: thêm route `GET /api/supplier/transactions/ke-cuoc-chi-ho?from=&to=` — resolve active supplier rồi gọi service.
+
+**Lý do / bối cảnh:** Endpoint /transactions hiện trả danh sách phẳng (1 cost = 1 dòng), không dựng được layout pivot nhiều cột tiền của Excel. Cần kênh JSON riêng đã pivot từ hệ thống A.
+
+**Ảnh hưởng fullstack:** Endpoint mới `GET /api/supplier/transactions/ke-cuoc-chi-ho?from=&to=`. FE gọi qua `getSupplierKeCuocChiHo`. Cần header `X-Active-Supplier-Id` khi account đa liên kết. Backend A phải có `GET /api/mhcom/supplier/ke-cuoc-chi-ho/`.
+
+## [2026-06-19 00:45] — Upload file chi hộ: forward order_container_id (gắn theo container)
+
+**Yêu cầu:** File chi hộ gắn theo container thay vì theo đơn hàng.
+
+**Các file đã thay đổi:**
+- `src/modules/supplier-chiho-files/supplier-chiho-files.controller.ts`: `POST /api/supplier/chiho-files` nhận thêm `@Body('order_container_id')`, truyền xuống service.
+- `src/modules/supplier-chiho-files/supplier-chiho-files.service.ts`: `uploadFiles(..., orderContainerId?)` append `order_container_id` vào multipart khi có.
+
+**Ảnh hưởng fullstack:** Form upload nhận thêm `order_container_id` (tùy chọn) → proxy nguyên trạng sang A `POST /api/mhcom/supplier/chiho-files/`. FE màn Kê cước & chi hộ gửi field này.
+
+## [2026-06-19 02:00] — Revert: upload Chi hộ chỉ theo order_id
+
+**Yêu cầu:** Bỏ gắn file theo container; giữ logic upload theo đơn.
+
+**Các file đã thay đổi:**
+- `src/modules/supplier-chiho-files/supplier-chiho-files.controller.ts`: bỏ `@Body('order_container_id')`.
+- `src/modules/supplier-chiho-files/supplier-chiho-files.service.ts`: `uploadFiles(...)` bỏ tham số `orderContainerId` và field multipart tương ứng.
+
+**Ảnh hưởng fullstack:** Form upload chỉ còn `order_id` + file (như trước).
