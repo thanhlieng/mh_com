@@ -7,17 +7,26 @@ module.exports = {
   //   dirs: ['src'],
   // },
 
-  env: {
-    NEXT_PUBLIC_API_HOST: 'http://localhost:3000',
-  },
+  // env: {
+  //   NEXT_PUBLIC_API_HOST: 'http://localhost:3000',
+  // },
 
+  // Proxy mọi request không khớp page Next.js sang backend nội bộ.
+  // Trình duyệt gọi https://mhgreatsun.com/..., Next.js forward tới backend-mh:3000
+  // qua mạng nội bộ → backend không lộ ra Internet.
   async rewrites() {
-    return [
-      {
-        source: '/api/:path*',
-        destination: 'http://backend-mh:3000/:path*',
-      },
-    ];
+    return {
+      fallback: [
+        {
+          source: '/api/:path*',
+          destination: 'http://backend-mh:3000/:path*',
+        },
+        {
+          source: '/mhvn/:path*',
+          destination: 'http://backend-mh:3000/api/:path*',
+        },
+      ],
+    };
   },
 
   output: 'standalone',

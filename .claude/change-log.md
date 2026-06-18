@@ -272,3 +272,27 @@
 **Lý do / bối cảnh:** UX mới: người dùng chủ động tìm đơn hàng trước, sau đó mới upload chứng từ. Giảm tải API và không load toàn bộ danh sách khi vào trang.
 
 **Ảnh hưởng fullstack:** Vẫn dùng `GET /supplier/transactions?q=...` — không thay đổi contract API.
+
+## [2026-06-17 09:10] — Ẩn backend, route toàn bộ API call qua domain frontend (mhgreatsun.com)
+
+**Yêu cầu:** Ẩn backend khỏi Internet, mọi API call đi qua endpoint của frontend, dùng domain `https://mhgreatsun.com`.
+
+**Các file đã thay đổi:**
+- `MH/next.config.js` (mục `rewrites`): bật `rewrites()` dạng `fallback` proxy mọi path không khớp page Next.js sang `http://backend-mh:3000/:path*`. Next.js đóng vai reverse proxy server-side.
+- `docker-compose.yml` (service `backend-mh`): bỏ network `proxy`, đổi `ports: ["3000"]` → `expose: ["3000"]` để backend chỉ truy cập được qua mạng nội bộ `mh-internal`, không publish ra host.
+- `docker-compose.yml` (service `frontend-mh`): đổi `NEXT_PUBLIC_API_HOST` (cả build arg + env) từ `http://backend-mh:3000` → `https://mhgreatsun.com`; gỡ `ports: ["3000"]` (Traefik truy cập qua network `proxy`); gắn middleware redirect HTTP→HTTPS (`traefik.http.routers.mhcom-frontend.middlewares=mhcom-frontend-https`) vốn bị định nghĩa nhưng chưa attach; chuẩn hoá lại khối `labels`.
+
+**Lý do / bối cảnh:** `NEXT_PUBLIC_API_HOST` được inline vào bundle client lúc build và chạy ở trình duyệt; giá trị cũ `http://backend-mh:3000` là DNS nội bộ Docker, trình duyệt không gọi được nên mọi API call fail. Trỏ về `https://mhgreatsun.com` (cùng origin frontend) + rewrites giúp trình duyệt gọi cùng domain, Next.js forward nội bộ tới backend → backend được ẩn hoàn toàn.
+
+**Ảnh hưởng fullstack:** Không đổi API contract. `BASE_URL` → `https://mhgreatsun.com`, `BASE_URL_GEN_BILL` → `https://mhgreatsun.com/api` (xem `MH/src/contants/common.constants.ts`). Lưu ý: đổi `NEXT_PUBLIC_API_HOST` bắt buộc **build lại image frontend** (`docker compose build frontend-mh`), không chỉ restart.
+
+## [2026-06-17 09:20] — Fix bundle inline "undefined" trong NEXT_PUBLIC_API_HOST (Dockerfile)
+
+**Yêu cầu:** API call ra `https://mhgreatsun.com/undefined/api/` — chữ "undefined" do biến môi trường rỗng lúc build.
+
+**Các file đã thay đổi:**
+- `MH/Dockerfile` (trước bước `RUN yarn build`): thêm `ARG NEXT_PUBLIC_API_HOST` và `ENV NEXT_PUBLIC_API_HOST=$NEXT_PUBLIC_API_HOST`.
+
+**Lý do / bối cảnh:** `args` trong docker-compose được truyền vào build nhưng Dockerfile chưa khai báo `ARG`/`ENV`, nên lúc `next build` chạy `process.env.NEXT_PUBLIC_API_HOST` = undefined → Next inline chuỗi "undefined" vào bundle client → `BASE_URL_GEN_BILL = "undefined/api"` (xem `MH/src/contants/common.constants.ts`). Lưu ý không set `ENV NODE_ENV=production` trước `yarn install` để không bỏ devDependencies (cần cho build).
+
+**Ảnh hưởng fullstack:** Không đổi API contract. Bắt buộc build lại image frontend không dùng cache cũ.
