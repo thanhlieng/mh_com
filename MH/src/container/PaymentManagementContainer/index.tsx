@@ -448,12 +448,12 @@ const PaymentManagementContainer = () => {
           orderCode={uploadContainer.order.order_code}
           containerNo={uploadContainer.container.container_no}
           bookingBillNumber={uploadContainer.order.booking_bill_number ?? undefined}
-          initialUploadedCount={containerUploadedCounts[uploadContainer.container.id] ?? 0}
           onClose={() => setUploadContainer(null)}
-          onUploaded={(total) =>
+          onUploaded={(added) =>
             setContainerUploadedCounts((prev) => ({
               ...prev,
-              [uploadContainer.container.id]: total,
+              [uploadContainer.container.id]:
+                (prev[uploadContainer.container.id] ?? 0) + added,
             }))
           }
         />

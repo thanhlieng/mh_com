@@ -12,14 +12,15 @@ import {
 } from 'lucide-react';
 import { notification } from 'antd';
 import * as React from 'react';
-import { useMutation } from 'react-query';
+import { useMutation, useQuery } from 'react-query';
 
 import { cn } from '@/lib/utils';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
-import { uploadChiHoFiles } from '@/services/supplier.services';
+import { listChiHoFiles, uploadChiHoFiles } from '@/services/supplier.services';
+import type { ChiHoApprovalStatus, ChiHoFile } from '@/services/supplier.services';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -49,6 +50,31 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function formatDateTime(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return iso;
+  }
+}
+
+// Thứ tự + nhãn + màu cho từng nhóm trạng thái duyệt.
+const STATUS_GROUPS: {
+  key: ChiHoApprovalStatus;
+  label: string;
+  box: string;
+  num: string;
+}[] = [
+  { key: 'APPROVED', label: 'Đã duyệt', box: 'border-green-200 bg-green-50', num: 'text-green-700' },
+  { key: 'PENDING', label: 'Chờ duyệt', box: 'border-amber-200 bg-amber-50', num: 'text-amber-700' },
+  { key: 'REJECTED', label: 'Từ chối', box: 'border-red-200 bg-red-50', num: 'text-red-700' },
+];
+
 const TYPE_ICON: Record<FileType, React.ReactNode> = {
   pdf: <FileTextIcon className='h-4 w-4 text-red-500' />,
   excel: <FileSpreadsheetIcon className='h-4 w-4 text-green-600' />,
@@ -64,11 +90,9 @@ interface ChiHoUploadModalProps {
   /** Số container — chỉ để hiển thị giúp NCC biết đang upload cho container nào. */
   containerNo?: string;
   bookingBillNumber?: string;
-  /** Số file đã upload trước đó trong phiên (hiển thị lại khi mở lại modal). */
-  initialUploadedCount?: number;
   onClose: () => void;
-  /** Báo cho cha tổng số file đã upload (cộng dồn) của đơn này. */
-  onUploaded: (totalCount: number) => void;
+  /** Báo số file vừa upload thành công trong lần gọi này (đều ở trạng thái Chờ duyệt). */
+  onUploaded?: (addedCount: number) => void;
 }
 
 /**
@@ -81,28 +105,44 @@ export function ChiHoUploadModal({
   orderCode,
   containerNo,
   bookingBillNumber,
-  initialUploadedCount = 0,
   onClose,
   onUploaded,
 }: ChiHoUploadModalProps) {
   const [isDragging, setIsDragging] = React.useState(false);
   const [rejected, setRejected] = React.useState<string[]>([]);
   const [staged, setStaged] = React.useState<{ key: string; file: File }[]>([]);
-  // Tổng số file đã tải lên thành công trong phiên mở modal này (cộng dồn).
-  const [uploadedCount, setUploadedCount] = React.useState(initialUploadedCount);
+  // Số file đã tải lên thành công trong phiên mở modal này (cộng dồn).
+  const [sessionUploaded, setSessionUploaded] = React.useState(0);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const folderInputRef = React.useRef<HTMLInputElement>(null);
   const keySeq = React.useRef(0);
+
+  // Danh sách file Chi hộ đã upload của đơn (theo từng trạng thái duyệt).
+  const filesQuery = useQuery(
+    ['chiho-files-modal', orderId],
+    () => listChiHoFiles(orderId),
+    { enabled: !!orderId, retry: false },
+  );
+  const files: ChiHoFile[] = filesQuery.data?.data ?? [];
+  const filesByStatus = React.useMemo(() => {
+    const map: Record<ChiHoApprovalStatus, ChiHoFile[]> = {
+      APPROVED: [],
+      PENDING: [],
+      REJECTED: [],
+    };
+    for (const f of files) (map[f.approval_status] ?? map.PENDING).push(f);
+    return map;
+  }, [files]);
 
   const uploadMutation = useMutation(
     (files: File[]) => uploadChiHoFiles(orderId, files),
     {
       onSuccess: (res) => {
         const n = res?.data?.length ?? staged.length;
-        const total = uploadedCount + n;
-        setUploadedCount(total);
-        onUploaded(total);
+        setSessionUploaded((s) => s + n);
+        onUploaded?.(n);
         setStaged([]);
+        filesQuery.refetch();
         notification.success({
           message: `Đã tải lên ${n} file`,
           placement: 'top',
@@ -241,12 +281,74 @@ export function ChiHoUploadModal({
           )}
 
           {/* Đã tải lên trong phiên */}
-          {uploadedCount > 0 && (
+          {sessionUploaded > 0 && (
             <div className='mt-3 flex items-center gap-2 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-700'>
               <CheckCircle2Icon className='h-4 w-4' />
-              Đã tải lên <span className='font-semibold'>{uploadedCount}</span> file trong phiên này.
+              Vừa tải lên <span className='font-semibold'>{sessionUploaded}</span> file (đang chờ duyệt).
             </div>
           )}
+
+          {/* File đã upload — nhóm theo trạng thái duyệt, liệt kê từng file */}
+          <div className='mt-5'>
+            <div className='mb-2 flex items-center justify-between'>
+              <h3 className='text-xs font-semibold text-foreground'>File đã tải lên</h3>
+              {filesQuery.isFetching && (
+                <Loader2Icon className='h-3.5 w-3.5 animate-spin text-muted-foreground' />
+              )}
+            </div>
+
+            {files.length === 0 && !filesQuery.isFetching ? (
+              <div className='rounded-md border border-dashed border-border py-8 text-center text-xs text-muted-foreground'>
+                Chưa có file nào
+              </div>
+            ) : (
+              <div className='flex flex-col gap-3'>
+                {STATUS_GROUPS.map((g) => {
+                  const list = filesByStatus[g.key];
+                  return (
+                    <div key={g.key} className={cn('rounded-md border', g.box)}>
+                      <div className='flex items-center justify-between px-3 py-1.5'>
+                        <span className={cn('text-xs font-semibold', g.num)}>{g.label}</span>
+                        <span className={cn('text-xs font-semibold tabular-nums', g.num)}>
+                          {list.length}
+                        </span>
+                      </div>
+                      {list.length > 0 && (
+                        <ul className='flex flex-col gap-1 border-t border-black/5 px-2 py-1.5'>
+                          {list.map((f) => (
+                            <li
+                              key={f.id}
+                              className='flex items-center gap-2 rounded bg-background/70 px-2 py-1'
+                            >
+                              <span className='shrink-0'>{TYPE_ICON[getFileType(f.file_name ?? '')]}</span>
+                              <div className='min-w-0 flex-1'>
+                                <p className='truncate text-xs font-medium text-foreground'>
+                                  {f.file_name ?? `file-${f.id}`}
+                                </p>
+                                <p className='text-[10px] text-muted-foreground'>
+                                  {formatDateTime(f.created_at)}
+                                </p>
+                              </div>
+                              {f.file_url && (
+                                <a
+                                  href={f.file_url}
+                                  target='_blank'
+                                  rel='noreferrer'
+                                  className='shrink-0 text-[10px] text-primary hover:underline'
+                                >
+                                  Xem
+                                </a>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
           {/* Danh sách chờ tải lên */}
           <div className='mt-5'>

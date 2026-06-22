@@ -629,3 +629,34 @@ Mục đích: giúp team hiểu được những gì đang được làm mà kh�
 - `src/container/PaymentManagementContainer/index.tsx`: bỏ truyền `orderContainerId`; badge đếm cục bộ theo `container.id`.
 
 **Ảnh hưởng fullstack:** `POST /api/supplier/chiho-files` không còn gửi `order_container_id` (quay lại chỉ `order_id`).
+
+## [2026-06-19 02:40] — Kê cước & chi hộ: hiển thị số file theo trạng thái duyệt (cột tải lên + modal)
+
+**Yêu cầu:** Cột upload OrderChiHo (tab "Kê cước & chi hộ") hiển thị số file Đã duyệt / Chờ duyệt / Từ chối; modal upload cũng hiển thị 3 con số này.
+
+**Các file đã thay đổi:**
+- `src/services/supplier.services.ts`: `KeCuocChiHoRow` thêm `file_counts {approved,pending,rejected}`.
+- `src/container/CostStatementContainer/KeCuocChiHoTable.tsx`: cột "Tải lên" thêm 3 chip trạng thái (xanh/vàng/đỏ) từ `file_counts`; thay `uploadedCounts` (theo container) bằng `pendingDelta` theo **order_id** (file vừa upload là Chờ duyệt → cộng vào pending hiển thị mà không cần refetch); truyền `counts` vào modal; `onUploaded(added)` cộng dồn pending.
+- `src/container/CostStatementContainer/ChiHoUploadModal.tsx`: prop `counts` (hiển thị 3 ô trạng thái) + `onUploaded(addedCount)`; bỏ `initialUploadedCount`; dòng "vừa tải lên N file (đang chờ duyệt)".
+- `src/container/PaymentManagementContainer/index.tsx`: cập nhật theo chữ ký `onUploaded(added)` mới.
+
+**Ảnh hưởng fullstack:** `GET /api/supplier/transactions/ke-cuoc-chi-ho` (proxy A `GET /api/mhcom/supplier/ke-cuoc-chi-ho/`) nay trả thêm `file_counts` mỗi dòng.
+
+## [2026-06-19 03:10] — Modal upload: liệt kê file theo từng trạng thái + thanh cuộn ngang trên bảng
+
+**Yêu cầu:** Modal upload hiển thị danh sách file trong từng trạng thái (không chỉ con số); đặt thêm thanh cuộn ngang phía trên bảng "Kê cước & chi hộ" cho dễ cuộn.
+
+**Các file đã thay đổi:**
+- `src/container/CostStatementContainer/ChiHoUploadModal.tsx`: fetch `listChiHoFiles(orderId)`, nhóm theo `approval_status` (Đã duyệt/Chờ duyệt/Từ chối) và liệt kê từng file (tên + thời gian + link Xem); refetch sau khi upload; bỏ prop `counts` (tự lấy từ list).
+- `src/container/CostStatementContainer/KeCuocChiHoTable.tsx`: thêm thanh cuộn ngang phía trên bảng (`topScrollRef`) đồng bộ `scrollLeft` 2 chiều với vùng bảng (`bodyScrollRef`); bỏ truyền prop `counts` cho modal; reset `pendingDelta` khi dữ liệu refetch (tránh đếm trùng file vừa upload).
+
+**Ảnh hưởng fullstack:** Không (dùng lại `GET /api/supplier/chiho-files?order_id=`). Thuần FE.
+
+## [2026-06-19 03:25] — Kê cước & chi hộ: không tự tải lại khi chuyển/focus lại tab
+
+**Yêu cầu:** Mỗi lần chuyển tab rồi quay lại tab "Kê cước & chi hộ" thì list bị tải lại — tắt việc tự tải lại đó.
+
+**Các file đã thay đổi:**
+- `src/container/CostStatementContainer/KeCuocChiHoTable.tsx`: query `supplier-ke-cuoc-chi-ho` thêm `refetchOnWindowFocus: false`, `refetchOnMount: false`, `staleTime: Infinity` → dùng cache khi quay lại tab; làm mới chỉ qua nút "Tải lại" hoặc đổi bộ lọc.
+
+**Ảnh hưởng fullstack:** Không. Thuần FE.

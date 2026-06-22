@@ -260,6 +260,8 @@ export interface KeCuocChiHoRow {
   so_tien_ha_cont_kh: number;
   so_tien_luu_cont_kh: number;
   tong_chi_ho_kh: number;
+  // Số file Chi hộ (do supplier upload từ mhcom) theo trạng thái duyệt — theo ĐƠN.
+  file_counts: { approved: number; pending: number; rejected: number };
 }
 
 export interface KeCuocChiHoResponse {
