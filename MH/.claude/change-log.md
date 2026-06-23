@@ -660,3 +660,13 @@ Mục đích: giúp team hiểu được những gì đang được làm mà kh�
 - `src/container/CostStatementContainer/KeCuocChiHoTable.tsx`: query `supplier-ke-cuoc-chi-ho` thêm `refetchOnWindowFocus: false`, `refetchOnMount: false`, `staleTime: Infinity` → dùng cache khi quay lại tab; làm mới chỉ qua nút "Tải lại" hoặc đổi bộ lọc.
 
 **Ảnh hưởng fullstack:** Không. Thuần FE.
+
+## [2026-06-19 04:10] — Nút "Hủy đề nghị" gọi API xóa (tab Đề nghị thay đổi)
+
+**Yêu cầu:** Nút xóa đề nghị PENDING ở tab "Đề nghị thay đổi" (màn /cost-statement) cần gọi API thật.
+
+**Các file đã thay đổi:**
+- `src/services/supplier.services.ts`: thêm `deleteChangeRequest(id)` → `DELETE /supplier/change-requests/:id`.
+- `src/container/CostStatementContainer/index.tsx`: `handleCancelRequest` nay dùng mutation `deleteChangeRequest` (trước đây là TODO no-op), invalidate `supplier-change-requests` + thông báo thành công/lỗi. Nút "Hủy đề nghị" trong `ChangeRequestList` (chỉ hiện khi trạng thái "Chờ duyệt") đã có sẵn.
+
+**Ảnh hưởng fullstack:** Dùng `DELETE /api/supplier/change-requests/:id` (proxy sang A). Chỉ xóa được đề nghị PENDING của chính supplier.

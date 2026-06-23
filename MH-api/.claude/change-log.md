@@ -374,3 +374,13 @@ Frontend đã thêm service tương ứng trong `MH/src/services/supplier.servic
 - `src/modules/supplier-chiho-files/supplier-chiho-files.service.ts`: `uploadFiles(...)` bỏ tham số `orderContainerId` và field multipart tương ứng.
 
 **Ảnh hưởng fullstack:** Form upload chỉ còn `order_id` + file (như trước).
+
+## [2026-06-19 04:10] — Hủy đề nghị thay đổi cost (DELETE proxy)
+
+**Yêu cầu:** Màn /cost-statement (tab Đề nghị thay đổi) có nút xóa đề nghị đang PENDING — thêm xử lý.
+
+**Các file đã thay đổi:**
+- `src/modules/supplier-change-requests/supplier-change-requests.controller.ts`: thêm `DELETE /api/supplier/change-requests/:id`.
+- `src/modules/supplier-change-requests/supplier-change-requests.service.ts`: `remove(a_supplier_id, id)` proxy `DELETE /api/service-change-supplier-requests/<id>/` (token supplier).
+
+**Ảnh hưởng fullstack:** Endpoint mới `DELETE /api/supplier/change-requests/:id`. A đã có sẵn `ServiceChangeSupplierRequestAPI.destroy` (chỉ xóa khi PENDING + đúng supplier). FE gọi qua `deleteChangeRequest`.

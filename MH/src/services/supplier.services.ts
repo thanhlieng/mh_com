@@ -445,6 +445,13 @@ export const getChangeRequestDetail = (
   return axiosClient2.get(`/supplier/change-requests/${id}`) as Promise<ChangeRequestResponse>;
 };
 
+/** Hủy một yêu cầu thay đổi cost đang chờ duyệt (chỉ xóa được khi PENDING) */
+export const deleteChangeRequest = (
+  id: number | string,
+): Promise<void> => {
+  return axiosClient2.delete(`/supplier/change-requests/${id}`) as Promise<void>;
+};
+
 // ─── Yêu cầu thay đổi giá (price-change approval) ─────────────────────────────
 // Gọi system B: GET/DELETE /api/supplier/price-changes → proxy sang hệ thống A.
 // Token supplier; header X-Active-Supplier-Id tự đính kèm bởi axiosClient2.

@@ -44,4 +44,16 @@ export class SupplierChangeRequestsService {
       a_supplier_id,
     });
   }
+
+  /**
+   * Hủy (xóa) một yêu cầu thay đổi cost — chỉ khi đang PENDING (A kiểm tra).
+   * Proxy tới: DELETE /api/service-change-supplier-requests/<id>/ (token supplier).
+   */
+  async remove(a_supplier_id: string, id: number) {
+    return this.mhvnIntegrationService.callMhvn({
+      method: 'DELETE',
+      endpoint: `/api/service-change-supplier-requests/${id}/`,
+      a_supplier_id,
+    });
+  }
 }

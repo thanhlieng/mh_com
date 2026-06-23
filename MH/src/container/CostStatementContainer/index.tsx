@@ -37,7 +37,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 import { withPrivateRouteSupplier } from '@/routes/withPrivateRouteSupplier';
-import { exportCostStatement, exportKeCuocChiHoReport, getSupplierTransactions, getChangeRequests, createChangeRequest } from '@/services/supplier.services';
+import { exportCostStatement, exportKeCuocChiHoReport, getSupplierTransactions, getChangeRequests, createChangeRequest, deleteChangeRequest } from '@/services/supplier.services';
 import type { SupplierTransactionsParams, SupplierTransaction } from '@/services/supplier.services';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 
@@ -563,9 +563,26 @@ const CostStatementContainer = () => {
   };
 
   // Hủy một đề nghị đang chờ duyệt (chỉ áp dụng cho trạng thái "Chờ duyệt")
+  const deleteRequestMutation = useMutation(deleteChangeRequest, {
+    onSuccess: () => {
+      queryClient.invalidateQueries('supplier-change-requests');
+      notification.success({
+        message: 'Đã hủy đề nghị thay đổi',
+        placement: 'top',
+      });
+    },
+    onError: (e: any) => {
+      notification.error({
+        message: e?.response?.data?.message
+          ? `${e.response.data.message}`
+          : 'Hủy đề nghị thất bại',
+        placement: 'top',
+      });
+    },
+  });
+
   const handleCancelRequest = (id: string) => {
-    // TODO: gọi API hủy đề nghị khi có endpoint (hiện tại API hệ thống A chưa hỗ trợ cancel)
-    queryClient.invalidateQueries('supplier-change-requests');
+    deleteRequestMutation.mutate(id);
   };
 
   // Export to Excel via API (backend generates the file)

@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Delete,
   Param,
   Body,
   Headers,
@@ -76,5 +77,19 @@ export class SupplierChangeRequestsController {
     );
     console.log(dto)
     return this.service.create(a_supplier_id, dto);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Hủy yêu cầu thay đổi cost (chỉ khi PENDING)' })
+  async remove(
+    @GetUser() user: UserEntity,
+    @Headers('x-active-supplier-id') activeSupplierId: string,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    const a_supplier_id = await this.activeLinkService.resolveSupplier(
+      user,
+      activeSupplierId,
+    );
+    return this.service.remove(a_supplier_id, id);
   }
 }
