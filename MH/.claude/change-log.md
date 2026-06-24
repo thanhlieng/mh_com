@@ -670,3 +670,72 @@ Mục đích: giúp team hiểu được những gì đang được làm mà kh�
 - `src/container/CostStatementContainer/index.tsx`: `handleCancelRequest` nay dùng mutation `deleteChangeRequest` (trước đây là TODO no-op), invalidate `supplier-change-requests` + thông báo thành công/lỗi. Nút "Hủy đề nghị" trong `ChangeRequestList` (chỉ hiện khi trạng thái "Chờ duyệt") đã có sẵn.
 
 **Ảnh hưởng fullstack:** Dùng `DELETE /api/supplier/change-requests/:id` (proxy sang A). Chỉ xóa được đề nghị PENDING của chính supplier.
+
+## [2026-06-23 23:44] — Thêm cột "Chi hộ về" cuối nhóm Chi hộ ở màn /supplier/cost-statement (tab Kê cước & Chi hộ)
+
+**Yêu cầu:** Hiển thị thêm cột "Chi hộ về" ở cuối phần chi hộ. Nếu `order.chi_ho_for === 'kh'` thì show `customer.company_name - customer.tax_number - customer.address`.
+
+**Các file đã thay đổi:**
+- `MH/src/services/supplier.services.ts` (interface `KeCuocChiHoRow`): thêm field `chi_ho_ve: string`.
+- `MH/src/container/CostStatementContainer/KeCuocChiHoTable.tsx`:
+  - `LEAF_COLS`: thêm `{ id: 'chi_ho_ve', w: 240 }` ngay trước `upload`.
+  - `visibleLeafCols` filter: thêm điều kiện `c.id === 'chi_ho_ve'` để cột này chỉ hiện khi `showChiHo`.
+  - `totalVisibleCols`: cộng thêm 1 cột phi-tiền khi `showChiHo` (từ `+1` → `+2`).
+  - `<thead>`: thêm `LeafTh id='chi_ho_ve'` rowSpan=2, label "Chi hộ về", đặt giữa "Tổng chi hộ về KH" và cột "Tải file chi hộ".
+  - `<tbody>`: thêm `<td>` render `row.chi_ho_ve` (wrap text, tooltip = full string, fallback "—").
+  - `<tfoot>`: thêm 1 `<td>` trống nữa cho cột "Chi hộ về" trong dòng tổng.
+
+**Lý do / bối cảnh:** NCC cần biết khoản chi hộ này là chi hộ cho đối tượng nào (KH/MH) ngay trên bảng kê. Hiện tại mới hiển thị cho `chi_ho_for === 'kh'` (KH = khách hàng) — show thông tin định danh khách hàng. Các giá trị khác để rỗng.
+
+**Ảnh hưởng fullstack:** Endpoint `GET /api/supplier/transactions/ke-cuoc-chi-ho` (proxy → A: `/api/mhcom/supplier/ke-cuoc-chi-ho/`) bổ sung field `chi_ho_ve: string` trong mỗi item của `results[]`. Backend A đã cập nhật ở `mhcom/supplier_kecuoc_chiho_views.py` (build_kecuoc_chiho_rows). Backend B (NestJS) chỉ proxy nên không cần đổi.
+
+## [2026-06-24 01:43] — Tab "Danh sách yêu cầu tải lên": cho phép xoá yêu cầu PENDING
+
+**Yêu cầu:** Trên màn `/supplier/payment-management` tab "Danh sách yêu cầu tải lên" cần thêm action xoá các yêu cầu có `approval_status === 'PENDING'`.
+
+**Các file đã thay đổi:**
+- `MH/src/services/supplier.services.ts`: thêm hàm `deleteChiHoUpload(fileId)` gọi `DELETE /supplier/chiho-files/uploads/:id` (proxy sang mhvn).
+- `MH/src/container/PaymentManagementContainer/UploadRequestsTab.tsx`:
+  - Import thêm `Popconfirm`, `notification` (antd), `useMutation`/`useQueryClient` (react-query), `Trash2Icon`.
+  - Thêm `useMutation(deleteChiHoUpload)`: thành công → toast + invalidate `chiho-uploads` và `supplier-ke-cuoc-chi-ho` (để counters Chờ duyệt ở bảng kê tự cập nhật); lỗi → toast `detail`/`message` từ A.
+  - Thêm cột "Hành động" cuối bảng. Chỉ hàng `PENDING` mới hiện nút xoá (dấu thùng rác đỏ) bọc trong `Popconfirm` xác nhận; các trạng thái khác hiển thị `—`.
+
+**Lý do / bối cảnh:** NCC cần huỷ yêu cầu vừa upload nhầm khi chưa được mhgs duyệt. Sau khi duyệt (APPROVED/REJECTED) không được xoá để giữ audit trail — backend enforce điều này.
+
+**Ảnh hưởng fullstack:** Phụ thuộc endpoint mới `DELETE /api/supplier/chiho-files/uploads/:id` ở MH-api (proxy → mhvn `DELETE /api/mhcom/supplier/chiho-files/<id>/`). Response 204 No Content; lỗi 400 nếu đã APPROVED/REJECTED, 404 nếu file không thuộc supplier.
+
+## [2026-06-24 02:13] — Xem/tải file Chi hộ qua proxy MH-api (axios + JWT mhcom)
+
+**Yêu cầu:** Sửa lỗi không xem/tải được file Chi hộ ở mhcom (do `file_url` trả về là path `/media/...` của hệ thống A).
+
+**Các file đã thay đổi:**
+- `MH/src/services/supplier.services.ts`: thêm `downloadChiHoUpload(fileId, disposition)` — gọi `GET /supplier/chiho-files/uploads/:id/download` với `responseType: 'blob'`, trả `Blob` để caller tự `URL.createObjectURL`.
+- `MH/src/container/PaymentManagementContainer/UploadRequestsTab.tsx`:
+  - Thêm 2 helper `openChiHoBlob(fileId)` (mở tab mới — `disposition=inline`) và `downloadChiHoBlob(fileId, fileName)` (ép tải — `disposition=attachment`); revoke object URL sau 60s/ngay sau click để khỏi rò RAM.
+  - Bỏ `openFile(url)` và `<a download href={r.file_url}>` cũ.
+  - Thêm state `busyIds` để disable nút trong lúc fetch (tránh double-click) và spinner cho nút xem.
+  - Wrap action qua `runFileAction` (try/catch + toast lỗi từ A: `detail`/`message`).
+- `MH/src/container/PaymentManagementContainer/FileUploadPanel.tsx`: `handleDownload` nay dùng `downloadChiHoUpload` (xoá TODO cũ); giữ điều kiện `disabled={!file.url}` để chỉ tải file đã upload thực sự (không tải file đang chờ upload).
+
+**Lý do / bối cảnh:** FE mhcom và A là 2 host khác nhau, FE cũng không gắn được supplier token vào `window.open`/`<a download>` → bắt buộc fetch blob qua axios (MH-api proxy sang A). Đồng thời tuân thủ nguyên tắc kiến trúc "FE B không gọi thẳng A".
+
+**Ảnh hưởng fullstack:** Phụ thuộc endpoint mới ở MH-api: `GET /api/supplier/chiho-files/uploads/:id/download?disposition=inline|attachment` (proxy → `/api/mhcom/supplier/chiho-files/<id>/download/` ở A). Response = binary stream. Lỗi sẽ trả JSON `{ detail }` từ A — interceptor đã xử lý.
+
+## [2026-06-24 02:38] — Xem/tải file Chi hộ: prefix host mhvn vào file_url (bỏ proxy blob)
+
+**Yêu cầu:** Đơn giản hoá — `/media/` ở mhvn public, chỉ cần prepend host FE của mhvn (mhgs_log_be) vào `file_url`, không cần fetch blob qua axios.
+
+**Các file đã thay đổi:**
+- `MH/src/services/supplier.services.ts`:
+  - Bỏ hàm `downloadChiHoUpload` (blob qua proxy).
+  - Thêm constant `MHGS_HOST = process.env.NEXT_PUBLIC_MHGS_HOST ?? ''`.
+  - Thêm helper `resolveChiHoFileUrl(fileUrl)`: nếu absolute (http/https) → giữ nguyên; nếu relative → prepend `MHGS_HOST`; null/empty → trả null.
+- `MH/src/container/PaymentManagementContainer/UploadRequestsTab.tsx`:
+  - Bỏ `openChiHoBlob`, `downloadChiHoBlob`, state `busyIds`, helper `runFileAction`, spinner.
+  - Thay bằng `openFile(url)` dùng `resolveChiHoFileUrl` rồi `window.open`.
+  - Nút tải dùng `<a download href={resolveChiHoFileUrl(r.file_url)}>` như cũ.
+- `MH/src/container/PaymentManagementContainer/FileUploadPanel.tsx`: `handleDownload` dùng `resolveChiHoFileUrl(file.url)` rồi tạo `<a download>`; bỏ async/blob.
+
+**Lý do / bối cảnh:** mhvn phục vụ `/media/...` public không cần auth, FE có thể request thẳng. Cấu hình host qua env `NEXT_PUBLIC_MHGS_HOST` (vd `https://mhvn.example.com`); thiếu env → dùng path tương đối (hợp khi mhvn và mhcom cùng domain qua reverse-proxy).
+
+**Ảnh hưởng fullstack:** Bỏ phụ thuộc endpoint `GET /api/supplier/chiho-files/uploads/:id/download` ở MH-api (đã revert ở MH-api). Cần set env `NEXT_PUBLIC_MHGS_HOST` ở môi trường staging/prod (Dockerfile/docker-compose) để FE biết gọi host nào.

@@ -18,7 +18,10 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
-import { uploadChiHoFiles } from '@/services/supplier.services';
+import {
+  resolveChiHoFileUrl,
+  uploadChiHoFiles,
+} from '@/services/supplier.services';
 import type { ChiHoFile, OrderByCodeResponse } from '@/services/supplier.services';
 import { type UploadedFile, type UploadedFileType } from './types';
 
@@ -181,10 +184,12 @@ export function FileUploadPanel({
   };
 
   const handleDownload = (file: UploadedFile) => {
-    if (!file.url || file.url === '#') return;
-    // TODO: khi có proxy tải file từ hệ thống A, dùng URL đó
+    // `file.url` là path `/media/...` của mhvn → prepend host mhvn để FE tải
+    // thẳng (mhvn /media public, không cần auth).
+    const full = resolveChiHoFileUrl(file.url ?? null);
+    if (!full) return;
     const a = document.createElement('a');
-    a.href = file.url;
+    a.href = full;
     a.download = file.name;
     document.body.appendChild(a);
     a.click();

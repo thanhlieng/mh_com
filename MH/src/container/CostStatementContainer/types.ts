@@ -29,6 +29,10 @@ export type ChangeRequestStatus =
   | 'Từ chối'
   | 'Đang xử lý';
 
+/** Lý do mặc định khi sửa chi phí — user có thể chỉnh lại trong modal xác nhận */
+export const DEFAULT_EDIT_REASON =
+  'Cập nhật cost theo thực tế phát sinh, vui lòng MH duyệt.';
+
 /** Một thay đổi cụ thể của một ô trong bảng kê */
 export interface ChangeRequestItem {
   rowId: string;
@@ -37,6 +41,10 @@ export interface ChangeRequestItem {
   fieldLabel: string;
   oldValue: string;
   newValue: string;
+  reason?: string | null;       // Lý do supplier điền khi gửi
+  reviewNote?: string | null;   // Phản hồi MH-logistic khi duyệt/từ chối
+  approvedBy?: string | null;
+  approvedAt?: string | null;
 }
 
 /** Một đề nghị thay đổi đã gửi đi */
@@ -83,6 +91,10 @@ export function mapApiResponseToChangeRequest(
         fieldLabel: 'Tiền',
         oldValue: oldCost.toLocaleString('vi-VN') + ' ₫',
         newValue: reqCost.toLocaleString('vi-VN') + ' ₫',
+        reason: apiItem.reason ?? null,
+        reviewNote: apiItem.review_note ?? null,
+        approvedBy: apiItem.approved_by ?? null,
+        approvedAt: apiItem.approved_at ?? null,
       },
     ],
   };

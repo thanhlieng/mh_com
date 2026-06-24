@@ -8,6 +8,8 @@ RUN yarn install --frozen-lockfile
 # Không khai báo ARG/ENV ở đây thì process.env.NEXT_PUBLIC_API_HOST = undefined khi build.
 ARG NEXT_PUBLIC_API_HOST
 ENV NEXT_PUBLIC_API_HOST=$NEXT_PUBLIC_API_HOST
+ARG NEXT_PUBLIC_MHGS_HOST
+ENV NEXT_PUBLIC_MHGS_HOST=$NEXT_PUBLIC_MHGS_HOST
 
 RUN yarn build
 

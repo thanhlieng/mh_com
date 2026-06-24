@@ -33,6 +33,8 @@ import {
 } from '@/services/supplier.services';
 
 import { ChiHoUploadModal } from './ChiHoUploadModal';
+import { ConfirmChangesModal, type DirtyRowChange } from './ConfirmChangesModal';
+import { DEFAULT_EDIT_REASON } from './types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -114,6 +116,7 @@ const LEAF_COLS: { id: string; w: number }[] = [
   { id: 'kh_ha', w: 90 },
   { id: 'kh_luu', w: 110 },
   { id: 'tong_chi_ho_kh', w: 110 },
+  { id: 'chi_ho_ve', w: 240 },
   { id: 'upload', w: 140 },
 ];
 
@@ -148,7 +151,7 @@ function EditableMoneyCell({
 
   if (!editable) {
     return (
-      <Tooltip title='Đã khoá — chỉ sửa được ô có đúng 1 dòng chi phí, đơn chưa hoàn tất. Liên hệ MH để thay đổi.'>
+      <Tooltip title={value > 0 ? 'Đã khoá — Liên hệ MH để thay đổi.':''}>
         <div className='cursor-not-allowed px-1 py-1 text-right text-xs tabular-nums text-muted-foreground'>
           {formatVND(value)}
         </div>
@@ -368,7 +371,7 @@ const KeCuocChiHoTable = () => {
 
   // Phần hiển thị: cả hai | chỉ Cước | chỉ Chi hộ.
   const [section, setSection] = React.useState<'both' | 'cuoc' | 'chiho'>(
-    'both'
+    'chiho'
   );
   const showCuoc = section !== 'chiho';
   const showChiHo = section !== 'cuoc';
@@ -386,6 +389,7 @@ const KeCuocChiHoTable = () => {
     if (CUOC_COL_IDS.includes(c.id)) return showCuoc;
     if (
       c.id === 'upload' ||
+      c.id === 'chi_ho_ve' ||
       c.id.startsWith('mh_') ||
       c.id.startsWith('kh_') ||
       c.id.startsWith('tong_chi_ho')
@@ -403,8 +407,8 @@ const KeCuocChiHoTable = () => {
   const visibleMoneyCols = MONEY_COLUMNS.filter((c) =>
     CUOC_COL_IDS.includes(c as string) ? showCuoc : showChiHo
   );
-  // Tổng số cột hiển thị (10 cột thông tin + cột tiền + cột Tải file khi hiện Chi hộ).
-  const totalVisibleCols = 10 + visibleMoneyCols.length + (showChiHo ? 1 : 0);
+  // Tổng số cột hiển thị (10 cột thông tin + cột tiền + cột "Chi hộ về" và "Tải file" khi hiện Chi hộ).
+  const totalVisibleCols = 10 + visibleMoneyCols.length + (showChiHo ? 2 : 0);
 
   const queryClient = useQueryClient();
 
@@ -498,9 +502,17 @@ const KeCuocChiHoTable = () => {
     },
   });
 
-  const handleConfirm = () => {
-    const payload: { pnl: number; order: number; requested_cost: number }[] =
-      [];
+  // Lý do thay đổi per dirty key (`${tt}-${field}`)
+  const [reasonMap, setReasonMap] = React.useState<Record<string, string>>({});
+  const [confirmModalOpen, setConfirmModalOpen] = React.useState(false);
+
+  /** Danh sách thay đổi hợp lệ (có pnl + order, ids.length===1). */
+  const dirtyChanges: (DirtyRowChange & {
+    pnlId: number;
+    orderId: number;
+  })[] = React.useMemo(() => {
+    const out: (DirtyRowChange & { pnlId: number; orderId: number })[] = [];
+    const origByTt = new Map(originalRef.current.map((r) => [r.tt, r]));
     for (const key of Array.from(dirty)) {
       const [ttStr, field] = key.split('-');
       const tt = Number(ttStr);
@@ -509,14 +521,60 @@ const KeCuocChiHoTable = () => {
       const idsKey = `${field}_pnl_ids` as keyof KeCuocChiHoRow;
       const ids = (row[idsKey] as number[]) ?? [];
       if (ids.length !== 1) continue;
-      payload.push({
-        pnl: ids[0],
-        order: row.order_id,
-        requested_cost: row[field as CuocField] as number,
+      const meta = CUOC_FIELDS.find((f) => f.key === (field as CuocField));
+      const orig = origByTt.get(tt);
+      out.push({
+        key,
+        orderCode: row.ma_don_hang || row.so_bill_booking,
+        containerNo: row.so_cont,
+        serviceName: meta?.label,
+        oldAmount: (orig?.[field as CuocField] as number) ?? 0,
+        newAmount: row[field as CuocField] as number,
+        pnlId: ids[0],
+        orderId: row.order_id,
       });
     }
+    return out;
+  }, [dirty, rows]);
+
+  const handleOpenConfirm = () => {
+    if (dirtyChanges.length === 0) return;
+    setReasonMap((prev) => {
+      const next: Record<string, string> = { ...prev };
+      for (const c of dirtyChanges) {
+        if (next[c.key] === undefined) next[c.key] = DEFAULT_EDIT_REASON;
+      }
+      return next;
+    });
+    setConfirmModalOpen(true);
+  };
+
+  const handleReasonChange = React.useCallback(
+    (key: string, value: string) => {
+      setReasonMap((prev) => ({ ...prev, [key]: value }));
+    },
+    [],
+  );
+
+  const handleResetReason = React.useCallback((key: string) => {
+    setReasonMap((prev) => ({ ...prev, [key]: DEFAULT_EDIT_REASON }));
+  }, []);
+
+  const handleSubmitChanges = async () => {
+    const payload = dirtyChanges.map((c) => ({
+      pnl: c.pnlId,
+      order: c.orderId,
+      requested_cost: c.newAmount,
+      reason: (reasonMap[c.key] ?? DEFAULT_EDIT_REASON).trim(),
+    }));
     if (payload.length === 0) return;
-    createMutation.mutate(payload);
+    try {
+      await createMutation.mutateAsync(payload);
+      setReasonMap({});
+      setConfirmModalOpen(false);
+    } catch {
+      // error toasted bởi react-query onError
+    }
   };
 
   const handleApply = () => {
@@ -695,8 +753,10 @@ const KeCuocChiHoTable = () => {
             <Button
               size='sm'
               className='h-7 gap-1.5 text-xs'
-              onClick={handleConfirm}
-              disabled={createMutation.isLoading}
+              onClick={handleOpenConfirm}
+              disabled={
+                createMutation.isLoading || dirtyChanges.length === 0
+              }
             >
               <CheckCircleIcon className='h-3 w-3' /> Gửi đề nghị ({dirtyCount})
             </Button>
@@ -929,6 +989,14 @@ const KeCuocChiHoTable = () => {
                           Tổng chi hộ về KH
                         </LeafTh>
                         <LeafTh
+                          id='chi_ho_ve'
+                          rowSpan={2}
+                          onResize={onResize}
+                          width={colWidths.chi_ho_ve}
+                        >
+                          Chi hộ về
+                        </LeafTh>
+                        <LeafTh
                           id='upload'
                           rowSpan={2}
                           onResize={onResize}
@@ -1130,6 +1198,20 @@ const KeCuocChiHoTable = () => {
                               <Money v={row.tong_chi_ho_kh} />
                             </td>
 
+                            {/* Chi hộ về (theo order.chi_ho_for) */}
+                            <td className='border-r border-border'>
+                              <div
+                                className='whitespace-normal break-words px-2 py-1 text-xs leading-snug'
+                                title={row.chi_ho_ve || ''}
+                              >
+                                {row.chi_ho_ve || (
+                                  <span className='italic text-muted-foreground'>
+                                    —
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+
                             {/* Tải file chi hộ + số file theo trạng thái duyệt */}
                             <td className='border-r border-border px-2 py-1'>
                               {(() => {
@@ -1197,7 +1279,12 @@ const KeCuocChiHoTable = () => {
                           {formatVND(totals[col as string])}
                         </td>
                       ))}
-                      {showChiHo && <td className='border-r border-border' />}
+                      {showChiHo && (
+                        <>
+                          <td className='border-r border-border' />
+                          <td className='border-r border-border' />
+                        </>
+                      )}
                     </tr>
                   </tfoot>
                 )}
@@ -1206,6 +1293,21 @@ const KeCuocChiHoTable = () => {
           </>
         )}
       </div>
+
+      {confirmModalOpen && (
+        <ConfirmChangesModal
+          changes={dirtyChanges}
+          reasonMap={reasonMap}
+          onReasonChange={handleReasonChange}
+          onResetReason={handleResetReason}
+          onClose={() => {
+            if (createMutation.isLoading) return;
+            setConfirmModalOpen(false);
+          }}
+          onConfirm={handleSubmitChanges}
+          submitting={createMutation.isLoading}
+        />
+      )}
 
       {uploadRow && uploadRow.order_id != null && (
         <ChiHoUploadModal

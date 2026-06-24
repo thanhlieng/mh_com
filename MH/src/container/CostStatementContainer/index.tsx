@@ -42,12 +42,14 @@ import type { SupplierTransactionsParams, SupplierTransaction } from '@/services
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 
 import { ChangeRequestList } from './ChangeRequestList';
+import { ConfirmChangesModal, type DirtyRowChange } from './ConfirmChangesModal';
 import KeCuocChiHoTable from './KeCuocChiHoTable';
 import {
   type ChangeRequest,
   type CostCategory,
   type CostStatementRow,
   type EditableField,
+  DEFAULT_EDIT_REASON,
   mapApiResponseToChangeRequest,
 } from './types';
 
@@ -62,8 +64,8 @@ const CATEGORY_META: Record<
   { label: string; variant: React.ComponentProps<typeof Badge>['variant'] }
 > = {
   cost:       { label: 'Chi phí',    variant: 'default' },
-  invoice_mh: { label: 'Chi hộ MH',  variant: 'warning' },
-  chi_ho:     { label: 'Chi hộ',     variant: 'secondary' },
+  invoice_mh: { label: 'Chi hộ về MH',  variant: 'warning' },
+  chi_ho:     { label: 'Chi hộ về khách',     variant: 'secondary' },
 };
 
 // ─── Map API transaction to CostStatementRow ──────────────────────────────────
@@ -441,6 +443,10 @@ const CostStatementContainer = () => {
   const [dirtyMap, setDirtyMap] = React.useState<DirtyMap>({});
   const originalDataRef = React.useRef<CostStatementRow[]>([]);
 
+  // Lý do thay đổi per-row (key = row.id) — khởi tạo khi user mở modal xác nhận
+  const [reasonMap, setReasonMap] = React.useState<Record<string, string>>({});
+  const [confirmModalOpen, setConfirmModalOpen] = React.useState(false);
+
   // Reset data khi API trả về
   React.useEffect(() => {
     if (apiQuery.data) {
@@ -532,23 +538,70 @@ const CostStatementContainer = () => {
     setDirtyMap({});
   };
 
-  // Gom tất cả thay đổi Tiền thành 1 API call duy nhất
-  const handleConfirm = async () => {
-    const payload: { pnl: number; order: number; requested_cost: number }[] = [];
-
+  // Danh sách thay đổi hợp lệ (có pnl/order, dòng editable, field=amount).
+  // Dùng để render modal xác nhận + build payload submit.
+  // Mỗi entry tương ứng với 1 PNL: key = row.id (cũng dùng làm khoá reasonMap).
+  const dirtyChanges: (DirtyRowChange & {
+    pnlId: number;
+    orderId: number;
+  })[] = React.useMemo(() => {
+    const out: (DirtyRowChange & { pnlId: number; orderId: number })[] = [];
+    const origById = new Map(originalDataRef.current.map((r) => [r.id, r]));
     for (const [rowId, fields] of Object.entries(dirtyMap)) {
       const current = data.find((r) => r.id === rowId);
       if (!current) continue;
       if (!fields.has('amount')) continue;
       if (!current.editable) continue;
       if (!current.pnlId || !current.orderId) continue;
-
-      payload.push({
-        pnl: current.pnlId,
-        order: current.orderId,
-        requested_cost: current.amount,
+      const orig = origById.get(rowId);
+      out.push({
+        key: rowId,
+        orderCode: current.orderCode,
+        containerNo: current.containerNo,
+        serviceName: current.serviceName,
+        oldAmount: orig?.amount ?? 0,
+        newAmount: current.amount,
+        pnlId: current.pnlId,
+        orderId: current.orderId,
       });
     }
+    return out;
+  }, [data, dirtyMap]);
+
+  // Bấm "Xác nhận" → khởi tạo reasonMap với mặc định cho dòng chưa có, mở modal
+  const handleOpenConfirm = () => {
+    if (dirtyChanges.length === 0) return;
+    setReasonMap((prev) => {
+      const next: Record<string, string> = { ...prev };
+      for (const c of dirtyChanges) {
+        if (next[c.key] === undefined) {
+          next[c.key] = DEFAULT_EDIT_REASON;
+        }
+      }
+      return next;
+    });
+    setConfirmModalOpen(true);
+  };
+
+  const handleReasonChange = React.useCallback(
+    (rowId: string, value: string) => {
+      setReasonMap((prev) => ({ ...prev, [rowId]: value }));
+    },
+    [],
+  );
+
+  const handleResetReason = React.useCallback((rowId: string) => {
+    setReasonMap((prev) => ({ ...prev, [rowId]: DEFAULT_EDIT_REASON }));
+  }, []);
+
+  // Submit thực tế: gửi payload kèm reason từng item
+  const handleSubmitChanges = async () => {
+    const payload = dirtyChanges.map((c) => ({
+      pnl: c.pnlId,
+      order: c.orderId,
+      requested_cost: c.newAmount,
+      reason: (reasonMap[c.key] ?? DEFAULT_EDIT_REASON).trim(),
+    }));
 
     if (payload.length === 0) return;
 
@@ -556,9 +609,11 @@ const CostStatementContainer = () => {
       await createMutation.mutateAsync(payload);
       originalDataRef.current = data.map((r) => ({ ...r }));
       setDirtyMap({});
+      setReasonMap({});
+      setConfirmModalOpen(false);
       setView('requests');
     } catch {
-      // error handled by react-query onError / console
+      // error handled by react-query onError
     }
   };
 
@@ -919,7 +974,8 @@ const CostStatementContainer = () => {
             <Button
               size='sm'
               className='h-7 gap-1.5 text-xs'
-              onClick={handleConfirm}
+              onClick={handleOpenConfirm}
+              disabled={dirtyChanges.length === 0}
             >
               <CheckCircleIcon className='h-3 w-3' />
               Xác nhận ({dirtyRowCount} dòng)
@@ -1034,6 +1090,21 @@ const CostStatementContainer = () => {
         </div>
       </div>
       </>
+      )}
+
+      {confirmModalOpen && (
+        <ConfirmChangesModal
+          changes={dirtyChanges}
+          reasonMap={reasonMap}
+          onReasonChange={handleReasonChange}
+          onResetReason={handleResetReason}
+          onClose={() => {
+            if (createMutation.isLoading) return;
+            setConfirmModalOpen(false);
+          }}
+          onConfirm={handleSubmitChanges}
+          submitting={createMutation.isLoading}
+        />
       )}
     </div>
   );

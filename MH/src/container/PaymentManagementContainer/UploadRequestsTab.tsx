@@ -1,19 +1,25 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { Popconfirm, notification } from 'antd';
 import { parseISO } from 'date-fns';
 import {
   DownloadIcon,
   ExternalLinkIcon,
   Loader2Icon,
   RefreshCwIcon,
+  Trash2Icon,
 } from 'lucide-react';
 import * as React from 'react';
-import { useQuery } from 'react-query';
+import { useMutation, useQuery, useQueryClient } from 'react-query';
 
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
-import { listChiHoUploads } from '@/services/supplier.services';
+import {
+  deleteChiHoUpload,
+  listChiHoUploads,
+  resolveChiHoFileUrl,
+} from '@/services/supplier.services';
 import type { ChiHoApprovalStatus } from '@/services/supplier.services';
 import type { ChiHoApprovalStatus as PanelApprovalStatus } from './types';
 
@@ -49,13 +55,21 @@ const formatDateTime = (iso: string) => {
   }
 };
 
+/**
+ * Mở file Chi hộ trong tab mới. `file_url` của mhvn là path tương đối (vd
+ * `/media/...`) — `resolveChiHoFileUrl` prepend host mhvn (`NEXT_PUBLIC_MHGS_HOST`)
+ * để tạo URL tuyệt đối. `/media/` ở mhvn là public, không cần auth.
+ */
 const openFile = (url: string | null) => {
-  if (!url) return;
-  window.open(url, '_blank', 'noopener,noreferrer');
+  const full = resolveChiHoFileUrl(url);
+  if (!full) return;
+  window.open(full, '_blank', 'noopener,noreferrer');
 };
 
 export function UploadRequestsTab() {
   const [statusFilter, setStatusFilter] = React.useState<StatusFilter>('ALL');
+
+  const queryClient = useQueryClient();
 
   const { data, isLoading, isFetching, isError, refetch } = useQuery(
     ['chiho-uploads', statusFilter],
@@ -67,6 +81,31 @@ export function UploadRequestsTab() {
   );
 
   const rows = data?.data ?? [];
+
+  // Xoá yêu cầu upload (chỉ PENDING) — backend mhvn enforce điều kiện.
+  // Invalidate cả 2 query để các tab/widget khác (đếm Chờ duyệt) cập nhật theo.
+  const deleteMutation = useMutation(
+    (fileId: number) => deleteChiHoUpload(fileId),
+    {
+      onSuccess: () => {
+        notification.success({
+          message: 'Đã xoá yêu cầu tải lên',
+          placement: 'top',
+        });
+        queryClient.invalidateQueries('chiho-uploads');
+        queryClient.invalidateQueries('supplier-ke-cuoc-chi-ho');
+      },
+      onError: (e: any) => {
+        notification.error({
+          message:
+            e?.response?.data?.detail ??
+            e?.response?.data?.message ??
+            'Xoá yêu cầu thất bại',
+          placement: 'top',
+        });
+      },
+    },
+  );
 
   return (
     <div className='flex flex-1 flex-col overflow-hidden'>
@@ -143,6 +182,9 @@ export function UploadRequestsTab() {
                     <th className='px-3 py-2 text-center text-xs font-semibold'>
                       Tải / Xem
                     </th>
+                    <th className='px-3 py-2 text-center text-xs font-semibold'>
+                      Hành động
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -187,7 +229,7 @@ export function UploadRequestsTab() {
                               <ExternalLinkIcon className='h-3.5 w-3.5' />
                             </button>
                             <a
-                              href={r.file_url ?? undefined}
+                              href={resolveChiHoFileUrl(r.file_url) ?? undefined}
                               download={r.file_name ?? undefined}
                               target='_blank'
                               rel='noreferrer'
@@ -200,6 +242,42 @@ export function UploadRequestsTab() {
                               <DownloadIcon className='h-3.5 w-3.5' />
                             </a>
                           </div>
+                        </td>
+                        <td className='px-3 py-2 text-center'>
+                          {r.approval_status === 'PENDING' ? (
+                            <Popconfirm
+                              title={
+                                <div className='flex flex-col gap-1'>
+                                  <span className='font-medium'>
+                                    Xoá yêu cầu tải lên?
+                                  </span>
+                                  <span className='text-xs text-muted-foreground'>
+                                    {`File "${
+                                      r.file_name ?? `file-${r.id}`
+                                    }" sẽ bị xoá vĩnh viễn.`}
+                                  </span>
+                                </div>
+                              }
+                              okText='Xoá'
+                              okButtonProps={{ danger: true }}
+                              cancelText='Huỷ'
+                              placement='topRight'
+                              onConfirm={() => deleteMutation.mutate(r.id)}
+                              disabled={deleteMutation.isLoading}
+                            >
+                              <button
+                                title='Xoá yêu cầu (chỉ khi đang Chờ duyệt)'
+                                className='rounded p-1 text-destructive hover:bg-destructive/10 disabled:opacity-40'
+                                disabled={deleteMutation.isLoading}
+                              >
+                                <Trash2Icon className='h-3.5 w-3.5' />
+                              </button>
+                            </Popconfirm>
+                          ) : (
+                            <span className='text-[10px] text-muted-foreground/60'>
+                              —
+                            </span>
+                          )}
                         </td>
                       </tr>
                     );

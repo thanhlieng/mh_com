@@ -1,6 +1,9 @@
 import {
   Controller,
+  Delete,
   Get,
+  Param,
+  ParseIntPipe,
   Post,
   Query,
   Headers,
@@ -72,6 +75,23 @@ export class SupplierChiHoFilesController {
       orderId,
       include,
     );
+  }
+
+  /**
+   * Xoá một yêu cầu tải lên đang ở trạng thái PENDING (do supplier upload).
+   * mhvn enforce ràng buộc: file phải thuộc supplier trong token và đang PENDING.
+   */
+  @Delete('uploads/:id')
+  async deleteUpload(
+    @GetUser() user: UserEntity,
+    @Headers('x-active-supplier-id') activeSupplierId: string,
+    @Param('id', ParseIntPipe) fileId: number,
+  ) {
+    const a_supplier_id = await this.activeLinkService.resolveSupplier(
+      user,
+      activeSupplierId,
+    );
+    return this.supplierChiHoFilesService.deleteUpload(a_supplier_id, fileId);
   }
 
   @Post()

@@ -25,7 +25,7 @@ import storage from '@/utils/storage';
 
 const NAV_ITEMS = [
   {
-    label: 'Bảng kê chi phí',
+    label: 'Bảng kê chi phí & chi hộ',
     href: SUPPLIER_COST_STATEMENT,
     icon: FileTextIcon,
   },

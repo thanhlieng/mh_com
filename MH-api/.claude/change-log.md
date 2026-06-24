@@ -384,3 +384,53 @@ Frontend đã thêm service tương ứng trong `MH/src/services/supplier.servic
 - `src/modules/supplier-change-requests/supplier-change-requests.service.ts`: `remove(a_supplier_id, id)` proxy `DELETE /api/service-change-supplier-requests/<id>/` (token supplier).
 
 **Ảnh hưởng fullstack:** Endpoint mới `DELETE /api/supplier/change-requests/:id`. A đã có sẵn `ServiceChangeSupplierRequestAPI.destroy` (chỉ xóa khi PENDING + đúng supplier). FE gọi qua `deleteChangeRequest`.
+
+## [2026-06-23 23:44] — (Proxy không đổi) Thêm field `chi_ho_ve` cho Kê cước & Chi hộ
+
+**Yêu cầu:** Hiển thị cột "Chi hộ về" trên FE màn /supplier/cost-statement.
+
+**Các file đã thay đổi:** Không có file nào ở MH-api thay đổi.
+
+**Lý do / bối cảnh:** Endpoint `GET /api/supplier/transactions/ke-cuoc-chi-ho` chỉ là proxy sang hệ thống A (Django, `mhgs_log_be`). Field `chi_ho_ve` được hệ thống A sinh và đi xuyên proxy → FE. Ghi entry này để team backend nắm response schema mới.
+
+**Ảnh hưởng fullstack:** Response của `GET /api/supplier/transactions/ke-cuoc-chi-ho` nay có thêm field `chi_ho_ve: string` cho mỗi item `results[]`. Quy tắc: `order.chi_ho_for === 'kh'` → "company_name - tax_number - address" của khách hàng đơn; khác → rỗng. Đã cập nhật type `KeCuocChiHoRow` ở FE.
+
+## [2026-06-24 01:43] — Thêm endpoint xoá yêu cầu upload file Chi hộ (PENDING)
+
+**Yêu cầu:** Trên màn `/supplier/payment-management` tab "Danh sách yêu cầu tải lên" cần xoá được các yêu cầu upload có `approval_status === 'PENDING'`.
+
+**Các file đã thay đổi:**
+- `src/modules/supplier-chiho-files/supplier-chiho-files.service.ts`: thêm method `deleteUpload(a_supplier_id, fileId)` proxy `DELETE /api/mhcom/supplier/chiho-files/<id>/` sang hệ thống mhvn.
+- `src/modules/supplier-chiho-files/supplier-chiho-files.controller.ts`:
+  - Thêm import `Delete`, `Param`, `ParseIntPipe`.
+  - Thêm endpoint `DELETE /api/supplier/chiho-files/uploads/:id` — resolve `a_supplier_id` qua `ActiveLinkService` rồi gọi `service.deleteUpload`.
+
+**Lý do / bối cảnh:** NCC cần khả năng huỷ một yêu cầu upload mà mình vừa tạo nhầm khi chưa được mhgs (admin/KT/GD/PT) duyệt. Hệ thống mhvn enforce ràng buộc: file phải thuộc supplier trong token và `approval_status === 'PENDING'` mới xoá được.
+
+**Ảnh hưởng fullstack:** Endpoint mới `DELETE /api/supplier/chiho-files/uploads/:id` (trả 204). FE đã có `deleteChiHoUpload(fileId)` trong `MH/src/services/supplier.services.ts` và nút xoá ở `UploadRequestsTab.tsx`. Hệ thống A đã có view `SupplierChiHoFileDeleteAPI` với route `/api/mhcom/supplier/chiho-files/<int:file_id>/`.
+
+## [2026-06-24 02:13] — Proxy nội dung file Chi hộ từ mhvn về mhcom
+
+**Yêu cầu:** FE mhcom hiện không xem/tải được file đã upload vì `file_url` trả về là path `/media/...` của hệ thống A (Django) — FE không truy cập được trực tiếp.
+
+**Các file đã thay đổi:**
+- `src/modules/supplier-chiho-files/supplier-chiho-files.service.ts`: thêm `downloadUpload(a_supplier_id, fileId, disposition)` dùng `MhvnIntegrationService.callMhvnDownload` để lấy buffer + content-type + content-disposition từ A.
+- `src/modules/supplier-chiho-files/supplier-chiho-files.controller.ts`:
+  - Thêm import `Get`, `Param`, `ParseIntPipe`, `Res`, `Query`, `Response` (express).
+  - Thêm endpoint `GET /api/supplier/chiho-files/uploads/:id/download?disposition=inline|attachment`. Resolve supplier qua `ActiveLinkService`, gọi service download, trả binary kèm headers nhận được từ A; `disposition` được sanitize ('inline'/'attachment' only, mặc định 'inline').
+
+**Lý do / bối cảnh:** Theo nguyên tắc kiến trúc (TOKEN-CONNECTION-A-B.md mục 4): FE B KHÔNG gọi thẳng A. Phải proxy file qua BE B; ngoài ra FE cũng không gắn được supplier token vào tab mới/<a download> nên buộc phải stream qua axios.
+
+**Ảnh hưởng fullstack:** Endpoint mới `GET /api/supplier/chiho-files/uploads/:id/download` trả binary (Content-Type + Content-Disposition lấy từ A). FE đã có hàm `downloadChiHoUpload(fileId, disposition)` trả Blob và đã dùng ở tab "Danh sách yêu cầu tải lên" cùng panel upload (`FileUploadPanel`). Phụ thuộc endpoint mới ở A: `GET /api/mhcom/supplier/chiho-files/<id>/download/`.
+
+## [2026-06-24 02:38] — Revert proxy download file Chi hộ (dùng URL trực tiếp)
+
+**Yêu cầu:** Đơn giản hoá — `/media/` ở mhvn không cần auth, FE chỉ cần prepend host của mhvn vào `file_url` là mở/tải được, không cần proxy qua MH-api.
+
+**Các file đã thay đổi:**
+- `src/modules/supplier-chiho-files/supplier-chiho-files.service.ts`: bỏ method `downloadUpload`.
+- `src/modules/supplier-chiho-files/supplier-chiho-files.controller.ts`: bỏ import `Res`, `Response`; bỏ endpoint `GET uploads/:id/download`.
+
+**Lý do / bối cảnh:** Hệ thống mhvn (A) phục vụ `/media/...` public; FE mhcom có thể truy cập thẳng URL đầy đủ. Proxy qua MH-api là dư thừa khi không cần auth.
+
+**Ảnh hưởng fullstack:** Bỏ endpoint `GET /api/supplier/chiho-files/uploads/:id/download` — không endpoint nào ngoài đời đang phụ thuộc (mới thêm trong cùng session).

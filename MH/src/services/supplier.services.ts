@@ -260,6 +260,8 @@ export interface KeCuocChiHoRow {
   so_tien_ha_cont_kh: number;
   so_tien_luu_cont_kh: number;
   tong_chi_ho_kh: number;
+  // Chi hộ về (theo order.chi_ho_for): 'kh' → "company_name - tax_number - address" của khách hàng; rỗng nếu không xác định.
+  chi_ho_ve: string;
   // Số file Chi hộ (do supplier upload từ mhcom) theo trạng thái duyệt — theo ĐƠN.
   file_counts: { approved: number; pending: number; rejected: number };
 }
@@ -362,6 +364,40 @@ export const listChiHoUploads = (
   }) as Promise<ChiHoUploadsListResponse>;
 };
 
+/**
+ * Base URL của hệ thống mhvn (Django, mhgs_log_be) để build full URL cho file
+ * `/media/...`. `/media/` là public, không cần auth → FE có thể mở/tải trực tiếp.
+ *
+ * Cấu hình qua env `NEXT_PUBLIC_MHGS_HOST` (vd: https://mhvn.example.com).
+ * Nếu thiếu env, fallback `''` → trả về path tương đối (chạy được khi mhvn và
+ * mhcom cùng domain qua reverse-proxy).
+ */
+export const MHGS_HOST = process.env.NEXT_PUBLIC_MHGS_HOST ?? '';
+
+/**
+ * Build URL tuyệt đối tới file Chi hộ trên hệ thống mhvn để mở/tải trực tiếp
+ * (không cần proxy qua MH-api). `fileUrl` lấy từ response API — thường dạng
+ * `/media/order_chiho_files/...`. Trả null nếu input rỗng.
+ */
+export const resolveChiHoFileUrl = (
+  fileUrl: string | null | undefined,
+): string | null => {
+  if (!fileUrl) return null;
+  // Đã absolute (http/https) → giữ nguyên.
+  if (/^https?:\/\//i.test(fileUrl)) return fileUrl;
+  return `${MHGS_HOST}${fileUrl}`;
+};
+
+/**
+ * Xoá một yêu cầu tải lên file Chi hộ (chỉ cho phép khi file đang PENDING).
+ * Backend mhvn enforce ràng buộc supplier + trạng thái.
+ */
+export const deleteChiHoUpload = (fileId: number | string): Promise<void> => {
+  return axiosClient2.delete(
+    `/supplier/chiho-files/uploads/${fileId}`,
+  ) as Promise<void>;
+};
+
 /** Upload một hoặc nhiều file Chi hộ cho một đơn hàng */
 export const uploadChiHoFiles = (
   orderId: number | string,
@@ -393,6 +429,7 @@ export interface ChangeRequestResponse {
   supplier: number;
   requested_cost: string;
   reason: string | null;
+  review_note: string | null;
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   approved_by: string | null;
   approved_at: string | null;

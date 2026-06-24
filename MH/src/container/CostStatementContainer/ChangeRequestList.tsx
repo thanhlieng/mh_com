@@ -49,6 +49,10 @@ interface FlatRow {
   fieldLabel: string;
   oldValue: string;
   newValue: string;
+  reason: string | null;
+  reviewNote: string | null;
+  approvedBy: string | null;
+  approvedAt: string | null;
   rowKey: string;
 }
 
@@ -63,8 +67,48 @@ function flattenRequests(requests: ChangeRequest[]): FlatRow[] {
       fieldLabel: item.fieldLabel,
       oldValue: item.oldValue,
       newValue: item.newValue,
+      reason: item.reason ?? null,
+      reviewNote: item.reviewNote ?? null,
+      approvedBy: item.approvedBy ?? null,
+      approvedAt: item.approvedAt ?? null,
       rowKey: `${req.id}-${item.rowId}-${item.field}-${idx}`,
     }))
+  );
+}
+
+function NoteCell({
+  text,
+  emptyHint,
+  className,
+}: {
+  text: string | null;
+  emptyHint?: string;
+  className?: string;
+}) {
+  if (!text) {
+    return (
+      <span className='italic text-muted-foreground/60'>
+        {emptyHint ?? '—'}
+      </span>
+    );
+  }
+  return (
+    <span
+      title={text}
+      className={cn(
+        'block max-w-[220px] truncate text-xs',
+        className,
+      )}
+      style={{
+        display: '-webkit-box',
+        WebkitLineClamp: 2,
+        WebkitBoxOrient: 'vertical',
+        overflow: 'hidden',
+        whiteSpace: 'normal',
+      }}
+    >
+      {text}
+    </span>
   );
 }
 
@@ -182,6 +226,27 @@ export function ChangeRequestList({ requests, onCancel }: ChangeRequestListProps
                     {row.newValue || '—'}
                   </span>
                 </div>
+                {row.reason && (
+                  <div className='mt-2 rounded border border-border bg-muted/30 p-2 text-[11px]'>
+                    <div className='font-medium text-muted-foreground'>
+                      Lý do của bạn
+                    </div>
+                    <div className='mt-0.5 whitespace-pre-wrap text-foreground'>
+                      {row.reason}
+                    </div>
+                  </div>
+                )}
+                {row.reviewNote && (
+                  <div className='mt-1.5 rounded border border-blue-200 bg-blue-50 p-2 text-[11px]'>
+                    <div className='font-medium text-blue-700'>
+                      Phản hồi từ MH
+                      {row.approvedBy ? ` (${row.approvedBy})` : ''}
+                    </div>
+                    <div className='mt-0.5 whitespace-pre-wrap text-blue-900'>
+                      {row.reviewNote}
+                    </div>
+                  </div>
+                )}
                 {row.status === 'Chờ duyệt' && (
                   <div className='mt-2 border-t border-border pt-2'>
                     <Button
@@ -212,6 +277,8 @@ export function ChangeRequestList({ requests, onCancel }: ChangeRequestListProps
                 <th className='px-3 py-2 text-xs font-semibold'>Giá trị cũ</th>
                 <th className='px-3 py-2 text-xs font-semibold' />
                 <th className='px-3 py-2 text-xs font-semibold'>Giá trị mới</th>
+                <th className='px-3 py-2 text-xs font-semibold'>Lý do của bạn</th>
+                <th className='px-3 py-2 text-xs font-semibold'>Phản hồi MH</th>
                 <th className='px-3 py-2 text-xs font-semibold'>Trạng thái</th>
                 <th className='w-12 px-3 py-2' />
               </tr>
@@ -220,7 +287,7 @@ export function ChangeRequestList({ requests, onCancel }: ChangeRequestListProps
               {filtered.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={9}
+                    colSpan={11}
                     className='py-16 text-center text-xs text-muted-foreground'
                   >
                     Chưa có đề nghị thay đổi nào
@@ -255,6 +322,23 @@ export function ChangeRequestList({ requests, onCancel }: ChangeRequestListProps
                     </td>
                     <td className='px-3 py-2 text-xs font-medium text-emerald-600'>
                       {row.newValue || '—'}
+                    </td>
+                    <td className='px-3 py-2 align-top text-foreground'>
+                      <NoteCell text={row.reason} />
+                    </td>
+                    <td className='px-3 py-2 align-top'>
+                      <NoteCell
+                        text={row.reviewNote}
+                        emptyHint={
+                          row.status === 'Chờ duyệt' ? 'Chưa duyệt' : '—'
+                        }
+                        className='text-blue-900'
+                      />
+                      {row.reviewNote && row.approvedBy && (
+                        <div className='mt-0.5 text-[10px] text-muted-foreground'>
+                          {row.approvedBy}
+                        </div>
+                      )}
                     </td>
                     <td className='px-3 py-2 text-xs'>
                       <Badge variant={STATUS_BADGE[row.status]}>{row.status}</Badge>

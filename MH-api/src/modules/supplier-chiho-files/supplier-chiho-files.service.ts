@@ -53,6 +53,25 @@ export class SupplierChiHoFilesService {
   }
 
   /**
+   * Xoá một file Chi hộ supplier đã upload — chỉ cho phép khi file đang ở
+   * trạng thái PENDING (chưa được duyệt). Phục vụ tab "Danh sách yêu cầu tải lên".
+   * Proxy tới: DELETE /api/mhcom/supplier/chiho-files/<file_id>/ (token supplier).
+   *
+   * Hệ thống mhvn tự kiểm tra:
+   *   - file thuộc supplier trong token,
+   *   - approval_status === 'PENDING'.
+   * Trả lỗi 400 nếu file đã APPROVED/REJECTED, 404 nếu không thuộc supplier.
+   */
+  async deleteUpload(a_supplier_id: string, fileId: string | number) {
+    const endpoint = `/api/mhcom/supplier/chiho-files/${fileId}/`;
+    return this.mhvnIntegrationService.callMhvn({
+      method: 'DELETE',
+      endpoint,
+      a_supplier_id,
+    });
+  }
+
+  /**
    * Upload một hoặc nhiều file Chi hộ vào order.
    * Proxy tới: POST /api/mhcom/supplier/chiho-files/ (multipart, token supplier).
    */
