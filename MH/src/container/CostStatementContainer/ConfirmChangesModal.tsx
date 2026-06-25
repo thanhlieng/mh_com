@@ -38,6 +38,12 @@ interface ConfirmChangesModalProps {
   onClose: () => void;
   onConfirm: () => void;
   submitting?: boolean;
+  /** Tiêu đề modal — override nếu khác "Xác nhận đề nghị thay đổi chi phí" */
+  title?: string;
+  /** Mô tả nhỏ phía dưới tiêu đề */
+  subtitle?: React.ReactNode;
+  /** Text mặc định để so sánh "đã chỉnh" (mặc định = DEFAULT_EDIT_REASON) */
+  defaultReason?: string;
 }
 
 /**
@@ -57,6 +63,9 @@ export function ConfirmChangesModal({
   onClose,
   onConfirm,
   submitting = false,
+  title = 'Xác nhận đề nghị thay đổi chi phí',
+  subtitle,
+  defaultReason = DEFAULT_EDIT_REASON,
 }: ConfirmChangesModalProps) {
   // Validation: mỗi dòng phải có reason (trim non-empty)
   const missingReason = changes.some(
@@ -76,13 +85,18 @@ export function ConfirmChangesModal({
           <div className='flex flex-col gap-1'>
             <div className='flex items-center gap-2'>
               <span className='text-sm font-semibold text-foreground'>
-                Xác nhận đề nghị thay đổi chi phí
+                {title}
               </span>
               <Badge variant='warning'>{changes.length} dòng</Badge>
             </div>
             <p className='text-xs text-muted-foreground'>
-              Vui lòng kiểm tra lại các thay đổi và <strong>điền lý do</strong>{' '}
-              cho từng dòng trước khi gửi MH duyệt.
+              {subtitle ?? (
+                <>
+                  Vui lòng kiểm tra lại các thay đổi và{' '}
+                  <strong>điền lý do</strong> cho từng dòng trước khi gửi MH
+                  duyệt.
+                </>
+              )}
             </p>
           </div>
           <button
@@ -106,7 +120,7 @@ export function ConfirmChangesModal({
               {changes.map((c, idx) => {
                 const reason = reasonMap[c.key] ?? '';
                 const isReasonMissing = !reason.trim();
-                const isReasonModified = reason !== DEFAULT_EDIT_REASON;
+                const isReasonModified = reason !== defaultReason;
                 return (
                   <div
                     key={c.key}

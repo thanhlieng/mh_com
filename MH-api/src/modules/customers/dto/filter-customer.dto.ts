@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEnum, IsOptional, IsUUID } from 'class-validator';
+import { IsEnum, IsIn, IsOptional, IsUUID } from 'class-validator';
 import { CustomerType, ECustomerStatus, NetWorkCustomerType, ServiceEnum } from 'src/common/constants/common.constants';
 import { CommonPaginationDto } from 'src/common/dto/pagination.dto';
 
@@ -24,8 +24,9 @@ export class FilterCustomerDto extends CommonPaginationDto {
   @IsOptional()
   networkCustomerType: NetWorkCustomerType;
 
-  @ApiProperty({ required: false, enum: ECustomerStatus })
-  @IsEnum(ECustomerStatus)
+  // ACTIVE | INACTIVE | ALL. Bỏ trống → mặc định chỉ ACTIVE (ẩn khách đóng mã).
+  @ApiProperty({ required: false, enum: [...Object.values(ECustomerStatus), 'ALL'] })
+  @IsIn([...Object.values(ECustomerStatus), 'ALL'])
   @IsOptional()
   status: string;
 }

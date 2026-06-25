@@ -180,6 +180,27 @@ export function PriceChangeList() {
                     {formatVND(r.new_amount)}
                   </span>
                 </div>
+                {r.reason && (
+                  <div className='mt-2 rounded border border-border bg-muted/30 p-2 text-[11px]'>
+                    <div className='font-medium text-muted-foreground'>
+                      Lý do của bạn
+                    </div>
+                    <div className='mt-0.5 whitespace-pre-wrap text-foreground'>
+                      {r.reason}
+                    </div>
+                  </div>
+                )}
+                {r.review_note && (
+                  <div className='mt-1.5 rounded border border-blue-200 bg-blue-50 p-2 text-[11px]'>
+                    <div className='font-medium text-blue-700'>
+                      Phản hồi từ MH
+                      {r.approved_by ? ` (${r.approved_by})` : ''}
+                    </div>
+                    <div className='mt-0.5 whitespace-pre-wrap text-blue-900'>
+                      {r.review_note}
+                    </div>
+                  </div>
+                )}
                 {r.status === 'PENDING' && (
                   <div className='mt-2 border-t border-border pt-2'>
                     <Button
@@ -211,6 +232,8 @@ export function PriceChangeList() {
                 <th className='px-3 py-2 text-xs font-semibold' />
                 <th className='px-3 py-2 text-xs font-semibold'>Giá mới</th>
                 <th className='px-3 py-2 text-xs font-semibold'>Nguồn</th>
+                <th className='px-3 py-2 text-xs font-semibold'>Lý do của bạn</th>
+                <th className='px-3 py-2 text-xs font-semibold'>Phản hồi MH</th>
                 <th className='px-3 py-2 text-xs font-semibold'>Trạng thái</th>
                 <th className='px-3 py-2 text-xs font-semibold'>Ngày tạo</th>
                 <th className='px-3 py-2 text-xs font-semibold'>Người duyệt</th>
@@ -221,7 +244,7 @@ export function PriceChangeList() {
               {rows.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={11}
+                    colSpan={13}
                     className='py-16 text-center text-xs text-muted-foreground'
                   >
                     Chưa có yêu cầu thay đổi giá
@@ -258,6 +281,53 @@ export function PriceChangeList() {
                     </td>
                     <td className='px-3 py-2 text-xs text-foreground'>
                       {SOURCE_LABEL[r.source] ?? r.source}
+                    </td>
+                    <td className='px-3 py-2 align-top text-xs text-foreground'>
+                      {r.reason ? (
+                        <span
+                          title={r.reason}
+                          className='block max-w-[220px]'
+                          style={{
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                          }}
+                        >
+                          {r.reason}
+                        </span>
+                      ) : (
+                        <span className='italic text-muted-foreground/60'>
+                          —
+                        </span>
+                      )}
+                    </td>
+                    <td className='px-3 py-2 align-top text-xs'>
+                      {r.review_note ? (
+                        <>
+                          <span
+                            title={r.review_note}
+                            className='block max-w-[220px] text-blue-900'
+                            style={{
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden',
+                            }}
+                          >
+                            {r.review_note}
+                          </span>
+                          {r.approved_by && (
+                            <div className='mt-0.5 text-[10px] text-muted-foreground'>
+                              {r.approved_by}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <span className='italic text-muted-foreground/60'>
+                          {r.status === 'PENDING' ? 'Chưa duyệt' : '—'}
+                        </span>
+                      )}
                     </td>
                     <td className='px-3 py-2 text-xs'>
                       <Badge variant={STATUS_BADGE[r.status]}>

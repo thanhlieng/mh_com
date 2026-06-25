@@ -12,13 +12,57 @@ export class SupplierPricesService {
   /**
    * Lấy danh sách giá (ServiceSupplierPrice) của supplier từ hệ thống mhvn.
    * Proxy tới: GET /api/mhcom/supplier/prices/ (token supplier).
+   * Chuyển tiếp các tham số lọc/phân trang (page, page_size, route_id,
+   * service_id, q, effective_from, effective_to) sang A nguyên trạng.
    */
-  async getPrices(a_supplier_id: string) {
+  async getPrices(a_supplier_id: string, query?: Record<string, string>) {
+    const qs = this.buildQueryString(query, [
+      'page',
+      'page_size',
+      'route_id',
+      'service_id',
+      'q',
+      'effective_from',
+      'effective_to',
+      'sort',
+    ]);
     return this.mhvnIntegrationService.callMhvn({
       method: 'GET',
-      endpoint: '/api/mhcom/supplier/prices/',
+      endpoint: `/api/mhcom/supplier/prices/${qs}`,
       a_supplier_id,
     });
+  }
+
+  /**
+   * Lấy lựa chọn bộ lọc (routes + services) cho màn giá vận chuyển.
+   * Proxy tới: GET /api/mhcom/supplier/prices/filter-options/ (token supplier).
+   */
+  async getFilterOptions(a_supplier_id: string) {
+    return this.mhvnIntegrationService.callMhvn({
+      method: 'GET',
+      endpoint: '/api/mhcom/supplier/prices/filter-options/',
+      a_supplier_id,
+    });
+  }
+
+  /**
+   * Build "?a=b&c=d" từ whitelist key có giá trị (bỏ rỗng/undefined).
+   * Whitelist tránh forward param lạ xuống A.
+   */
+  private buildQueryString(
+    query: Record<string, string> | undefined,
+    allowed: string[],
+  ): string {
+    if (!query) return '';
+    const sp = new URLSearchParams();
+    for (const key of allowed) {
+      const value = query[key];
+      if (value !== undefined && value !== null && `${value}`.trim() !== '') {
+        sp.append(key, `${value}`);
+      }
+    }
+    const s = sp.toString();
+    return s ? `?${s}` : '';
   }
 
   /**

@@ -36,12 +36,25 @@ export class SupplierPricesController {
   async getPrices(
     @GetUser() user: UserEntity,
     @Headers('x-active-supplier-id') activeSupplierId: string,
+    @Query() query: Record<string, string>,
   ) {
     const a_supplier_id = await this.activeLinkService.resolveSupplier(
       user,
       activeSupplierId,
     );
-    return this.supplierPricesService.getPrices(a_supplier_id);
+    return this.supplierPricesService.getPrices(a_supplier_id, query);
+  }
+
+  @Get('filter-options')
+  async getFilterOptions(
+    @GetUser() user: UserEntity,
+    @Headers('x-active-supplier-id') activeSupplierId: string,
+  ) {
+    const a_supplier_id = await this.activeLinkService.resolveSupplier(
+      user,
+      activeSupplierId,
+    );
+    return this.supplierPricesService.getFilterOptions(a_supplier_id);
   }
 
   @Patch()

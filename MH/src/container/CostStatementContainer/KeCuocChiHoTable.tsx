@@ -27,6 +27,7 @@ import { Input } from '@/components/ui/input';
 
 import {
   createChangeRequest,
+  exportCostStatement,
   exportKeCuocChiHoReport,
   getSupplierKeCuocChiHo,
   type KeCuocChiHoRow,
@@ -45,6 +46,16 @@ const formatNgay = (iso: string) => {
   if (!iso) return '';
   try {
     return format(parseISO(iso), 'dd/MM');
+  } catch {
+    return iso;
+  }
+};
+
+/** Tháng công nợ: 'yyyy-MM-dd' → 'MM/yyyy' (tháng/năm). */
+const formatThangCongNo = (iso: string | null) => {
+  if (!iso) return '';
+  try {
+    return format(parseISO(iso), 'MM/yyyy');
   } catch {
     return iso;
   }
@@ -95,9 +106,14 @@ const LEAF_COLS: { id: string; w: number }[] = [
   // { id: 'ma_don_hang', w: 120 },
   { id: 'so_bill_booking', w: 120 },
   { id: 'tuyen', w: 280 },
+  { id: 'loai_don_hang', w: 90 },
   { id: 'so_cont', w: 120 },
   { id: 'loai_cont', w: 80 },
   { id: 'loai_hang', w: 90 },
+  { id: 'cang_ha', w: 110 },
+  { id: 'cang_nang', w: 110 },
+  { id: 'so_xe', w: 100 },
+  { id: 'thang_cong_no', w: 90 },
   // { id: 'so_to_khai', w: 70 },
   // { id: 'bien_so_xe', w: 90 },
   { id: 'cuoc', w: 95 },
@@ -319,6 +335,7 @@ const KeCuocChiHoTable = () => {
     })
   );
   const [isExporting, setIsExporting] = React.useState(false);
+  const [isExportingStatement, setIsExportingStatement] = React.useState(false);
 
   // Upload file chi hộ: đơn đang mở modal + số file vừa upload (chờ duyệt) theo
   // từng ĐƠN trong phiên (cộng vào số "Chờ duyệt" hiển thị, không cần refetch).
@@ -407,8 +424,8 @@ const KeCuocChiHoTable = () => {
   const visibleMoneyCols = MONEY_COLUMNS.filter((c) =>
     CUOC_COL_IDS.includes(c as string) ? showCuoc : showChiHo
   );
-  // Tổng số cột hiển thị (10 cột thông tin + cột tiền + cột "Chi hộ về" và "Tải file" khi hiện Chi hộ).
-  const totalVisibleCols = 10 + visibleMoneyCols.length + (showChiHo ? 2 : 0);
+  // Tổng số cột hiển thị (15 cột thông tin + cột tiền + cột "Chi hộ về" và "Tải file" khi hiện Chi hộ).
+  const totalVisibleCols = 15 + visibleMoneyCols.length + (showChiHo ? 2 : 0);
 
   const queryClient = useQueryClient();
 
@@ -618,6 +635,37 @@ const KeCuocChiHoTable = () => {
     }
   };
 
+  // Xuất "Bảng kê chi phí" (Excel) — dùng cùng khoảng thời gian của tab.
+  const handleExportStatement = async () => {
+    setIsExportingStatement(true);
+    try {
+      const params: Parameters<typeof exportCostStatement>[0] = {};
+      if (dateRange?.from) params.from = format(dateRange.from, 'yyyy-MM-dd');
+      if (dateRange?.to) params.to = format(dateRange.to, 'yyyy-MM-dd');
+
+      const blob = await exportCostStatement(params);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `bang-ke-chi-phi-${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      notification.success({
+        message: 'Xuất bảng kê thành công',
+        placement: 'top',
+      });
+    } catch (err: any) {
+      notification.error({
+        message: err?.response?.data?.message ?? 'Xuất bảng kê thất bại',
+        placement: 'top',
+      });
+    } finally {
+      setIsExportingStatement(false);
+    }
+  };
+
   const filteredRows = React.useMemo(() => {
     const match = (v: string, q: string) =>
       !q || (v ?? '').toLowerCase().includes(q.toLowerCase());
@@ -719,6 +767,20 @@ const KeCuocChiHoTable = () => {
               variant='outline'
               size='sm'
               className='h-8 gap-1.5 text-xs'
+              onClick={handleExportStatement}
+              disabled={isExportingStatement}
+            >
+              {isExportingStatement ? (
+                <Loader2Icon className='h-3.5 w-3.5 animate-spin' />
+              ) : (
+                <FileSpreadsheetIcon className='h-3.5 w-3.5 text-green-600' />
+              )}
+              {isExportingStatement ? 'Đang xuất...' : 'Xuất bảng kê'}
+            </Button>
+            <Button
+              variant='outline'
+              size='sm'
+              className='h-8 gap-1.5 text-xs'
               onClick={handleExport}
               disabled={isExporting}
             >
@@ -727,7 +789,7 @@ const KeCuocChiHoTable = () => {
               ) : (
                 <FileSpreadsheetIcon className='h-3.5 w-3.5 text-blue-600' />
               )}
-              {isExporting ? 'Đang xuất...' : 'Xuất Excel'}
+              {isExporting ? 'Đang xuất...' : 'Xuất báo cáo kê cước & chi hộ'}
             </Button>
           </div>
         </div>
@@ -867,6 +929,14 @@ const KeCuocChiHoTable = () => {
                       />
                     </LeafTh>
                     <LeafTh
+                      id='loai_don_hang'
+                      rowSpan={headerRowSpan}
+                      onResize={onResize}
+                      width={colWidths.loai_don_hang}
+                    >
+                      Loại đơn hàng
+                    </LeafTh>
+                    <LeafTh
                       id='so_cont'
                       rowSpan={headerRowSpan}
                       onResize={onResize}
@@ -893,6 +963,38 @@ const KeCuocChiHoTable = () => {
                       width={colWidths.loai_hang}
                     >
                       Loại hàng
+                    </LeafTh>
+                    <LeafTh
+                      id='cang_ha'
+                      rowSpan={headerRowSpan}
+                      onResize={onResize}
+                      width={colWidths.cang_ha}
+                    >
+                      Cảng hạ
+                    </LeafTh>
+                    <LeafTh
+                      id='cang_nang'
+                      rowSpan={headerRowSpan}
+                      onResize={onResize}
+                      width={colWidths.cang_nang}
+                    >
+                      Cảng nâng
+                    </LeafTh>
+                    <LeafTh
+                      id='so_xe'
+                      rowSpan={headerRowSpan}
+                      onResize={onResize}
+                      width={colWidths.so_xe}
+                    >
+                      Số xe
+                    </LeafTh>
+                    <LeafTh
+                      id='thang_cong_no'
+                      rowSpan={headerRowSpan}
+                      onResize={onResize}
+                      width={colWidths.thang_cong_no}
+                    >
+                      Tháng công nợ
                     </LeafTh>
                     {/* <LeafTh
                       id='so_to_khai'
@@ -1118,6 +1220,9 @@ const KeCuocChiHoTable = () => {
                           <Text v={row.tuyen} />
                         </td>
                         <td className='border-r border-border'>
+                          <Text v={row.loai_don_hang} />
+                        </td>
+                        <td className='border-r border-border'>
                           <Text v={row.so_cont} />
                         </td>
                         <td className='border-r border-border'>
@@ -1125,6 +1230,18 @@ const KeCuocChiHoTable = () => {
                         </td>
                         <td className='border-r border-border'>
                           <Text v={row.loai_hang} />
+                        </td>
+                        <td className='border-r border-border'>
+                          <Text v={row.cang_ha} />
+                        </td>
+                        <td className='border-r border-border'>
+                          <Text v={row.cang_nang} />
+                        </td>
+                        <td className='border-r border-border'>
+                          <Text v={row.so_xe} />
+                        </td>
+                        <td className='border-r border-border'>
+                          <Text v={formatThangCongNo(row.thang_cong_no)} />
                         </td>
                         {/* <td className='border-r border-border'>
                           <Text v={row.so_to_khai} />
@@ -1266,7 +1383,7 @@ const KeCuocChiHoTable = () => {
                   <tfoot>
                     <tr className='border-t-2 border-border bg-muted/40 font-semibold'>
                       <td
-                        colSpan={10}
+                        colSpan={15}
                         className='border-x border-border px-2 py-2 text-xs'
                       >
                         Tổng ({filteredRows.length} container)

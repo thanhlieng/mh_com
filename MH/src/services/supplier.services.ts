@@ -230,9 +230,14 @@ export interface KeCuocChiHoRow {
   ma_don_hang: string;
   so_bill_booking: string;
   tuyen: string;
+  loai_don_hang: string; // order.order_type (đã localize tiếng Việt)
   so_cont: string;
   loai_cont: string;
   loai_hang: string;
+  cang_ha: string; // order.dropoff_terminal.name
+  cang_nang: string; // order.pickup_terminal.name
+  so_xe: string; // order_container.license_plate
+  thang_cong_no: string | null; // order.thang_cong_no (ISO date) — format MM/YYYY
   so_to_khai: string;
   bien_so_xe: string;
   order_completed: boolean;
@@ -518,6 +523,8 @@ export interface SupplierPriceChange {
   approved_by: string | null;
   approved_at: string | null;
   resolve_error: string | null;
+  reason: string | null;
+  review_note: string | null;
   /** Nhãn tuyến/dịch vụ/container gộp (best-effort, có thể rỗng) */
   label?: string | null;
 }
@@ -554,6 +561,7 @@ export interface SupplierPrice {
   supplier_id: number;
   supplier_name: string | null;
   service_transport_id: number | null;
+  service_id: number | null;
   service_name: string;
   transport_type: string | null;
   container_name: string;
@@ -565,25 +573,66 @@ export interface SupplierPrice {
   vat: number | string | null;
   currency_code: string | null;
   is_active: boolean;
+  /** Thời gian áp dụng giá (ISO datetime). */
+  effective_from: string | null;
+  /**
+   * Số lần price id xuất hiện trong order_container_pnl 3 tháng gần nhất.
+   * null nếu service không thuộc nhóm theo dõi (chỉ service_id 4, 24).
+   */
+  usage_count_3m: number | null;
 }
 
-/** Envelope A trả về: { count, results } — proxy B giữ nguyên. */
+/** Envelope A trả về (phân trang): { count, page, page_size, results }. */
 export interface SupplierPricesResponse {
   count: number;
+  page: number;
+  page_size: number;
   results: SupplierPrice[];
 }
 
-/** Danh sách bảng giá hiện tại của supplier (chỉ trả về dòng is_active). */
-export const getSupplierPrices = (): Promise<SupplierPricesResponse> => {
-  return axiosClient2.get('/supplier/prices') as Promise<SupplierPricesResponse>;
+export type SupplierPriceSort = 'amount_desc' | 'amount_asc';
+
+export interface SupplierPricesParams {
+  page?: number;
+  page_size?: number;
+  route_id?: number | string;
+  service_id?: number | string;
+  q?: string;
+  /** Lọc theo thời gian áp dụng (YYYY-MM-DD). */
+  effective_from?: string;
+  effective_to?: string;
+  /** Sắp xếp theo đơn giá. Mặc định cao → thấp (amount_desc). */
+  sort?: SupplierPriceSort;
+}
+
+/** Danh sách bảng giá hiện tại của supplier (phân trang + lọc phía server). */
+export const getSupplierPrices = (
+  params?: SupplierPricesParams,
+): Promise<SupplierPricesResponse> => {
+  return axiosClient2.get('/supplier/prices', {
+    params: params ?? {},
+  }) as Promise<SupplierPricesResponse>;
 };
+
+export interface SupplierPriceFilterOptions {
+  routes: { id: number; label: string }[];
+  services: { id: number; name: string }[];
+}
+
+/** Lựa chọn cho bộ lọc (routes + services) — nên cache ở FE. */
+export const getSupplierPriceFilterOptions =
+  (): Promise<SupplierPriceFilterOptions> => {
+    return axiosClient2.get(
+      '/supplier/prices/filter-options',
+    ) as Promise<SupplierPriceFilterOptions>;
+  };
 
 /**
  * Gửi yêu cầu thay đổi đơn giá (EDIT_AMOUNT).
  * KHÔNG đổi giá ngay — tạo các yêu cầu PENDING chờ duyệt trên hệ thống A.
  */
 export const updateSupplierPrices = (
-  items: { id: number; amount: number }[],
+  items: { id: number; amount: number; reason?: string }[],
 ): Promise<{ created: number; skipped: number[] }> => {
   return axiosClient2.patch('/supplier/prices', { items }) as Promise<{
     created: number;

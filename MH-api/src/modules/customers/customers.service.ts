@@ -14,6 +14,7 @@ import {
   CommonError,
   CommonResponse,
   ECustomerGroupMessage,
+  ECustomerStatus,
   ECustomerStatusMessage,
   EFixedPriceCode,
   EFormatDate,
@@ -360,8 +361,18 @@ export class CustomerService {
       );
     }
 
-    if (status) {
-      customersQuery.andWhere("status = :status", { status });
+    // Lọc trạng thái khách hàng. Mặc định CHỈ hiển thị ACTIVE (ẩn khách đóng mã).
+    // Truyền status=INACTIVE để xem khách đóng mã, status=ALL để xem tất cả.
+    // Qualify rõ `customer.status` để tránh ambiguous với các bảng join.
+    const normalizedStatus = (status || '').toUpperCase();
+    if (!normalizedStatus) {
+      customersQuery.andWhere("customer.status = :status", {
+        status: ECustomerStatus.ACTIVE,
+      });
+    } else if (normalizedStatus !== "ALL") {
+      customersQuery.andWhere("customer.status = :status", {
+        status: normalizedStatus,
+      });
     }
 
     if (
@@ -386,9 +397,10 @@ export class CustomerService {
         sort[1].toUpperCase() === "ASC" ? "ASC" : "DESC"
       );
     } else {
-      customersQuery
-        .orderBy("customer.createdAt", "DESC")
-        .addOrderBy("price_list.updatedAt", "DESC");
+      // CHỈ order theo cột của entity gốc. Không order theo cột của bảng join
+      // 1-nhiều (vd price_list.updatedAt) vì sẽ phá chiến lược phân trang
+      // distinct-root của TypeORM (take/skip) → trả list sai/trùng dòng.
+      customersQuery.orderBy("customer.createdAt", "DESC");
     }
 
     return CommonPagination(filterCustomerDto, customersQuery);
