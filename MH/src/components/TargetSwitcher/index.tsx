@@ -40,8 +40,13 @@ const TargetSwitcher: React.FC<TargetSwitcherProps> = ({
   const handleChange = (next: ATarget) => {
     if (next === current) return;
     dispatch(setActiveTarget(next));
-    // Quan trọng: xoá cache để mọi query refetch với header X-A-Target mới.
-    queryClient.clear();
+    // Quan trọng: reset toàn bộ query để refetch với header X-A-Target mới.
+    // Dùng resetQueries (KHÔNG phải clear): `clear()` chỉ xoá cache mà KHÔNG
+    // refetch các query đang active → màn hiện tại không tự tải lại (vì cấu hình
+    // staleTime: Infinity + refetchOnMount: false). `resetQueries()` vừa xoá dữ
+    // liệu (màn khác sẽ fetch mới khi mount) vừa refetch ngay các query đang active
+    // (màn hiện tại), bỏ qua staleTime.
+    queryClient.resetQueries();
     notification.success({
       message: `Đã chuyển sang hệ ${next.toUpperCase()}`,
       placement: 'top',

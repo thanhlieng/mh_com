@@ -5,6 +5,45 @@ Mục đích: giúp team hiểu được những gì đang được làm mà kh�
 
 ---
 
+## [2026-06-25 00:00] — Chuyển hệ thống (TargetSwitcher) tự tải lại API màn hiện tại
+
+**Yêu cầu:** Khi NCC đổi hệ thống (mhvn ↔ gp), API của màn đang xem không tự tải lại.
+
+**Các file đã thay đổi:**
+- `MH/src/components/TargetSwitcher/index.tsx` (`handleChange`): thay `queryClient.clear()` bằng `queryClient.resetQueries()`.
+
+**Lý do / bối cảnh:** Các màn NCC cấu hình `staleTime: Infinity` + `refetchOnMount: false`. `queryClient.clear()` chỉ xoá cache chứ KHÔNG refetch các query đang active → màn hiện tại không tự tải lại sau khi đổi hệ. `resetQueries()` vừa reset dữ liệu (màn khác sẽ fetch mới khi mount) vừa refetch ngay các query đang active (màn hiện tại), bỏ qua `staleTime`. Refetch chạy sau khi đã `dispatch(setActiveTarget)` nên request mang header `X-A-Target` mới (axiosClient2 đọc target từ store lúc gửi).
+
+**Ảnh hưởng fullstack:** Không đổi API contract.
+
+**Yêu cầu:** Sidebar NCC đổi màu tùy hệ thống: giữ tông hiện tại cho `gp`, đổi sang tông `#1DA553` cho `mhvn`; đổi luôn các nút nhấn mạnh ở khu vực đăng nhập NCC. Đồng thời rà soát/sửa logic chọn hệ thống khi NCC chỉ liên kết 1 hệ (mhvn hoặc gp).
+
+**Các file đã thay đổi:**
+- `MH/src/container/SupplierSidebar/index.tsx`: thêm `MHVN_SIDEBAR_VARS` (override các CSS var `--sidebar-*` sang tông xanh, hsl `144 70% 38%` = `#1DA553`); gắn `style` lên `<aside>` khi `currentSystem === 'mhvn'`. `gp`/null giữ token mặc định (navy).
+- `MH/src/layout/SupplierLayout.tsx`: đọc `activeTarget.current`; khi `mhvn` override `--primary`/`--ring` (`144 70% 38%`) trên vùng nội dung → các nút/nhấn mạnh (kể cả top bar mobile) đổi sang xanh. `gp` giữ nguyên.
+- `MH/src/store/slices/activeTargetSlice.ts` (`hydrateFromAccountTargets`): khi account chỉ liên kết **1 hệ** → LUÔN ép `current` về đúng hệ đó (bỏ qua giá trị cũ trong localStorage). Nhiều hệ vẫn giữ lựa chọn cũ nếu còn hợp lệ.
+- `MH/src/routes/withPrivateRouteSupplier.tsx`: re-hydrate danh sách hệ A (chạy nền, không chặn render) khi vào khu vực NCC mà `availableTargets` rỗng (vd sau refresh) → khôi phục `TargetSwitcher` đa hệ + re-validate `current` (single-link bị ép đúng hệ; multi-link đổi liên kết phía admin cũng được cập nhật).
+
+**Lý do / bối cảnh:** Phân biệt trực quan 2 hệ thống mhvn/gp cho NCC; đảm bảo hệ thống đang chọn luôn đúng kể cả sau refresh hoặc khi admin đổi liên kết.
+
+**Ảnh hưởng fullstack:** Không đổi API contract. Có gọi lại sẵn endpoint `GET /api/account/a-targets` (qua `fetchAccountTargets`) khi vào khu vực NCC sau refresh.
+
+**Yêu cầu:** Bảng Kê cước & Chi hộ rất rộng theo chiều ngang. Cần giữ cố định (không cuộn ngang) nhóm cột từ cột đầu tiên đến "Tháng công nợ". (Đã thử cố định header khi cuộn dọc nhưng bỏ theo yêu cầu — gây rối.)
+
+**Các file đã thay đổi:**
+- `MH/src/container/CostStatementContainer/KeCuocChiHoTable.tsx`:
+  - Thêm `FROZEN_COL_IDS` (12 cột thông tin luôn hiển thị: `tt`→`thang_cong_no`) + `INFO_COL_COUNT`.
+  - Tính `frozenLeft` (offset `left` lũy kế từ `colWidths`, cập nhật khi resize cột) để đặt `position: sticky; left` cho từng cột đóng băng (`frozenBody` z-10 cho ô body; `FROZEN_HEADER_CLASS='sticky z-20'` + `frozenHeaderStyle` chỉ set `left` cho header).
+  - Áp sticky-left cho 12 ô header + 12 ô body của nhóm cột đóng băng và ô nhãn "Tổng" của tfoot (`sticky left-0`).
+  - ⚠️ Lưu ý quan trọng: tailwind config bật `important: true` → class `relative` trong `LeafTh` là `position: relative !important`, ĐÈ lên inline `position: sticky` khiến header bị trôi khi cuộn ngang (ô body `<td>` không có class position nên vẫn dính). Khắc phục: header dùng class `sticky` (cũng !important, và twMerge loại bỏ `relative`), chỉ để `left` ở inline style.
+  - `LeafTh` nhận thêm prop `style`/`className`.
+  - Nền header đổi `bg-muted/50` → `bg-muted` (đục) và ô đóng băng body dùng `bg-background` để khi cuộn ngang không lộ nội dung phía sau.
+  - Sửa luôn lỗi cũ: `colSpan` ô "Tổng" và `totalVisibleCols` đang hardcode `15` (từ thời còn 3 cột đã bị comment) → dùng `INFO_COL_COUNT` (12) cho khớp số cột thực tế, tránh lệch các cột tổng tiền.
+
+**Lý do / bối cảnh:** Bảng nhiều cột khó đọc khi cuộn ngang; đóng băng cột định danh giúp đối chiếu số liệu dễ hơn.
+
+**Ảnh hưởng fullstack:** Không (chỉ thay đổi trình bày phía FE, không đụng API/DTO).
+
 ## [2026-06-16 00:00] — Nút "Tải template" dùng file Excel thật thay vì sinh CSV ở client
 
 **Yêu cầu:** Modal Upload Excel giá ở màn Thiết lập giá vận chuyển cần tải về file mẫu thật (đã có file `de-nghi-bao-gia.xlsx`), thay cho CSV sinh runtime.

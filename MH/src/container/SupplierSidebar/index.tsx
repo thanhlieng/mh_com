@@ -8,12 +8,16 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { useEffect, useState } from 'react';
+import { type CSSProperties,useEffect, useState } from 'react';
 
 import { cn } from '@/lib/utils';
 
+import TargetSwitcher from '@/components/TargetSwitcher';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+
+import { useAppDispatch, useAppSelector } from '@/store/hook';
+import { clearActiveTarget } from '@/store/slices/activeTargetSlice';
 
 import { USER } from '@/contants/Storage';
 import {
@@ -21,11 +25,26 @@ import {
   SUPPLIER_PAYMENT_MANAGEMENT,
   SUPPLIER_SHIPPING_RATE,
 } from '@/routes/routes';
-import { clearActiveTarget } from '@/store/slices/activeTargetSlice';
-import { useAppDispatch, useAppSelector } from '@/store/hook';
 import storage from '@/utils/storage';
 
-import TargetSwitcher from '@/components/TargetSwitcher';
+/**
+ * Bảng màu sidebar theo hệ thống đang chọn.
+ * - `gp`: giữ nguyên tông mặc định (token `--sidebar-*` trong globals.css).
+ * - `mhvn`: đổi sang tông xanh #1DA553 (hsl 144 70% 38%). Giữ cùng cấu trúc
+ *   sáng/tối như tông gp (nền tối, primary nổi) nhưng theo hue xanh lá.
+ * Override bằng cách set lại các CSS variable `--sidebar-*` ngay trên <aside>;
+ * mọi class `bg-sidebar`/`text-sidebar-primary`/... sẽ tự đổi theo.
+ */
+const MHVN_SIDEBAR_VARS: CSSProperties = {
+  ['--sidebar-background' as never]: '153 45% 10%',
+  ['--sidebar-foreground' as never]: '150 25% 91%',
+  ['--sidebar-primary' as never]: '145 63% 45%',
+  ['--sidebar-primary-foreground' as never]: '0 0% 100%',
+  ['--sidebar-accent' as never]: '152 40% 17%',
+  ['--sidebar-accent-foreground' as never]: '150 25% 91%',
+  ['--sidebar-border' as never]: '152 40% 17%',
+  ['--sidebar-ring' as never]: '144 70% 38%',
+};
 
 const NAV_ITEMS = [
   {
@@ -89,6 +108,7 @@ const SupplierSidebar = ({ open = false, onClose }: SupplierSidebarProps) => {
       )}
 
       <aside
+        style={currentSystem === 'mhvn' ? MHVN_SIDEBAR_VARS : undefined}
         className={cn(
           'fixed inset-y-0 left-0 z-50 flex h-screen w-60 flex-col bg-sidebar text-sidebar-foreground transition-transform duration-200',
           'md:static md:z-auto md:translate-x-0',

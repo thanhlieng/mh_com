@@ -78,6 +78,19 @@ const activeTargetSlice = createSlice({
       state.availableTargets = targets;
       persistAccountType(account_type);
 
+      if (targets.length === 1) {
+        // Account chỉ liên kết 1 hệ → LUÔN ép `current` về đúng hệ đó (bỏ qua
+        // giá trị cũ trong localStorage). Tránh kẹt ở hệ cũ nếu admin đổi liên
+        // kết mà localStorage còn lưu hệ trước đó.
+        const only = targets[0].a_target;
+        if (state.current !== only) {
+          state.current = only;
+          persistTarget(only);
+        }
+        return;
+      }
+
+      // Nhiều hệ: giữ lựa chọn hiện tại nếu còn hợp lệ, ngược lại lấy hệ đầu.
       const stillValid =
         state.current !== null &&
         targets.some((t) => t.a_target === state.current);

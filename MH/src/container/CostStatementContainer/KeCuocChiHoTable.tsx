@@ -136,6 +136,27 @@ const LEAF_COLS: { id: string; w: number }[] = [
   { id: 'upload', w: 140 },
 ];
 
+/**
+ * Các cột "đóng băng" (freeze) bên trái — từ cột đầu đến "Tháng công nợ".
+ * Đây cũng đúng là nhóm cột thông tin luôn hiển thị (không phụ thuộc section),
+ * nên `FROZEN_COL_IDS.length` = số cột thông tin (dùng cho colSpan dòng tổng).
+ */
+const FROZEN_COL_IDS = [
+  'tt',
+  'ngay',
+  'so_bill_booking',
+  'tuyen',
+  'loai_don_hang',
+  'so_cont',
+  'loai_cont',
+  'loai_hang',
+  'cang_ha',
+  'cang_nang',
+  'so_xe',
+  'thang_cong_no',
+] as const;
+const INFO_COL_COUNT = FROZEN_COL_IDS.length;
+
 const getDefaultDateRange = (): DateRange => {
   const now = new Date();
   return { from: startOfMonth(now), to: now };
@@ -298,8 +319,10 @@ function SearchHeader({
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
+// Nền header phải đục (bg-muted, không phải /50) để khi sticky không bị lộ nội
+// dung cuộn phía sau.
 const TH =
-  'border border-border bg-muted/50 px-2 py-1 text-center text-[11px] font-semibold align-middle';
+  'border border-border bg-muted px-2 py-1 text-center text-[11px] font-semibold align-middle';
 
 /** Header của một cột lá: kèm tay cầm kéo giãn (Resizer). */
 function LeafTh({
@@ -308,15 +331,19 @@ function LeafTh({
   width,
   onResize,
   children,
+  style,
+  className,
 }: {
   id: string;
   rowSpan?: number;
   width: number;
   onResize: (id: string, w: number) => void;
   children: React.ReactNode;
+  style?: React.CSSProperties;
+  className?: string;
 }) {
   return (
-    <th className={cn(TH, 'relative')} rowSpan={rowSpan}>
+    <th className={cn(TH, 'relative', className)} rowSpan={rowSpan} style={style}>
       {children}
       <Resizer colId={id} width={width} onResize={onResize} />
     </th>
@@ -386,6 +413,33 @@ const KeCuocChiHoTable = () => {
   const onResize = (id: string, w: number) =>
     setColWidths((prev) => ({ ...prev, [id]: w }));
 
+  // Vị trí `left` của từng cột đóng băng = tổng độ rộng các cột đứng trước nó.
+  const frozenLeft = React.useMemo(() => {
+    const map: Record<string, number> = {};
+    let acc = 0;
+    for (const id of FROZEN_COL_IDS) {
+      map[id] = acc;
+      acc +=
+        colWidths[id] ?? LEAF_COLS.find((c) => c.id === id)?.w ?? 0;
+    }
+    return map;
+  }, [colWidths]);
+
+  // Đóng băng theo trục NGANG cho các cột bên trái (không cố định header khi
+  // cuộn dọc). Lưu ý: tailwind config bật `important: true` nên class `relative`
+  // trong LeafTh là `position: relative !important` → KHÔNG thể dùng inline
+  // `position: sticky` cho header (sẽ bị đè). Thay vào đó truyền class `sticky`
+  // (cũng !important, và twMerge sẽ loại `relative`), chỉ để `left` ở inline.
+  const FROZEN_HEADER_CLASS = 'sticky z-20';
+  const frozenHeaderStyle = (id: string): React.CSSProperties => ({
+    left: frozenLeft[id],
+  });
+  const frozenBody = (id: string): React.CSSProperties => ({
+    position: 'sticky',
+    left: frozenLeft[id],
+    zIndex: 10,
+  });
+
   // Phần hiển thị: cả hai | chỉ Cước | chỉ Chi hộ.
   const [section, setSection] = React.useState<'both' | 'cuoc' | 'chiho'>(
     'chiho'
@@ -424,8 +478,9 @@ const KeCuocChiHoTable = () => {
   const visibleMoneyCols = MONEY_COLUMNS.filter((c) =>
     CUOC_COL_IDS.includes(c as string) ? showCuoc : showChiHo
   );
-  // Tổng số cột hiển thị (15 cột thông tin + cột tiền + cột "Chi hộ về" và "Tải file" khi hiện Chi hộ).
-  const totalVisibleCols = 15 + visibleMoneyCols.length + (showChiHo ? 2 : 0);
+  // Tổng số cột hiển thị (cột thông tin + cột tiền + cột "Chi hộ về" và "Tải file" khi hiện Chi hộ).
+  const totalVisibleCols =
+    INFO_COL_COUNT + visibleMoneyCols.length + (showChiHo ? 2 : 0);
 
   const queryClient = useQueryClient();
 
@@ -881,6 +936,8 @@ const KeCuocChiHoTable = () => {
                       rowSpan={headerRowSpan}
                       onResize={onResize}
                       width={colWidths.tt}
+                      className={FROZEN_HEADER_CLASS}
+                      style={frozenHeaderStyle('tt')}
                     >
                       TT
                     </LeafTh>
@@ -889,6 +946,8 @@ const KeCuocChiHoTable = () => {
                       rowSpan={headerRowSpan}
                       onResize={onResize}
                       width={colWidths.ngay}
+                      className={FROZEN_HEADER_CLASS}
+                      style={frozenHeaderStyle('ngay')}
                     >
                       Ngày
                     </LeafTh>
@@ -909,6 +968,8 @@ const KeCuocChiHoTable = () => {
                       rowSpan={headerRowSpan}
                       onResize={onResize}
                       width={colWidths.so_bill_booking}
+                      className={FROZEN_HEADER_CLASS}
+                      style={frozenHeaderStyle('so_bill_booking')}
                     >
                       <SearchHeader
                         label='Số book/Bill'
@@ -921,6 +982,8 @@ const KeCuocChiHoTable = () => {
                       rowSpan={headerRowSpan}
                       onResize={onResize}
                       width={colWidths.tuyen}
+                      className={FROZEN_HEADER_CLASS}
+                      style={frozenHeaderStyle('tuyen')}
                     >
                       <SearchHeader
                         label='Tuyến'
@@ -933,6 +996,8 @@ const KeCuocChiHoTable = () => {
                       rowSpan={headerRowSpan}
                       onResize={onResize}
                       width={colWidths.loai_don_hang}
+                      className={FROZEN_HEADER_CLASS}
+                      style={frozenHeaderStyle('loai_don_hang')}
                     >
                       Loại đơn hàng
                     </LeafTh>
@@ -941,6 +1006,8 @@ const KeCuocChiHoTable = () => {
                       rowSpan={headerRowSpan}
                       onResize={onResize}
                       width={colWidths.so_cont}
+                      className={FROZEN_HEADER_CLASS}
+                      style={frozenHeaderStyle('so_cont')}
                     >
                       <SearchHeader
                         label='Số cont'
@@ -953,6 +1020,8 @@ const KeCuocChiHoTable = () => {
                       rowSpan={headerRowSpan}
                       onResize={onResize}
                       width={colWidths.loai_cont}
+                      className={FROZEN_HEADER_CLASS}
+                      style={frozenHeaderStyle('loai_cont')}
                     >
                       Loại cont
                     </LeafTh>
@@ -961,6 +1030,8 @@ const KeCuocChiHoTable = () => {
                       rowSpan={headerRowSpan}
                       onResize={onResize}
                       width={colWidths.loai_hang}
+                      className={FROZEN_HEADER_CLASS}
+                      style={frozenHeaderStyle('loai_hang')}
                     >
                       Loại hàng
                     </LeafTh>
@@ -969,6 +1040,8 @@ const KeCuocChiHoTable = () => {
                       rowSpan={headerRowSpan}
                       onResize={onResize}
                       width={colWidths.cang_ha}
+                      className={FROZEN_HEADER_CLASS}
+                      style={frozenHeaderStyle('cang_ha')}
                     >
                       Cảng hạ
                     </LeafTh>
@@ -977,6 +1050,8 @@ const KeCuocChiHoTable = () => {
                       rowSpan={headerRowSpan}
                       onResize={onResize}
                       width={colWidths.cang_nang}
+                      className={FROZEN_HEADER_CLASS}
+                      style={frozenHeaderStyle('cang_nang')}
                     >
                       Cảng nâng
                     </LeafTh>
@@ -985,6 +1060,8 @@ const KeCuocChiHoTable = () => {
                       rowSpan={headerRowSpan}
                       onResize={onResize}
                       width={colWidths.so_xe}
+                      className={FROZEN_HEADER_CLASS}
+                      style={frozenHeaderStyle('so_xe')}
                     >
                       Số xe
                     </LeafTh>
@@ -993,6 +1070,8 @@ const KeCuocChiHoTable = () => {
                       rowSpan={headerRowSpan}
                       onResize={onResize}
                       width={colWidths.thang_cong_no}
+                      className={FROZEN_HEADER_CLASS}
+                      style={frozenHeaderStyle('thang_cong_no')}
                     >
                       Tháng công nợ
                     </LeafTh>
@@ -1192,10 +1271,16 @@ const KeCuocChiHoTable = () => {
                           i % 2 === 0 ? 'bg-background' : 'bg-muted/10'
                         )}
                       >
-                        <td className='border-x border-border px-2 py-1 text-center text-xs text-muted-foreground'>
+                        <td
+                          className='border-x border-border bg-background px-2 py-1 text-center text-xs text-muted-foreground'
+                          style={frozenBody('tt')}
+                        >
                           {row.tt}
                         </td>
-                        <td className='border-r border-border'>
+                        <td
+                          className='border-r border-border bg-background'
+                          style={frozenBody('ngay')}
+                        >
                           <Text v={formatNgay(row.ngay)} />
                         </td>
                         {/* <td className='border-r border-border'>
@@ -1213,34 +1298,64 @@ const KeCuocChiHoTable = () => {
                             )}
                           </div>
                         </td> */}
-                        <td className='border-r border-border'>
+                        <td
+                          className='border-r border-border bg-background'
+                          style={frozenBody('so_bill_booking')}
+                        >
                           <Text v={row.so_bill_booking} />
                         </td>
-                        <td className='border-r border-border'>
+                        <td
+                          className='border-r border-border bg-background'
+                          style={frozenBody('tuyen')}
+                        >
                           <Text v={row.tuyen} />
                         </td>
-                        <td className='border-r border-border'>
+                        <td
+                          className='border-r border-border bg-background'
+                          style={frozenBody('loai_don_hang')}
+                        >
                           <Text v={row.loai_don_hang} />
                         </td>
-                        <td className='border-r border-border'>
+                        <td
+                          className='border-r border-border bg-background'
+                          style={frozenBody('so_cont')}
+                        >
                           <Text v={row.so_cont} />
                         </td>
-                        <td className='border-r border-border'>
+                        <td
+                          className='border-r border-border bg-background'
+                          style={frozenBody('loai_cont')}
+                        >
                           <Text v={row.loai_cont} />
                         </td>
-                        <td className='border-r border-border'>
+                        <td
+                          className='border-r border-border bg-background'
+                          style={frozenBody('loai_hang')}
+                        >
                           <Text v={row.loai_hang} />
                         </td>
-                        <td className='border-r border-border'>
+                        <td
+                          className='border-r border-border bg-background'
+                          style={frozenBody('cang_ha')}
+                        >
                           <Text v={row.cang_ha} />
                         </td>
-                        <td className='border-r border-border'>
+                        <td
+                          className='border-r border-border bg-background'
+                          style={frozenBody('cang_nang')}
+                        >
                           <Text v={row.cang_nang} />
                         </td>
-                        <td className='border-r border-border'>
+                        <td
+                          className='border-r border-border bg-background'
+                          style={frozenBody('so_xe')}
+                        >
                           <Text v={row.so_xe} />
                         </td>
-                        <td className='border-r border-border'>
+                        <td
+                          className='border-r border-border bg-background'
+                          style={frozenBody('thang_cong_no')}
+                        >
                           <Text v={formatThangCongNo(row.thang_cong_no)} />
                         </td>
                         {/* <td className='border-r border-border'>
@@ -1383,8 +1498,8 @@ const KeCuocChiHoTable = () => {
                   <tfoot>
                     <tr className='border-t-2 border-border bg-muted/40 font-semibold'>
                       <td
-                        colSpan={15}
-                        className='border-x border-border px-2 py-2 text-xs'
+                        colSpan={INFO_COL_COUNT}
+                        className='sticky left-0 z-10 border-x border-border bg-muted px-2 py-2 text-xs'
                       >
                         Tổng ({filteredRows.length} container)
                       </td>
