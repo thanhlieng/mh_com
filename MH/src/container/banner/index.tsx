@@ -18,6 +18,8 @@ import { ACCSESS_TOKEN } from '@/contants/Storage';
 import { IDataHomepage } from '@/contants/types';
 import { MANAGER_PAGES } from '@/routes/routes';
 import { getOptionsHomepage } from '@/services/post.service';
+import { clearActiveTarget } from '@/store/slices/activeTargetSlice';
+import { useAppDispatch } from '@/store/hook';
 import { mappingOptionsHomepage } from '@/utils/common-function';
 import storage from '@/utils/storage';
 
@@ -30,6 +32,7 @@ import PolicyACF from './components/PolicyACF';
 const BannerContainer = () => {
   const { t, lang } = useTranslation('common');
   const { removeAll } = storage();
+  const dispatch = useAppDispatch();
 
   const router = useRouter();
   const [isLogin, setIsLogin] = useState<boolean>(false);
@@ -52,6 +55,7 @@ const BannerContainer = () => {
     }
   }, [router]);
   const handleLogout = async () => {
+    dispatch(clearActiveTarget());
     removeAll();
     setIsLogin(false);
     await router.push('/');

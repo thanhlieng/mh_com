@@ -13,6 +13,8 @@ import { useState } from 'react';
 
 import HeaderMenu from '@/components/layout/header-menu';
 
+import { clearActiveTarget } from '@/store/slices/activeTargetSlice';
+import { useAppDispatch } from '@/store/hook';
 import storage from '@/utils/storage';
 
 type MenuItem = Required<MenuProps>['items'][number];
@@ -38,6 +40,7 @@ const MenuUserContainer = () => {
   const { t } = useTranslation('booking');
   const [collapsed, setCollapsed] = useState<boolean>(false);
   const { removeAll } = storage();
+  const dispatch = useAppDispatch();
 
   const toggleCollapsed = () => {
     setCollapsed(!collapsed);
@@ -55,6 +58,7 @@ const MenuUserContainer = () => {
   };
 
   const handleLogout = async () => {
+    dispatch(clearActiveTarget());
     removeAll();
     await router.push('/');
   };

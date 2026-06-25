@@ -2,9 +2,10 @@ import axios from 'axios';
 import querystring from 'query-string';
 
 import { BASE_URL } from '@/contants/common.constants';
-import { AUTH_REFRESH_TOKEN } from '@/contants/endpoint';
+import { ACCOUNT_A_TARGETS, AUTH_REFRESH_TOKEN } from '@/contants/endpoint';
 import { ACCSESS_TOKEN, REFRESH_TOKEN, USER } from '@/contants/Storage';
 import { ILogin } from '@/services/Authen.type';
+import { store } from '@/store/store';
 import storage from '@/utils/storage';
 
 const { getItem, location, setItem, removeAll } = storage();
@@ -16,10 +17,30 @@ const axiosClient = axios.create({
   },
   paramsSerializer: (param) => querystring.stringify(param),
 });
+
+// Whitelist URL không cần header X-A-Target (auth + endpoint lấy danh sách target).
+const TARGET_HEADER_WHITELIST = [
+  '/auth/',
+  AUTH_REFRESH_TOKEN,
+  ACCOUNT_A_TARGETS,
+];
+
+const requiresTargetHeader = (url?: string): boolean => {
+  if (!url) return false;
+  return !TARGET_HEADER_WHITELIST.some((prefix) => url.includes(prefix));
+};
+
 axiosClient.interceptors.request.use(
   function (config) {
     const accessToken = getItem(ACCSESS_TOKEN);
     config.headers = { Authorization: `Bearer ${accessToken}` };
+
+    if (requiresTargetHeader(config.url)) {
+      const activeTarget = store.getState().activeTarget.current;
+      if (activeTarget) {
+        config.headers['X-A-Target'] = activeTarget;
+      }
+    }
     return config;
   },
   function (error) {
@@ -33,7 +54,7 @@ axiosClient.interceptors.response.use(
   },
   async function (error) {
     const originalConfig = error.config;
-    if (originalConfig.url !== '/login' && error.response) {
+    if (originalConfig?.url !== '/login' && error.response) {
       if (error.response.status === 401) {
         if (originalConfig.retry) {
           removeAll();
@@ -58,7 +79,7 @@ axiosClient.interceptors.response.use(
         }
       }
     }
-    if (originalConfig.url !== '/administrator/login' && error.response) {
+    if (originalConfig?.url !== '/administrator/login' && error.response) {
       if (error.response.status === 401) {
         if (originalConfig.retry) {
           removeAll();

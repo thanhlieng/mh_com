@@ -820,3 +820,8 @@ export interface IDetailCategoryDisplay {
   createdAt: Date;
   updatedAt: Date;
 }
+
+export enum EATarget {
+  MHVN = 'mhvn',
+  GP = 'gp',
+}

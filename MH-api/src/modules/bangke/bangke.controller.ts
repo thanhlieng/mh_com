@@ -3,54 +3,53 @@ import {
   Get,
   Param,
   Query,
-  Headers,
   UseGuards,
   BadRequestException,
-} from "@nestjs/common";
-import { JwtAuthGuard } from "src/common/guards/jwt.guard";
-import { GetUser } from "src/common/decorators/user.decorator";
-import { ActiveLinkService } from "src/common/services/active-link.service";
-import { BangKeService } from "./bangke.service";
-import { UserEntity } from "../users/user.entity";
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiHeader,
+} from '@nestjs/swagger';
+import { JwtAuthGuard } from 'src/common/guards/jwt.guard';
+import {
+  ActiveTargetGuard,
+  ActiveAContext,
+} from 'src/common/guards/active-target.guard';
+import { GetActiveContext } from 'src/common/decorators/active-context.decorator';
+import { BangKeService } from './bangke.service';
 
-@Controller("api/bangke")
-@UseGuards(JwtAuthGuard)
+@ApiTags('bangke')
+@ApiBearerAuth()
+@ApiHeader({
+  name: 'X-A-Target',
+  required: true,
+  description: "Target hệ A: 'mhvn' | 'gp'. Bắt buộc.",
+})
+@Controller('api/bangke')
+@UseGuards(JwtAuthGuard, ActiveTargetGuard)
 export class BangKeController {
-  constructor(
-    private bangKeService: BangKeService,
-    private readonly activeLinkService: ActiveLinkService,
-  ) {}
+  constructor(private bangKeService: BangKeService) {}
 
   @Get()
+  @ApiOperation({ summary: 'Lấy danh sách bảng kê' })
   async getBangKeList(
-    @GetUser() user: UserEntity,
-    @Headers("x-active-supplier-id") activeSupplierId: string,
-    @Headers("x-active-customer-id") activeCustomerId: string,
+    @GetActiveContext() ctx: ActiveAContext,
     @Query() query: any,
   ) {
-    const identity = await this.activeLinkService.resolveActiveIdentity(
-      user,
-      activeSupplierId,
-      activeCustomerId,
-    );
-    return this.bangKeService.getBangKe(identity, query);
+    return this.bangKeService.getBangKe(ctx, query);
   }
 
-  @Get(":id")
+  @Get(':id')
+  @ApiOperation({ summary: 'Chi tiết bảng kê' })
   async getBangKeById(
-    @GetUser() user: UserEntity,
-    @Headers("x-active-supplier-id") activeSupplierId: string,
-    @Headers("x-active-customer-id") activeCustomerId: string,
-    @Param("id") id: string,
+    @GetActiveContext() ctx: ActiveAContext,
+    @Param('id') id: string,
   ) {
-    const identity = await this.activeLinkService.resolveActiveIdentity(
-      user,
-      activeSupplierId,
-      activeCustomerId,
-    );
     if (!id) {
-      throw new BadRequestException("Bangke ID is required");
+      throw new BadRequestException('Bangke ID is required');
     }
-    return this.bangKeService.getBangKeById(identity, id);
+    return this.bangKeService.getBangKeById(ctx, id);
   }
 }

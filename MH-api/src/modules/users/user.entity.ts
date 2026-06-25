@@ -12,6 +12,7 @@ import bcrypt from 'bcrypt';
 import { Exclude } from 'class-transformer';
 import { ETypeUser, Status } from 'src/common/constants/common.constants';
 import { RolesEntity } from '../roles/entities/roles.entity';
+import { EALinkType } from './entities/user-a-link.entity';
 
 @Entity({ name: 'users' })
 export class UserEntity extends BaseEntity {
@@ -39,6 +40,19 @@ export class UserEntity extends BaseEntity {
 
   @Column({ enum: ETypeUser, default: ETypeUser.CLIENT })
   type: string;
+
+  /**
+   * Loại liên kết bên A của account: 'supplier' | 'customer'. Cố định, không
+   * đổi theo target — account NCC ở mhvn cũng là NCC ở gp. NULL với account
+   * mhcom thuần (không liên kết hệ A).
+   */
+  @Column({
+    type: 'enum',
+    name: 'account_type',
+    enum: EALinkType,
+    nullable: true,
+  })
+  accountType: EALinkType | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

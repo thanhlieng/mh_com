@@ -3,7 +3,6 @@ import {
   Controller,
   Delete,
   Get,
-  Headers,
   Param,
   Patch,
   Post,
@@ -13,85 +12,80 @@ import {
   UploadedFiles,
   BadRequestException,
 } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiHeader,
+} from '@nestjs/swagger';
 import { AnyFilesInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from 'src/common/guards/jwt.guard';
-import { GetUser } from 'src/common/decorators/user.decorator';
-import { UserEntity } from '../users/user.entity';
-import { ActiveLinkService } from 'src/common/services/active-link.service';
+import {
+  ActiveTargetGuard,
+  ActiveAContext,
+} from 'src/common/guards/active-target.guard';
+import { GetActiveContext } from 'src/common/decorators/active-context.decorator';
 import { SupplierPricesService } from './supplier-prices.service';
 
 /**
  * mhcom endpoint phục vụ màn quản lý giá (ServiceSupplierPrice).
- * Proxy thao tác giá của supplier sang hệ thống mhvn theo supplier active.
+ * Proxy thao tác giá của supplier sang hệ A theo supplier active + target
+ * (mhvn|gp) trong header `X-A-Target`.
  */
+@ApiTags('supplier-prices')
+@ApiBearerAuth()
+@ApiHeader({
+  name: 'X-A-Target',
+  required: true,
+  description: "Target hệ A: 'mhvn' | 'gp'. Bắt buộc.",
+})
 @Controller('api/supplier/prices')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, ActiveTargetGuard)
 export class SupplierPricesController {
-  constructor(
-    private readonly supplierPricesService: SupplierPricesService,
-    private readonly activeLinkService: ActiveLinkService,
-  ) {}
+  constructor(private readonly supplierPricesService: SupplierPricesService) {}
 
   @Get()
+  @ApiOperation({ summary: 'Danh sách giá ServiceSupplierPrice' })
   async getPrices(
-    @GetUser() user: UserEntity,
-    @Headers('x-active-supplier-id') activeSupplierId: string,
+    @GetActiveContext() ctx: ActiveAContext,
     @Query() query: Record<string, string>,
   ) {
-    const a_supplier_id = await this.activeLinkService.resolveSupplier(
-      user,
-      activeSupplierId,
-    );
-    return this.supplierPricesService.getPrices(a_supplier_id, query);
+    return this.supplierPricesService.getPrices(ctx, query);
   }
 
   @Get('filter-options')
-  async getFilterOptions(
-    @GetUser() user: UserEntity,
-    @Headers('x-active-supplier-id') activeSupplierId: string,
-  ) {
-    const a_supplier_id = await this.activeLinkService.resolveSupplier(
-      user,
-      activeSupplierId,
-    );
-    return this.supplierPricesService.getFilterOptions(a_supplier_id);
+  @ApiOperation({ summary: 'Bộ lọc routes + services cho màn giá' })
+  async getFilterOptions(@GetActiveContext() ctx: ActiveAContext) {
+    return this.supplierPricesService.getFilterOptions(ctx);
   }
 
   @Patch()
+  @ApiOperation({ summary: 'Cập nhật giá theo lô' })
   async updatePrices(
-    @GetUser() user: UserEntity,
-    @Headers('x-active-supplier-id') activeSupplierId: string,
+    @GetActiveContext() ctx: ActiveAContext,
     @Body() body: { items: any[] },
   ) {
-    const a_supplier_id = await this.activeLinkService.resolveSupplier(
-      user,
-      activeSupplierId,
-    );
     if (!Array.isArray(body?.items) || body.items.length === 0) {
       throw new BadRequestException('items is required.');
     }
-    return this.supplierPricesService.updatePrices(a_supplier_id, body.items);
+    return this.supplierPricesService.updatePrices(ctx, body.items);
   }
 
   @Post('import')
+  @ApiOperation({ summary: 'Import giá từ file' })
   @UseInterceptors(AnyFilesInterceptor())
   async importPrices(
-    @GetUser() user: UserEntity,
-    @Headers('x-active-supplier-id') activeSupplierId: string,
+    @GetActiveContext() ctx: ActiveAContext,
     @UploadedFiles() files: Express.Multer.File[],
     @Body('currency_id') currencyId: string,
     @Body('route_type') routeType: string,
   ) {
-    const a_supplier_id = await this.activeLinkService.resolveSupplier(
-      user,
-      activeSupplierId,
-    );
     const file = files?.[0];
     if (!file) {
       throw new BadRequestException('file is required');
     }
     return this.supplierPricesService.importPrices(
-      a_supplier_id,
+      ctx,
       file,
       currencyId,
       routeType,
@@ -99,28 +93,20 @@ export class SupplierPricesController {
   }
 
   @Get('price-changes')
+  @ApiOperation({ summary: 'Danh sách yêu cầu thay đổi giá' })
   async getPriceChanges(
-    @GetUser() user: UserEntity,
-    @Headers('x-active-supplier-id') activeSupplierId: string,
+    @GetActiveContext() ctx: ActiveAContext,
     @Query('status') status?: string,
   ) {
-    const a_supplier_id = await this.activeLinkService.resolveSupplier(
-      user,
-      activeSupplierId,
-    );
-    return this.supplierPricesService.getPriceChanges(a_supplier_id, status);
+    return this.supplierPricesService.getPriceChanges(ctx, status);
   }
 
   @Delete('price-changes/:id')
+  @ApiOperation({ summary: 'Hủy yêu cầu thay đổi giá (PENDING)' })
   async deletePriceChange(
-    @GetUser() user: UserEntity,
-    @Headers('x-active-supplier-id') activeSupplierId: string,
+    @GetActiveContext() ctx: ActiveAContext,
     @Param('id') id: string,
   ) {
-    const a_supplier_id = await this.activeLinkService.resolveSupplier(
-      user,
-      activeSupplierId,
-    );
-    return this.supplierPricesService.deletePriceChange(a_supplier_id, id);
+    return this.supplierPricesService.deletePriceChange(ctx, id);
   }
 }

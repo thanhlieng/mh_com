@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { MhvnIntegrationService } from '../mhvn-integration/mhvn-integration.service';
+import { ActiveAContext } from 'src/common/guards/active-target.guard';
 
 export interface SupplierTransactionsQuery {
   start_date?: string; // YYYY-MM-DD
@@ -16,11 +17,11 @@ export class SupplierTransactionsService {
   ) {}
 
   /**
-   * Lấy danh sách giao dịch hợp nhất (PNL + Chi hộ) của supplier từ hệ thống mhvn.
+   * Lấy danh sách giao dịch hợp nhất (PNL + Chi hộ) của supplier từ hệ thống A.
    * Proxy tới: GET /api/mhcom/supplier/transactions/ (token supplier).
    */
   async getTransactions(
-    a_supplier_id: string,
+    activeContext: ActiveAContext,
     query: SupplierTransactionsQuery = {},
   ) {
     const params = new URLSearchParams();
@@ -36,17 +37,17 @@ export class SupplierTransactionsService {
     return this.mhvnIntegrationService.callMhvn({
       method: 'GET',
       endpoint,
-      a_supplier_id,
+      activeContext,
     });
   }
 
   /**
-   * Lấy dữ liệu Kê cước & Chi hộ (pivot theo container) của supplier từ hệ thống mhvn.
+   * Lấy dữ liệu Kê cước & Chi hộ (pivot theo container) của supplier từ hệ A.
    * Proxy tới: GET /api/mhcom/supplier/ke-cuoc-chi-ho/ (token supplier).
    * Lọc thời gian theo order_container.date; container không có ngày bị bỏ qua.
    */
   async getKeCuocChiHo(
-    a_supplier_id: string,
+    activeContext: ActiveAContext,
     query: { from?: string; to?: string } = {},
   ) {
     const params = new URLSearchParams();
@@ -59,7 +60,7 @@ export class SupplierTransactionsService {
     return this.mhvnIntegrationService.callMhvn({
       method: 'GET',
       endpoint,
-      a_supplier_id,
+      activeContext,
     });
   }
 
@@ -68,7 +69,7 @@ export class SupplierTransactionsService {
    * Proxy tới: GET /api/mhcom/supplier/transactions/export/ (token supplier).
    */
   async exportCostStatement(
-    a_supplier_id: string,
+    activeContext: ActiveAContext,
     query: { from?: string; to?: string } = {},
   ) {
     const params = new URLSearchParams();
@@ -80,7 +81,7 @@ export class SupplierTransactionsService {
 
     return this.mhvnIntegrationService.callMhvnDownload({
       endpoint,
-      a_supplier_id,
+      activeContext,
     });
   }
 
@@ -89,7 +90,7 @@ export class SupplierTransactionsService {
    * Proxy tới: GET /api/mhcom/supplier/bao-cao-ke-cuoc-chi-ho/export/ (token supplier).
    */
   async exportKeCuocChiHo(
-    a_supplier_id: string,
+    activeContext: ActiveAContext,
     query: { from?: string; to?: string } = {},
   ) {
     const params = new URLSearchParams();
@@ -101,7 +102,7 @@ export class SupplierTransactionsService {
 
     return this.mhvnIntegrationService.callMhvnDownload({
       endpoint,
-      a_supplier_id,
+      activeContext,
     });
   }
 }

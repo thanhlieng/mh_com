@@ -7,119 +7,165 @@ import { ConfigService } from "@nestjs/config";
 import { sign } from "jsonwebtoken";
 import * as fs from "fs";
 import * as path from "path";
+import { EATarget } from "src/modules/users/entities/user-a-link.entity";
 
 interface MhcomTokenPayload {
   iss: string;
   aud: string;
   type: "supplier" | "customer" | "service";
-  sub?: string; // For supplier token only
+  sub?: string; // First id (compat với A khi tách token)
+  supplier_ids?: string[]; // claim mảng cho multi-entity
+  customer_ids?: string[];
   exp?: number;
 }
 
+interface CachedToken {
+  token: string;
+  exp: number;
+}
+
+/**
+ * Service mint JWT RS256 do mhcom phát hành cho A.
+ *
+ * Multi-target: 1 account mhcom có thể đồng thời thao tác với hệ mhvn và gp.
+ *   - Private key có thể đặt riêng cho mỗi target qua
+ *     `MHCOM_PRIVATE_KEY_PATH_MHVN` / `MHCOM_PRIVATE_KEY_PATH_GP`.
+ *   - Nếu chỉ đặt key đơn lẻ `MHCOM_PRIVATE_KEY_PATH` (backward compat),
+ *     key đó được dùng cho CẢ HAI target.
+ *
+ * Token spec:
+ *   { iss: 'mhcom', aud: 'mhvn', type: 'supplier'|'customer'|'service',
+ *     sub: '<first id>', supplier_ids|customer_ids: [...], exp: ... }
+ *
+ * `aud` luôn 'mhvn' theo spec — A không phân biệt theo target.
+ */
 @Injectable()
 export class MhcomJwtService {
-  private privateKeyPem: string;
-  private cachedServiceToken: string | null = null;
-  private serviceTokenExpiry: number = 0;
+  private privateKeyByTarget: Record<EATarget, string>;
+  private serviceTokenCache: Map<EATarget, CachedToken> = new Map();
+
+  // Token lifetime: 200 ngày (giữ tương đương lifetime JWT cũ của mhcom).
+  private static readonly TOKEN_TTL_SECONDS = 200 * 24 * 60 * 60;
 
   constructor(private configService: ConfigService) {
-    const keyPath = this.configService.get<string>("MHCOM_PRIVATE_KEY_PATH");
-    if (!keyPath) {
+    const sharedPath = this.configService.get<string>("MHCOM_PRIVATE_KEY_PATH");
+    const mhvnPath =
+      this.configService.get<string>("MHCOM_PRIVATE_KEY_PATH_MHVN") ||
+      sharedPath;
+    const gpPath =
+      this.configService.get<string>("MHCOM_PRIVATE_KEY_PATH_GP") ||
+      sharedPath;
+
+    if (!mhvnPath) {
       throw new Error(
-        "MHCOM_PRIVATE_KEY_PATH environment variable is not set",
+        "Missing MHCOM_PRIVATE_KEY_PATH_MHVN (or fallback MHCOM_PRIVATE_KEY_PATH) — không thể mint token cho target 'mhvn'.",
       );
     }
-    // Read private key from file
+    if (!gpPath) {
+      throw new Error(
+        "Missing MHCOM_PRIVATE_KEY_PATH_GP (or fallback MHCOM_PRIVATE_KEY_PATH) — không thể mint token cho target 'gp'.",
+      );
+    }
+
+    this.privateKeyByTarget = {
+      [EATarget.MHVN]: this.readKeyOrThrow(mhvnPath, EATarget.MHVN),
+      [EATarget.GP]: this.readKeyOrThrow(gpPath, EATarget.GP),
+    };
+  }
+
+  private readKeyOrThrow(keyPath: string, target: EATarget): string {
     try {
       const absolutePath = path.resolve(keyPath);
-      this.privateKeyPem = fs.readFileSync(absolutePath, "utf-8");
+      return fs.readFileSync(absolutePath, "utf-8");
     } catch (error) {
       throw new Error(
-        `Failed to read MHCOM_PRIVATE_KEY from file "${keyPath}": ${error.message}`,
+        `Failed to read MHCOM private key for target '${target}' at "${keyPath}": ${error.message}`,
       );
     }
   }
 
   /**
-   * Issue a supplier token (RS256)
-   * This token represents a specific supplier from mhvn
-   * @param aSupplierIdId - The supplier ID from mhvn (maps to Supplier#id in mhvn)
-   * @returns JWT token string
-   * @throws ConflictException if a_supplier_id is null/undefined
+   * Mint token supplier (multi-id). Claim `supplier_ids` chứa toàn bộ id; `sub`
+   * = id đầu tiên để tương thích với code A đọc single `sub`.
    */
-  issueSupplierToken(a_supplier_id: string): string {
-    if (!a_supplier_id) {
+  issueSupplierToken(supplierIds: string[], target: EATarget): string {
+    const ids = (supplierIds || []).map((s) => String(s).trim()).filter(Boolean);
+    if (ids.length === 0) {
       throw new ConflictException(
-        "Supplier chưa được liên kết. Vui lòng liên hệ quản trị viên.",
+        "Tài khoản chưa được liên kết với supplier nào. Vui lòng liên hệ quản trị viên.",
       );
     }
-
     const payload: MhcomTokenPayload = {
       iss: "mhcom",
       aud: "mhvn",
       type: "supplier",
-      sub: a_supplier_id,
-      // exp is set to 200 days (matching mhcom's current JWT lifetime)
-      exp: Math.floor(Date.now() / 1000) + 200 * 24 * 60 * 60,
+      sub: ids[0],
+      supplier_ids: ids,
+      exp: Math.floor(Date.now() / 1000) + MhcomJwtService.TOKEN_TTL_SECONDS,
     };
-
-    try {
-      return sign(payload, this.privateKeyPem, { algorithm: "RS256" });
-    } catch (error) {
-      throw new BadRequestException("Failed to issue supplier token");
-    }
+    return this.signOrThrow(payload, target, "supplier");
   }
 
-  issueCustomerToken(a_customer_id: string): string {
-    if (!a_customer_id) {
+  /**
+   * Mint token customer (multi-id). Tương tự supplier với claim `customer_ids`.
+   */
+  issueCustomerToken(customerIds: string[], target: EATarget): string {
+    const ids = (customerIds || []).map((s) => String(s).trim()).filter(Boolean);
+    if (ids.length === 0) {
       throw new ConflictException(
-        "Tài khoản chưa được liên kết với khách hàng. Vui lòng liên hệ quản trị viên.",
+        "Tài khoản chưa được liên kết với khách hàng nào. Vui lòng liên hệ quản trị viên.",
       );
     }
-
     const payload: MhcomTokenPayload = {
       iss: "mhcom",
       aud: "mhvn",
       type: "customer",
-      sub: a_customer_id,
-      exp: Math.floor(Date.now() / 1000) + 200 * 24 * 60 * 60,
+      sub: ids[0],
+      customer_ids: ids,
+      exp: Math.floor(Date.now() / 1000) + MhcomJwtService.TOKEN_TTL_SECONDS,
     };
-
-    try {
-      return sign(payload, this.privateKeyPem, { algorithm: "RS256" });
-    } catch (error) {
-      throw new BadRequestException("Failed to issue customer token");
-    }
+    return this.signOrThrow(payload, target, "customer");
   }
 
   /**
-   * Issue a service token (RS256)
-   * This token represents mhcom itself (not tied to a specific supplier)
-   * Use for master data APIs or system-to-system calls
-   * @returns JWT token string
+   * Mint service token cho từng target. Cache riêng cho mỗi target để tránh
+   * tái sign mỗi request; refresh khi sắp hết hạn (< 60s remaining).
    */
-  issueServiceToken(): string {
+  issueServiceToken(target: EATarget): string {
     const now = Math.floor(Date.now() / 1000);
-    // Return cached token if it still has more than 60s remaining
-    if (this.cachedServiceToken && now < this.serviceTokenExpiry - 60) {
-      return this.cachedServiceToken;
+    const cached = this.serviceTokenCache.get(target);
+    if (cached && now < cached.exp - 60) {
+      return cached.token;
     }
-
-    const expiry = now + 200 * 24 * 60 * 60;
+    const exp = now + MhcomJwtService.TOKEN_TTL_SECONDS;
     const payload: MhcomTokenPayload = {
       iss: "mhcom",
       aud: "mhvn",
       type: "service",
-      exp: expiry,
+      exp,
     };
+    const token = this.signOrThrow(payload, target, "service");
+    this.serviceTokenCache.set(target, { token, exp });
+    return token;
+  }
 
+  private signOrThrow(
+    payload: MhcomTokenPayload,
+    target: EATarget,
+    kind: "supplier" | "customer" | "service",
+  ): string {
+    const key = this.privateKeyByTarget[target];
+    if (!key) {
+      throw new BadRequestException(
+        `Không có private key cấu hình cho target '${target}'.`,
+      );
+    }
     try {
-      const token = sign(payload, this.privateKeyPem, { algorithm: "RS256" });
-      this.cachedServiceToken = token;
-      this.serviceTokenExpiry = expiry;
-      return token;
+      return sign(payload, key, { algorithm: "RS256" });
     } catch (error) {
-      throw new BadRequestException("Failed to issue service token");
+      throw new BadRequestException(
+        `Failed to issue ${kind} token for target '${target}'`,
+      );
     }
   }
 }

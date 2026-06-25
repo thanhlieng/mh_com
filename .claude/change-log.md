@@ -18,6 +18,59 @@
 
 ---
 
+## [2026-06-25 16:00] — Phase 1 (backend) Multi-target A integration (mhvn + gp) + runtime switch
+
+**Yêu cầu:** Mở rộng mhcom để 1 account có thể đồng thời liên kết hệ mhvn và gp, switch runtime qua header `X-A-Target` không cần re-login. Account giữ cố định một loại (`supplier` HOẶC `customer`) nhưng có thể có nhiều entity per target qua claim mảng (`supplier_ids[]` / `customer_ids[]`). Không đổi spec phía A; backward compat key đơn lẻ.
+
+**Agent thực hiện:** backend
+
+**Các file đã thay đổi:**
+
+Migration & entity:
+- `MH-api/src/configs/database/migrations/1772000000000-AddATargetAndAccountType.ts` (mới): thêm `users.account_type` ENUM `'supplier'|'customer'` nullable; thêm `user_a_links.a_target` ENUM `'mhvn'|'gp'` NOT NULL DEFAULT `'mhvn'` (backfill row cũ); DROP unique `UQ_user_a_links_user_entity`, CREATE unique `UQ_user_a_links_user_target_entity (user_id, a_target, link_type, a_entity_id)`; CREATE index `IDX_user_a_links_user_target (user_id, a_target)`. Có `down()` revert đầy đủ.
+- `MH-api/src/modules/users/entities/user-a-link.entity.ts`: thêm enum `EATarget` (`MHVN|GP`) + column `aTarget`; cập nhật decorator `@Unique`/`@Index` khớp schema mới.
+- `MH-api/src/modules/users/user.entity.ts`: thêm column `accountType` (enum `EALinkType`, nullable).
+
+Guard / decorator:
+- `MH-api/src/common/guards/active-target.guard.ts` (mới): `ActiveTargetGuard` đọc header `X-A-Target`, tra `user_a_links` lấy entity ids ở target đó, đọc `users.account_type`, gắn `req.activeContext = {target, accountType, entityIds}`. 400 khi thiếu/sai header, 409 khi chưa liên kết target.
+- `MH-api/src/common/guards/active-target.module.ts` (mới): export guard.
+- `MH-api/src/common/decorators/active-context.decorator.ts` (mới): `@GetActiveContext()` trích `req.activeContext`.
+
+Auth & integration core:
+- `MH-api/src/modules/auth/mhcom-jwt.service.ts`: viết lại — load private key per target (`MHCOM_PRIVATE_KEY_PATH_MHVN/_GP`, fallback `MHCOM_PRIVATE_KEY_PATH`). Method signatures: `issueSupplierToken(ids[], target)`, `issueCustomerToken(ids[], target)`, `issueServiceToken(target)`. Claim format: `{iss:'mhcom', aud:'mhvn', type, sub: ids[0], supplier_ids|customer_ids: [...], exp}`. `aud` luôn `'mhvn'` (A không phân biệt target). Service token cache thành `Map<EATarget, {token,exp}>`.
+- `MH-api/src/modules/mhvn-integration/mhvn-integration.service.ts`: viết lại — `baseUrlByTarget` từ `MHVN_API_BASE_URL_MHVN/_GP`, throw startup error nếu thiếu (fallback `MHVN_API_BASE_URL` chỉ cho dev một-target). `CallMhvnOptions` đổi từ `a_supplier_id?/a_customer_id?` sang `activeContext?: ActiveAContext` + `target?: EATarget` (cho service token). Mint token & chọn baseUrl theo target. Áp dụng cho cả 3 method: `callMhvn`, `callMhvnMultipart`, `callMhvnDownload`.
+
+Proxy controllers/services (tất cả route áp `@UseGuards(JwtAuthGuard, ActiveTargetGuard)` + nhận `ActiveAContext` qua `@GetActiveContext()`, xóa header `X-Active-Supplier-Id`/`X-Active-Customer-Id`):
+- `MH-api/src/modules/supplier-change-requests/{controller,service,module}.ts`
+- `MH-api/src/modules/supplier-chiho-files/{controller,service,module}.ts`
+- `MH-api/src/modules/supplier-order-search/{controller,service,module}.ts`
+- `MH-api/src/modules/supplier-prices/{controller,service,module}.ts`
+- `MH-api/src/modules/supplier-transactions/{supplier-transactions.controller,supplier-transactions.service,supplier-cost-statement-export.controller,supplier-transactions.module}.ts`
+- `MH-api/src/modules/bangke/{controller,service,module}.ts`
+- `MH-api/src/modules/services-catalog/{controller,service,module}.ts`: service token, nhận `target` từ `ActiveTargetGuard` (FE phải gửi `X-A-Target`).
+- `MH-api/src/modules/mhvn-directory/{controller,service}.ts`: admin endpoint — chọn target qua query `?target=mhvn|gp` (không dùng `ActiveTargetGuard` vì admin thường không có `user_a_links`).
+
+Account-links & target endpoint:
+- `MH-api/src/common/services/active-link.service.ts`: bỏ resolver runtime; còn helper internal `listLinksByTarget(user)` (gộp theo target), `getLinksForUser(userId)`, `setLinksForUser(userId, linkType, targets[])`. CRUD admin sync luôn `users.account_type`.
+- `MH-api/src/modules/account-links/account-links.controller.ts`: đổi route từ `GET /api/account/a-links` → `GET /api/account/a-targets` trả `{account_type, targets:[{a_target, entity_ids[]}]}`.
+- `MH-api/src/modules/account-links/admin-account-links.controller.ts`: body mới `{linkType, targets:[{a_target, ids[]}]}` (đa target).
+- `MH-api/src/modules/account-links/dto/set-account-links.dto.ts`: thêm `SetAccountLinkTargetDto` + cập nhật `SetAccountLinksDto.targets[]`.
+
+Env & config:
+- `MH-api/src/configs/configs.constants.ts`: thêm `mhcomIntegrationConfig` với các key per-target + ghi chú backward compat.
+- `MH-api/.env`: cập nhật comment hướng dẫn các key mới `MHCOM_PRIVATE_KEY_PATH_MHVN/_GP`, `MHVN_API_BASE_URL_MHVN/_GP`; giữ `MHCOM_PRIVATE_KEY_PATH` đơn lẻ làm fallback shared.
+
+**Lý do / bối cảnh:** Bước đầu của feature đa hệ A — cho phép 1 account NCC (hoặc KH) thao tác với cả mhvn lẫn gp trên cùng UI mhcom, switch ở runtime. Backend phải route token + baseUrl theo target nhưng vẫn giữ token spec `iss=mhcom/aud=mhvn` để không đụng code A. Thiết kế guard chuẩn hóa giúp tất cả route proxy đọc cùng một `ActiveAContext` thay vì rải logic resolver/header khắp nơi.
+
+**Ảnh hưởng fullstack:**
+- BREAKING (FE): toàn bộ route proxy supplier/customer (supplier-change-requests, supplier-chiho-files, supplier-order-search, supplier-prices, supplier-transactions, supplier-cost-statement, bangke, services-catalog) PHẢI gửi header `X-A-Target: mhvn|gp` thay cho `X-Active-Supplier-Id`/`X-Active-Customer-Id` (header cũ không còn được đọc). Thiếu/sai → 400. Chưa liên kết target → 409.
+- BREAKING (FE): route `GET /api/account/a-links` đổi thành `GET /api/account/a-targets`; response shape mới `{account_type, targets:[{a_target, entity_ids[]}]}`. FE phải cập nhật switcher target + entity.
+- BREAKING (FE): `PUT /api/admin/account-links/:userId` body đổi từ `{linkType, ids[]}` sang `{linkType, targets:[{a_target, ids[]}]}`. Tab "Kết nối hệ A" trong màn quản trị khách hàng phải cập nhật.
+- Admin endpoint `/api/directory/suppliers|customers` thêm query bắt buộc `?target=mhvn|gp`.
+- Cần cập nhật env runtime: set `MHCOM_PRIVATE_KEY_PATH_GP` + `MHVN_API_BASE_URL_MHVN` + `MHVN_API_BASE_URL_GP` (hoặc giữ `MHCOM_PRIVATE_KEY_PATH` + `MHVN_API_BASE_URL` cho dev một-target).
+
+---
+
 ## [2026-06-07 00:04] — Nút Xuất Excel gọi API backend
 
 **Yêu cầu:** Thêm nút xuất dữ liệu ra Excel, nút này request API chứ không lấy trực tiếp từ bảng.
@@ -296,3 +349,81 @@
 **Lý do / bối cảnh:** `args` trong docker-compose được truyền vào build nhưng Dockerfile chưa khai báo `ARG`/`ENV`, nên lúc `next build` chạy `process.env.NEXT_PUBLIC_API_HOST` = undefined → Next inline chuỗi "undefined" vào bundle client → `BASE_URL_GEN_BILL = "undefined/api"` (xem `MH/src/contants/common.constants.ts`). Lưu ý không set `ENV NODE_ENV=production` trước `yarn install` để không bỏ devDependencies (cần cho build).
 
 **Ảnh hưởng fullstack:** Không đổi API contract. Bắt buộc build lại image frontend không dùng cache cũ.
+
+## [2026-06-25 15:29] — FE Phase 2: Multi-target A integration (mhvn + gp) với runtime switch
+
+**Yêu cầu:** Implement frontend cho phase 2 multi-target. 1 account mhcom có thể liên kết đồng thời 2 hệ A (mhvn/gp); FE cần switch target runtime, gửi header `X-A-Target` mọi request `/api/*` (trừ auth + endpoint lấy danh sách target), xoá hoàn toàn header cũ `X-Active-Supplier-Id`/`X-Active-Customer-Id`.
+
+**Agent thực hiện:** frontend
+
+**Các file đã tạo:**
+- `MH/src/services/account-target.services.ts`: type `ATarget`, `AccountType`, `AccountTargetsResponse` và hàm `fetchAccountTargets()` gọi `GET /api/account/a-targets`.
+- `MH/src/store/slices/activeTargetSlice.ts`: Redux Toolkit slice quản lý `current`, `availableTargets`, `accountType`. Actions: `setActiveTarget`, `hydrateFromAccountTargets`, `clearActiveTarget`. Persist `current` + `accountType` qua localStorage (`mhcom_active_target`, `mhcom_account_type`); đọc lại lúc init slice.
+- `MH/src/lib/queryClient.ts`: singleton `QueryClient` chia sẻ giữa `_app.tsx` và `TargetSwitcher` để `queryClient.clear()` khi switch target.
+- `MH/src/components/TargetSwitcher/index.tsx`: Ant Design `Select`. Ẩn khi `availableTargets.length < 2`. Label format `MHVN (2 NCC)` / `GP (1 KH)` theo `accountType`. Khi đổi → dispatch `setActiveTarget` + `queryClient.clear()` + notification.
+
+**Các file đã sửa:**
+- `MH/src/contants/Storage.ts`: xoá `A_LINK_TYPE`, `A_LINK_IDS`, `ACTIVE_SUPPLIER_ID`, `ACTIVE_CUSTOMER_ID`. Thêm `ACCOUNT_TYPE = 'mhcom_account_type'`, `ACTIVE_A_TARGET = 'mhcom_active_target'`.
+- `MH/src/contants/endpoint.ts`: thêm `ACCOUNT_A_TARGETS = '/account/a-targets'`.
+- `MH/src/store/store.ts`: đăng ký reducer `activeTarget`.
+- `MH/src/pages/_app.tsx`: bật `<Provider store={store}>` (trước đây bị comment), import `queryClient` từ `@/lib/queryClient` thay vì khởi tạo inline.
+- `MH/src/utils/axiosClient2.ts`: thay logic inject `X-Active-Supplier-Id`/`X-Active-Customer-Id` bằng inject `X-A-Target` đọc từ `store.getState().activeTarget.current`. Whitelist URL: `/auth/`, `auth/refresh-tokens`, `/account/a-targets`. Bonus response interceptor: hiện `notification.error` rõ ràng cho lỗi 409 (chưa liên kết target) và 400 (thiếu header).
+- `MH/src/utils/Http-request.ts`: thêm cùng logic inject `X-A-Target` (vì cũng gọi `/api/*`).
+- `MH/src/container/LoginPage/index.tsx`: thay flow đọc `getAccountLinks` (cũ) bằng `fetchAccountTargets`. Sau khi login thành công → fetch + dispatch `hydrateFromAccountTargets`. Nếu `targets.length === 0` → `Modal.error` "chưa liên kết hệ A nào" + clear state + `removeAll()` + không cho vào app. Điều hướng đến `SUPPLIER_COST_STATEMENT` nếu `account_type='supplier'`, ngược lại `MANAGER_BOOKINGS`.
+- `MH/src/container/SupplierSidebar/index.tsx`: thêm `TargetSwitcher` ở khu vực sidebar (ẩn nếu chỉ có 1 target). Logout dispatch `clearActiveTarget()`.
+- `MH/src/layout/ManagerLayout.tsx`: logout dispatch `clearActiveTarget()`.
+- `MH/src/components/layout/Menu.tsx`: logout admin cũng dispatch `clearActiveTarget()` (defensive cleanup).
+- `MH/src/container/banner/index.tsx`: logout từ banner dispatch `clearActiveTarget()`.
+- `MH/src/routes/withPrivateRouteSupplier.tsx`: thay check `A_LINK_TYPE` bằng `ACCOUNT_TYPE`.
+- `MH/src/services/supplier.services.ts`: cập nhật comment `X-Active-Supplier-Id` → `X-A-Target (mhvn|gp)`.
+
+**Lý do / bối cảnh:** BE đã chuyển sang mô hình multi-target: 1 account có thể trỏ tới nhiều hệ A. Header cũ trở nên vô nghĩa; guard mới bắt buộc `X-A-Target` cho mọi request `/api/*` (trừ whitelist auth + a-targets). User cần switch target runtime mà không re-login → cache server-state phải bị invalidate (queryClient.clear) để mọi query refetch với target mới.
+
+**Ảnh hưởng fullstack:**
+- Endpoint mới được tiêu thụ: `GET /api/account/a-targets` (yêu cầu JWT, không cần `X-A-Target`).
+- Header `X-A-Target` (`mhvn|gp`) gửi cho mọi request `/api/*` ngoại trừ `/api/auth/*` và `/api/account/a-targets`.
+- Đã xoá hoàn toàn header cũ `X-Active-Supplier-Id` và `X-Active-Customer-Id` ở FE (grep không còn match).
+- Storage keys cũ (`active_supplier_id`, `active_customer_id`, `a_link_type`, `a_link_ids`) không còn được set; có thể cần script cleanup phía client lần đầu (browser tự bỏ qua, không ảnh hưởng chức năng).
+- Lỗi 409 từ guard (account chưa liên kết target) được hiển thị bằng `notification.error`; lỗi 400 (thiếu header) tương tự.
+
+**Build:** `yarn build` pass (Next.js 12, không có lỗi TS/ESLint blocker; chỉ còn warning sort-imports không liên quan code mới).
+
+
+## [2026-06-25 17:30] — QA: tests + checklist cho Multi-target A integration
+
+**Yêu cầu:** Viết và chạy test cho feature Multi-target A integration (mhvn + gp với runtime switch). Phase 1 (backend) + Phase 2 (frontend) đã xong.
+
+**Agent thực hiện:** qa
+
+**Các file đã thay đổi:**
+
+Backend unit tests (Jest):
+- `MH-api/src/modules/auth/mhcom-jwt.service.spec.ts` (mới): 12 tests — verify multi-target JWT mint (`supplier_ids`/`customer_ids` claim, `sub`, `iss`, `aud`), service token cache per-target, key fallback legacy, RSA sign/verify cross-target.
+- `MH-api/src/common/guards/active-target.guard.spec.ts` (mới): 8 tests — header missing/invalid (400), không có link (409), gắn `req.activeContext` đúng cho supplier/customer, fallback `accountType` từ `linkType` row đầu, reject khi data lệch.
+- `MH-api/src/modules/mhvn-integration/mhvn-integration.service.spec.ts` (mới): 8 tests — `callMhvn` route baseUrl + token theo `activeContext.target`, service token khi không có context, no-share giữa target, fallback legacy `MHVN_API_BASE_URL`.
+
+Backend integration tests (Supertest):
+- `MH-api/test/multi-target.e2e-spec.ts` (mới): 7 tests — `GET /api/account/a-targets` response shape, `GET /api/supplier/transactions` với `X-A-Target` thiếu/invalid/mhvn/gp/no-link (400/400/200/200/409), forward query string. Strategy: mock `DataSource` + `HttpService`, override `JwtAuthGuard` bằng stub, mount mini-module gồm `SupplierTransactionsController` + `AccountLinksController`. Không cần Postgres thật.
+
+Test infra:
+- `MH-api/package.json` (jest section): thêm `moduleNameMapper` cho `src/*` → `<rootDir>/$1` và `axios` → `axios/dist/node/axios.cjs` (axios v1 ESM khiến jest+ts-jest không parse được).
+- `MH-api/test/jest-e2e.json`: thêm cùng `moduleNameMapper` cho e2e config.
+
+Frontend component test (RTL + Redux Provider):
+- `MH/src/components/TargetSwitcher/index.spec.tsx` (mới): 7 tests — không render khi <2 target/current=null, label NCC/KH đúng, click target khác dispatch `setActiveTarget` + `queryClient.clear()`, click target trùng không dispatch.
+- Mock `@/lib/queryClient` (spy `clear`) và `antd.notification` (silence).
+
+Manual E2E checklist:
+- `.claude/specs/multi-target-e2e-checklist.md` (mới): 30+ checkbox items chia theo UI supplier/customer, persistence, auth guards, token correctness, admin link mgmt, edge cases.
+
+**Lý do / bối cảnh:** Đảm bảo regression coverage cho luồng đa target trước khi deploy. Đặc biệt verify (a) JWT claim đúng cho `supplier_ids[]`/`customer_ids[]`, (b) routing baseUrl `mhvn` vs `gp` không bị mix-up, (c) guard trả mã lỗi đúng cho 3 case (thiếu/invalid/no-link), (d) FE TargetSwitcher clear cache khi switch.
+
+**Kết quả run:**
+- Backend unit: `yarn test` → 3 suites / 28 tests pass.
+- Backend e2e: `yarn test:e2e --testPathPattern=multi-target` → 1 suite / 7 tests pass.
+- Frontend: `yarn test --testPathPattern=TargetSwitcher` → 1 suite / 7 tests pass.
+- TỔNG: 42 tests pass / 0 fail.
+
+**Bug phát hiện:** Không (code phase 1 + 2 hoạt động đúng spec qua các test).
+
+**Ảnh hưởng fullstack:** Không thay đổi runtime code production — chỉ test files + 2 dòng config jest (moduleNameMapper) trong `MH-api/package.json` và `MH-api/test/jest-e2e.json`. Cần đảm bảo deployer hiểu rằng config jest mới giúp resolve absolute path `src/*` trong test (không ảnh hưởng `nest build` vốn dùng `tsconfig.baseUrl`).

@@ -16,10 +16,10 @@ import IJwtPayload from '../auth/payloads/jwt-payload';
 import { SetAccountLinksDto } from './dto/set-account-links.dto';
 
 /**
- * Quản trị liên kết account ↔ thực thể mhvn (supplier/customer).
+ * Quản trị liên kết account ↔ thực thể hệ A (multi-target: mhvn + gp).
  *
- * Phục vụ màn web admin (tab "Kết nối mhvn"): chọn account muốn liên kết với
- * một hoặc nhiều supplier HOẶC customer bên mhvn. Chỉ ADMIN được thao tác.
+ * Phục vụ màn web admin (tab "Kết nối hệ A"): chọn loại account (NCC/KH) +
+ * danh sách entity cho từng target. Chỉ ADMIN được thao tác.
  */
 @ApiTags('admin-account-links')
 @ApiBearerAuth()
@@ -31,13 +31,15 @@ export class AdminAccountLinksController {
   private assertAdmin(user: IJwtPayload) {
     if (user?.typeUser !== ETypeUser.ADMIN) {
       throw new ForbiddenException(
-        'Chỉ quản trị viên mới được quản lý liên kết mhvn.',
+        'Chỉ quản trị viên mới được quản lý liên kết hệ A.',
       );
     }
   }
 
   @Get(':userId')
-  @ApiOperation({ summary: 'Lấy liên kết mhvn của một account — chỉ ADMIN' })
+  @ApiOperation({
+    summary: 'Lấy liên kết hệ A của một account (gộp theo target) — chỉ ADMIN',
+  })
   async getLinks(
     @GetUser() user: IJwtPayload,
     @Param('userId') userId: string,
@@ -48,7 +50,8 @@ export class AdminAccountLinksController {
 
   @Put(':userId')
   @ApiOperation({
-    summary: 'Thay thế toàn bộ liên kết mhvn của một account — chỉ ADMIN',
+    summary:
+      'Thay thế toàn bộ liên kết hệ A của một account (đa target) — chỉ ADMIN',
   })
   async setLinks(
     @GetUser() user: IJwtPayload,
@@ -59,7 +62,7 @@ export class AdminAccountLinksController {
     return this.activeLinkService.setLinksForUser(
       userId,
       body.linkType ?? null,
-      body.ids,
+      body.targets ?? [],
     );
   }
 }

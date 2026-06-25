@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import FormData from 'form-data';
 import { MhvnIntegrationService } from '../mhvn-integration/mhvn-integration.service';
+import { ActiveAContext } from 'src/common/guards/active-target.guard';
 
 @Injectable()
 export class SupplierChiHoFilesService {
@@ -9,11 +10,11 @@ export class SupplierChiHoFilesService {
   ) {}
 
   /**
-   * Liệt kê file Chi hộ của một order do supplier này upload từ hệ thống B.
+   * Liệt kê file Chi hộ của một order do supplier này upload từ hệ thống A.
    * Proxy tới: GET /api/mhcom/supplier/chiho-files/ (token supplier).
    */
   async listFiles(
-    a_supplier_id: string,
+    activeContext: ActiveAContext,
     orderId: string | number,
     includeInactive?: boolean,
   ) {
@@ -25,7 +26,7 @@ export class SupplierChiHoFilesService {
     return this.mhvnIntegrationService.callMhvn({
       method: 'GET',
       endpoint,
-      a_supplier_id,
+      activeContext,
     });
   }
 
@@ -35,7 +36,7 @@ export class SupplierChiHoFilesService {
    * Phục vụ tab "Danh sách yêu cầu tải lên".
    */
   async listAllUploads(
-    a_supplier_id: string,
+    activeContext: ActiveAContext,
     fileStatus?: string,
     includeInactive?: boolean,
   ) {
@@ -48,7 +49,7 @@ export class SupplierChiHoFilesService {
     return this.mhvnIntegrationService.callMhvn({
       method: 'GET',
       endpoint,
-      a_supplier_id,
+      activeContext,
     });
   }
 
@@ -57,17 +58,17 @@ export class SupplierChiHoFilesService {
    * trạng thái PENDING (chưa được duyệt). Phục vụ tab "Danh sách yêu cầu tải lên".
    * Proxy tới: DELETE /api/mhcom/supplier/chiho-files/<file_id>/ (token supplier).
    *
-   * Hệ thống mhvn tự kiểm tra:
+   * Hệ thống A tự kiểm tra:
    *   - file thuộc supplier trong token,
    *   - approval_status === 'PENDING'.
    * Trả lỗi 400 nếu file đã APPROVED/REJECTED, 404 nếu không thuộc supplier.
    */
-  async deleteUpload(a_supplier_id: string, fileId: string | number) {
+  async deleteUpload(activeContext: ActiveAContext, fileId: string | number) {
     const endpoint = `/api/mhcom/supplier/chiho-files/${fileId}/`;
     return this.mhvnIntegrationService.callMhvn({
       method: 'DELETE',
       endpoint,
-      a_supplier_id,
+      activeContext,
     });
   }
 
@@ -76,7 +77,7 @@ export class SupplierChiHoFilesService {
    * Proxy tới: POST /api/mhcom/supplier/chiho-files/ (multipart, token supplier).
    */
   async uploadFiles(
-    a_supplier_id: string,
+    activeContext: ActiveAContext,
     orderId: string | number,
     files: Array<{ originalname: string; buffer: Buffer; mimetype: string }>,
   ) {
@@ -96,7 +97,7 @@ export class SupplierChiHoFilesService {
     return this.mhvnIntegrationService.callMhvnMultipart({
       endpoint: '/api/mhcom/supplier/chiho-files/',
       form,
-      a_supplier_id,
+      activeContext,
     });
   }
 }

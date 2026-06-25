@@ -21,7 +21,11 @@ import {
   SUPPLIER_PAYMENT_MANAGEMENT,
   SUPPLIER_SHIPPING_RATE,
 } from '@/routes/routes';
+import { clearActiveTarget } from '@/store/slices/activeTargetSlice';
+import { useAppDispatch, useAppSelector } from '@/store/hook';
 import storage from '@/utils/storage';
+
+import TargetSwitcher from '@/components/TargetSwitcher';
 
 const NAV_ITEMS = [
   {
@@ -52,6 +56,11 @@ interface SupplierSidebarProps {
 const SupplierSidebar = ({ open = false, onClose }: SupplierSidebarProps) => {
   const router = useRouter();
   const { removeAll } = storage();
+  const dispatch = useAppDispatch();
+  const hasMultipleTargets = useAppSelector(
+    (s) => s.activeTarget.availableTargets.length >= 2,
+  );
+  const currentSystem = useAppSelector((s) => s.activeTarget.current)
   const [username, setUsername] = useState('');
 
   useEffect(() => {
@@ -63,6 +72,7 @@ const SupplierSidebar = ({ open = false, onClose }: SupplierSidebarProps) => {
   }, []);
 
   const handleLogout = () => {
+    dispatch(clearActiveTarget());
     removeAll();
     router.push('/login-home');
   };
@@ -91,7 +101,7 @@ const SupplierSidebar = ({ open = false, onClose }: SupplierSidebarProps) => {
           <TruckIcon className='h-4 w-4 text-sidebar-primary-foreground' />
         </div>
         <span className='text-sm font-semibold tracking-wide text-sidebar-primary'>
-          MH Supplier
+          {currentSystem?.toLocaleUpperCase()} Supplier
         </span>
       </div>
 
@@ -124,6 +134,16 @@ const SupplierSidebar = ({ open = false, onClose }: SupplierSidebarProps) => {
       </nav>
 
       <Separator />
+
+      {/* Target Switcher — chỉ hiện khi account liên kết >= 2 hệ A */}
+      {hasMultipleTargets && (
+        <div className='px-3 pt-3'>
+          <p className='mb-1 px-2 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40'>
+            Hệ thống
+          </p>
+          <TargetSwitcher className='w-full' />
+        </div>
+      )}
 
       {/* User + Logout */}
       <div className='px-3 py-4'>

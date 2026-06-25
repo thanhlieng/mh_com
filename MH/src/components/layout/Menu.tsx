@@ -31,6 +31,8 @@ import { ADMINISTATOR, ADMINISTATOR_LOGIN } from '@/contants/endpoint';
 import { USER } from '@/contants/Storage';
 import { routes } from '@/routes/routes';
 import { changePassword } from '@/services/booking.services';
+import { clearActiveTarget } from '@/store/slices/activeTargetSlice';
+import { useAppDispatch } from '@/store/hook';
 import storage from '@/utils/storage';
 
 import HeaderMenu from './header-menu';
@@ -61,6 +63,7 @@ const MenuContainer = () => {
   const [isOpenPassword, setIsOpenPasswrod] = useState(false);
   const [collapsed, setCollapsed] = useState<boolean>(false);
   const { removeAll } = storage();
+  const dispatch = useAppDispatch();
   const user = localStorage.getItem(USER);
 
   const [form] = useForm();
@@ -151,6 +154,7 @@ const MenuContainer = () => {
   });
 
   const handleLogout = async () => {
+    dispatch(clearActiveTarget());
     removeAll();
     await router.push('/administrator/login');
   };

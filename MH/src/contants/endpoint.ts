@@ -10,3 +10,6 @@ export const ADMINISTATOR = '/administrator';
 export const ADMINISTATOR_LOGIN = '/administrator/login';
 export const ADMINISTATOR_EMPLOYEE = '/administrator/employee';
 export const ADMINISTATOR_ORDER = '/administrator/order';
+
+// Multi-target A: endpoint lấy danh sách hệ A mà account đã liên kết.
+export const ACCOUNT_A_TARGETS = '/account/a-targets';

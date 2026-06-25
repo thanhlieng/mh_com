@@ -1,196 +1,152 @@
-import {
-  BadRequestException,
-  ConflictException,
-  ForbiddenException,
-  Injectable,
-} from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import {
   EALinkType,
+  EATarget,
   UserALinkEntity,
 } from 'src/modules/users/entities/user-a-link.entity';
+import { UserEntity } from 'src/modules/users/user.entity';
 
 /**
- * Thông tin user tối thiểu lấy từ JWT payload (req.user).
- * Liên kết được lưu hoàn toàn ở bảng `user_a_links` (cột scalar
- * a_supplier_id / a_customer_id ở bảng users đã bị xoá).
+ * Helper internal cho admin CRUD link `user_a_links` (multi-target).
+ *
+ * Sau khi chuyển sang `ActiveTargetGuard` cho mọi route proxy, service này
+ * KHÔNG còn được dùng để resolve runtime — chỉ phục vụ:
+ *   - Endpoint `GET /api/account/a-targets`: liệt kê toàn bộ link của user
+ *     gộp theo target.
+ *   - Admin endpoint `PUT /api/admin/account-links/:userId`: thay thế toàn bộ
+ *     link kèm `a_target`.
+ *
+ * Một account chỉ thuộc đúng MỘT loại (supplier HOẶC customer) — cố định trong
+ * `users.account_type`. Có thể có nhiều entity per target.
  */
+
 interface LinkUserContext {
   id: string;
 }
 
-/**
- * Resolver xác định "thực thể A đang active" cho mỗi request proxy.
- *
- * Một account B có thể liên kết với NHIỀU supplier (hoặc NHIỀU customer).
- * Vì token gửi sang A chỉ mang đúng MỘT `sub`, mỗi request phải chỉ rõ
- * đang thao tác trên thực thể nào — qua header:
- *   - `X-Active-Supplier-Id` cho route supplier
- *   - `X-Active-Customer-Id` cho route customer
- *
- * Resolver luôn kiểm tra DB (tươi mới) để chống leo thang quyền:
- * id được yêu cầu BẮT BUỘC nằm trong tập liên kết của account.
- */
+export interface TargetEntities {
+  a_target: EATarget;
+  entity_ids: string[];
+}
+
+export interface AccountTargetsResult {
+  account_type: EALinkType | null;
+  targets: TargetEntities[];
+}
+
 @Injectable()
 export class ActiveLinkService {
   constructor(private readonly dataSource: DataSource) {}
 
-  /** Lấy tập id thực thể A mà account được phép dùng theo loại. */
-  private async getLinkedIds(
-    userId: string,
-    linkType: EALinkType,
-  ): Promise<string[]> {
-    const rows = await this.dataSource
-      .getRepository(UserALinkEntity)
-      .find({ where: { userId, linkType }, select: ['aEntityId'] });
-
-    return rows.map((r) => r.aEntityId);
-  }
-
   /**
-   * Trả về id thực thể A đã được xác thực để mint token gửi sang A.
-   * @throws ConflictException khi account chưa liên kết với thực thể nào.
-   * @throws ForbiddenException khi requestedId không thuộc account.
-   * @throws BadRequestException khi account có nhiều liên kết mà không chỉ rõ id.
+   * Tổng hợp link của user gộp theo `a_target` + lấy `account_type`.
+   * Dùng cho `GET /api/account/a-targets` để FE render switcher target.
    */
-  private async resolve(
-    linkType: EALinkType,
-    userId: string,
-    requestedId: string | undefined,
-    label: string,
-  ): Promise<string> {
-    const ids = await this.getLinkedIds(userId, linkType);
-
-    if (ids.length === 0) {
-      throw new ConflictException(
-        `Tài khoản chưa được liên kết với ${label}. Vui lòng liên hệ quản trị viên.`,
-      );
-    }
-
-    const requested = requestedId?.trim();
-    if (requested) {
-      if (!ids.includes(requested)) {
-        throw new ForbiddenException(
-          `Tài khoản không có quyền truy cập ${label} đã chọn.`,
-        );
-      }
-      return requested;
-    }
-
-    // Không chỉ rõ: chỉ chấp nhận khi đúng 1 liên kết (giữ tương thích UI cũ).
-    if (ids.length === 1) {
-      return ids[0];
-    }
-
-    throw new BadRequestException(
-      `Tài khoản liên kết với nhiều ${label}. Vui lòng chọn ${label} ở header.`,
-    );
-  }
-
-  /** Resolver cho route supplier — đọc header X-Active-Supplier-Id. */
-  resolveSupplier(
+  async listLinksByTarget(
     user: LinkUserContext,
-    requestedSupplierId?: string,
-  ): Promise<string> {
-    return this.resolve(
-      EALinkType.SUPPLIER,
-      user.id,
-      requestedSupplierId,
-      'nhà cung cấp',
-    );
+  ): Promise<AccountTargetsResult> {
+    const rows = await this.dataSource.getRepository(UserALinkEntity).find({
+      where: { userId: user.id },
+      select: ['aTarget', 'aEntityId', 'linkType'],
+      order: { aTarget: 'ASC' },
+    });
+
+    const userRow = await this.dataSource
+      .getRepository(UserEntity)
+      .createQueryBuilder('u')
+      .select(['u.id', 'u.accountType'])
+      .where('u.id = :id', { id: user.id })
+      .getOne();
+
+    // Account type lấy từ users.account_type; nếu chưa có (data cũ) suy ra từ
+    // chính linkType của row đầu tiên.
+    const accountType: EALinkType | null =
+      (userRow?.accountType as EALinkType) ??
+      (rows[0]?.linkType as EALinkType) ??
+      null;
+
+    const grouped = new Map<EATarget, string[]>();
+    for (const row of rows) {
+      // Bỏ qua row khác loại account (đề phòng data lệch).
+      if (accountType && row.linkType !== accountType) continue;
+      const list = grouped.get(row.aTarget as EATarget) ?? [];
+      list.push(row.aEntityId);
+      grouped.set(row.aTarget as EATarget, list);
+    }
+
+    const targets: TargetEntities[] = [];
+    for (const [a_target, entity_ids] of grouped.entries()) {
+      targets.push({ a_target, entity_ids });
+    }
+
+    return { account_type: accountType, targets };
   }
 
-  /** Resolver cho route customer — đọc header X-Active-Customer-Id. */
-  resolveCustomer(
-    user: LinkUserContext,
-    requestedCustomerId?: string,
-  ): Promise<string> {
-    return this.resolve(
-      EALinkType.CUSTOMER,
-      user.id,
-      requestedCustomerId,
-      'khách hàng',
-    );
-  }
-
-  /**
-   * Resolver dùng cho route chấp nhận CẢ supplier lẫn customer (vd Bảng kê).
-   * Tự xác định loại liên kết của account rồi xác thực id active tương ứng.
-   * Trả về đúng một trong hai field để truyền vào proxy gọi A.
-   */
-  async resolveActiveIdentity(
-    user: LinkUserContext,
-    requestedSupplierId?: string,
-    requestedCustomerId?: string,
-  ): Promise<{ a_supplier_id?: string; a_customer_id?: string }> {
-    const { linkType } = await this.listLinks(user);
-    if (linkType === EALinkType.SUPPLIER) {
-      return { a_supplier_id: await this.resolveSupplier(user, requestedSupplierId) };
-    }
-    if (linkType === EALinkType.CUSTOMER) {
-      return { a_customer_id: await this.resolveCustomer(user, requestedCustomerId) };
-    }
-    throw new ConflictException(
-      'Tài khoản chưa được liên kết với nhà cung cấp hoặc khách hàng. Vui lòng liên hệ quản trị viên.',
-    );
-  }
-
-  /** Danh sách liên kết để FE render bộ chọn (switcher). */
-  async listLinks(
-    user: LinkUserContext,
-  ): Promise<{ linkType: EALinkType | null; ids: string[] }> {
-    const supplierIds = await this.getLinkedIds(user.id, EALinkType.SUPPLIER);
-    if (supplierIds.length > 0) {
-      return { linkType: EALinkType.SUPPLIER, ids: supplierIds };
-    }
-    const customerIds = await this.getLinkedIds(user.id, EALinkType.CUSTOMER);
-    if (customerIds.length > 0) {
-      return { linkType: EALinkType.CUSTOMER, ids: customerIds };
-    }
-    return { linkType: null, ids: [] };
-  }
-
-  /**
-   * (Admin) Lấy liên kết hiện tại của một account bất kỳ theo userId.
-   * Dùng cho màn admin chỉnh liên kết tài khoản ↔ mhvn.
-   */
-  getLinksForUser(
-    userId: string,
-  ): Promise<{ linkType: EALinkType | null; ids: string[] }> {
-    return this.listLinks({ id: userId });
+  /** (Admin) Đọc link của một account bất kỳ theo userId. */
+  getLinksForUser(userId: string): Promise<AccountTargetsResult> {
+    return this.listLinksByTarget({ id: userId });
   }
 
   /**
    * (Admin) Thay thế TOÀN BỘ liên kết của một account.
    *
-   * Một account chỉ thuộc đúng MỘT loại (supplier HOẶC customer). Hàm xoá
-   * sạch liên kết cũ rồi ghi lại theo `linkType` mới → không thể tồn tại cả
-   * hai loại cùng lúc. Truyền `linkType=null` hoặc `ids` rỗng để gỡ liên kết.
+   * Body chứa `linkType` (cố định loại account) + danh sách `targets`:
+   *   targets: [{ a_target: 'mhvn', ids: ['12','18'] }, { a_target: 'gp', ids: ['7'] }]
+   *
+   * Cũng cập nhật `users.account_type` cho khớp `linkType` (hoặc set null khi
+   * gỡ toàn bộ liên kết).
    */
   async setLinksForUser(
     userId: string,
     linkType: EALinkType | null,
-    ids: string[],
-  ): Promise<{ linkType: EALinkType | null; ids: string[] }> {
+    targets: Array<{ a_target: EATarget; ids: string[] }>,
+  ): Promise<AccountTargetsResult> {
     if (linkType && !Object.values(EALinkType).includes(linkType)) {
       throw new BadRequestException('linkType không hợp lệ.');
     }
-
-    // Chuẩn hoá: bỏ trùng, bỏ rỗng.
-    const cleanIds = Array.from(
-      new Set((ids || []).map((s) => String(s).trim()).filter(Boolean)),
-    );
-
-    await this.dataSource.transaction(async (manager) => {
-      const repo = manager.getRepository(UserALinkEntity);
-      await repo.delete({ userId });
-      if (linkType && cleanIds.length > 0) {
-        await repo.save(
-          cleanIds.map((aEntityId) =>
-            repo.create({ userId, linkType, aEntityId }),
-          ),
+    const normalizedTargets: Array<{ a_target: EATarget; ids: string[] }> = (
+      targets || []
+    ).map((t) => {
+      if (!Object.values(EATarget).includes(t.a_target)) {
+        throw new BadRequestException(
+          `a_target không hợp lệ: ${t.a_target}. Chỉ chấp nhận 'mhvn' | 'gp'.`,
         );
       }
+      const ids = Array.from(
+        new Set((t.ids || []).map((s) => String(s).trim()).filter(Boolean)),
+      );
+      return { a_target: t.a_target, ids };
+    });
+
+    await this.dataSource.transaction(async (manager) => {
+      const linkRepo = manager.getRepository(UserALinkEntity);
+      const userRepo = manager.getRepository(UserEntity);
+
+      await linkRepo.delete({ userId });
+
+      if (linkType) {
+        const rows: UserALinkEntity[] = [];
+        for (const t of normalizedTargets) {
+          for (const id of t.ids) {
+            rows.push(
+              linkRepo.create({
+                userId,
+                aTarget: t.a_target,
+                linkType,
+                aEntityId: id,
+              }),
+            );
+          }
+        }
+        if (rows.length > 0) await linkRepo.save(rows);
+      }
+
+      // Sync users.account_type — set null khi gỡ link hoàn toàn.
+      await userRepo.update(
+        { id: userId },
+        { accountType: linkType ?? null },
+      );
     });
 
     return this.getLinksForUser(userId);

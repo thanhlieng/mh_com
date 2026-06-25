@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { MhvnIntegrationService } from '../mhvn-integration/mhvn-integration.service';
+import { ActiveAContext } from 'src/common/guards/active-target.guard';
 
 @Injectable()
 export class SupplierOrderSearchService {
@@ -12,7 +13,7 @@ export class SupplierOrderSearchService {
    * "Quản lý chi hộ". Proxy tới: GET /api/mhcom/supplier/order-by-booking/
    * (token supplier). Trả về đơn + các bản ghi Chi hộ thuộc supplier.
    */
-  async findByBooking(a_supplier_id: string, booking: string) {
+  async findByBooking(activeContext: ActiveAContext, booking: string) {
     const value = (booking ?? '').trim();
     if (!value) {
       throw new BadRequestException('booking_bill_number is required.');
@@ -25,7 +26,7 @@ export class SupplierOrderSearchService {
     return this.mhvnIntegrationService.callMhvn({
       method: 'GET',
       endpoint,
-      a_supplier_id,
+      activeContext,
     });
   }
 }

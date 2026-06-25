@@ -5,8 +5,12 @@ import dynamic from 'next/dynamic';
 import Head from 'next/head';
 import I18nProvider from 'next-translate/I18nProvider';
 import useTranslation from 'next-translate/useTranslation';
-import { QueryClient, QueryClientProvider } from 'react-query';
+import { Provider } from 'react-redux';
+import { QueryClientProvider } from 'react-query';
 import '@fontsource/roboto';
+
+import { queryClient } from '@/lib/queryClient';
+import { store } from '@/store/store';
 
 import '@/styles/globals.css';
 import 'antd/dist/antd.css';
@@ -22,14 +26,6 @@ interface CustomAppProps extends AppProps {
     Layout?: any;
   };
 }
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      refetchOnWindowFocus: false,
-    },
-  },
-});
 
 function MyApp({ Component, pageProps }: CustomAppProps) {
   const Layout = Component.Layout || HomeLayout;
@@ -57,13 +53,13 @@ function MyApp({ Component, pageProps }: CustomAppProps) {
         />
       </Head>
       <QueryClientProvider client={queryClient}>
-        {/* <Provider store={store}> */}
-        <Layout>
-          <I18nProvider lang={lang}>
-            <Component {...pageProps} />
-          </I18nProvider>
-        </Layout>
-        {/* </Provider> */}
+        <Provider store={store}>
+          <Layout>
+            <I18nProvider lang={lang}>
+              <Component {...pageProps} />
+            </I18nProvider>
+          </Layout>
+        </Provider>
       </QueryClientProvider>
     </>
   );

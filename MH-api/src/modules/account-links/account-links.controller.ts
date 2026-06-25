@@ -3,24 +3,29 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/common/guards/jwt.guard';
 import { GetUser } from 'src/common/decorators/user.decorator';
 import { UserEntity } from '../users/user.entity';
-import { ActiveLinkService } from 'src/common/services/active-link.service';
+import {
+  AccountTargetsResult,
+  ActiveLinkService,
+} from 'src/common/services/active-link.service';
 
 /**
- * Cung cấp danh sách thực thể A mà account hiện tại được liên kết,
- * để FE render bộ chọn (switcher) supplier/customer.
+ * Cung cấp danh sách target hệ A (mhvn/gp) mà account hiện tại được liên kết,
+ * gồm `account_type` cố định và danh sách `entity_ids` cho từng target — để FE
+ * render switcher target + switcher entity (nếu account có nhiều supplier).
  */
 @ApiTags('account-links')
 @ApiBearerAuth()
-@Controller('api/account/a-links')
+@Controller('api/account')
 @UseGuards(JwtAuthGuard)
 export class AccountLinksController {
   constructor(private readonly activeLinkService: ActiveLinkService) {}
 
-  @Get()
+  @Get('a-targets')
   @ApiOperation({
-    summary: 'Danh sách supplier/customer (bên A) account được liên kết',
+    summary:
+      'Danh sách target (mhvn/gp) + entity ids account được liên kết, kèm account_type',
   })
-  async getLinks(@GetUser() user: UserEntity) {
-    return this.activeLinkService.listLinks(user);
+  async getATargets(@GetUser() user: UserEntity): Promise<AccountTargetsResult> {
+    return this.activeLinkService.listLinksByTarget(user);
   }
 }

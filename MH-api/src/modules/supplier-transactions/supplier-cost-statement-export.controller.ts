@@ -1,44 +1,48 @@
+import { Controller, Get, Query, Res, UseGuards } from '@nestjs/common';
 import {
-  Controller,
-  Get,
-  Headers,
-  Query,
-  Res,
-  UseGuards,
-} from '@nestjs/common';
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiHeader,
+} from '@nestjs/swagger';
 import { Response } from 'express';
 import { JwtAuthGuard } from 'src/common/guards/jwt.guard';
-import { GetUser } from 'src/common/decorators/user.decorator';
-import { UserEntity } from '../users/user.entity';
-import { ActiveLinkService } from 'src/common/services/active-link.service';
+import {
+  ActiveTargetGuard,
+  ActiveAContext,
+} from 'src/common/guards/active-target.guard';
+import { GetActiveContext } from 'src/common/decorators/active-context.decorator';
 import { SupplierTransactionsService } from './supplier-transactions.service';
 
 /**
  * mhcom endpoint export Excel cho màn "Bảng kê chi phí".
- * Proxy file Excel (PNL + Chi hộ) từ hệ thống mhvn theo supplier.
+ * Proxy file Excel (PNL + Chi hộ) từ hệ A theo supplier + target (mhvn|gp)
+ * trong header `X-A-Target`.
  */
+@ApiTags('supplier-cost-statement-export')
+@ApiBearerAuth()
+@ApiHeader({
+  name: 'X-A-Target',
+  required: true,
+  description: "Target hệ A: 'mhvn' | 'gp'. Bắt buộc.",
+})
 @Controller('api/supplier/cost-statement')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, ActiveTargetGuard)
 export class SupplierCostStatementExportController {
   constructor(
     private readonly supplierTransactionsService: SupplierTransactionsService,
-    private readonly activeLinkService: ActiveLinkService,
   ) {}
 
   @Get('export')
+  @ApiOperation({ summary: 'Export Excel bảng kê chi phí (PNL + Chi hộ)' })
   async exportCostStatement(
-    @GetUser() user: UserEntity,
-    @Headers('x-active-supplier-id') activeSupplierId: string,
+    @GetActiveContext() ctx: ActiveAContext,
     @Query('from') from: string,
     @Query('to') to: string,
     @Res() res: Response,
   ) {
-    const a_supplier_id = await this.activeLinkService.resolveSupplier(
-      user,
-      activeSupplierId,
-    );
     const file = await this.supplierTransactionsService.exportCostStatement(
-      a_supplier_id,
+      ctx,
       { from, to },
     );
 
@@ -55,19 +59,15 @@ export class SupplierCostStatementExportController {
   }
 
   @Get('ke-cuoc-chi-ho/export')
+  @ApiOperation({ summary: 'Export Excel Báo cáo kê cước & chi hộ' })
   async exportKeCuocChiHo(
-    @GetUser() user: UserEntity,
-    @Headers('x-active-supplier-id') activeSupplierId: string,
+    @GetActiveContext() ctx: ActiveAContext,
     @Query('from') from: string,
     @Query('to') to: string,
     @Res() res: Response,
   ) {
-    const a_supplier_id = await this.activeLinkService.resolveSupplier(
-      user,
-      activeSupplierId,
-    );
     const file = await this.supplierTransactionsService.exportKeCuocChiHo(
-      a_supplier_id,
+      ctx,
       { from, to },
     );
 

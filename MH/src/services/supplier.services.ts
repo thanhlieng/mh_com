@@ -1,3 +1,4 @@
+import { EATarget } from '@/contants/types';
 import axiosClient2 from '@/utils/axiosClient2';
 
 // ─── Account links (multi-link supplier/customer) ─────────────────────────────
@@ -7,8 +8,8 @@ import axiosClient2 from '@/utils/axiosClient2';
 export type ALinkType = 'supplier' | 'customer';
 
 export interface AccountLinks {
-  linkType: ALinkType | null;
-  ids: string[];
+  account_type: ALinkType | null;
+  targets: {a_target: string, entity_ids: string[]}[];
 }
 
 /** Lấy danh sách supplier/customer (bên A) mà account hiện tại được liên kết. */
@@ -32,18 +33,27 @@ export interface MhvnDirectoryEntity {
 /** Danh sách supplier (bên mhvn) — service token, chỉ ADMIN. */
 export const getMhvnSuppliers = (
   q?: string,
+  target?: string,
 ): Promise<{ message: string; suppliers: MhvnDirectoryEntity[] }> => {
-  return axiosClient2.get('/directory/suppliers', {
-    params: q ? { q } : {},
+  return axiosClient2.get('/directory/suppliers/', {
+    params: target ? {"target" : target} : {},
+    headers: {
+      "X-A-Target": target ?? ""
+    }
   }) as Promise<{ message: string; suppliers: MhvnDirectoryEntity[] }>;
 };
 
 /** Danh sách customer (bên mhvn) — service token, chỉ ADMIN. */
 export const getMhvnCustomers = (
   q?: string,
+  target?: string,
 ): Promise<{ message: string; customers: MhvnDirectoryEntity[] }> => {
   return axiosClient2.get('/directory/customers', {
-    params: q ? { q } : {},
+    params: {target},
+    
+    headers: {
+      "X-A-Target": target ?? ""
+    },
   }) as Promise<{ message: string; customers: MhvnDirectoryEntity[] }>;
 };
 
@@ -63,7 +73,8 @@ export const getAccountLinksByUser = (
  */
 export const setAccountLinksByUser = (
   userId: string,
-  body: { linkType: ALinkType | null; ids: string[] },
+  body: { linkType: ALinkType | null,
+    targets: Array<{ a_target: EATarget; ids: string[] }> },
 ): Promise<AccountLinks> => {
   return axiosClient2.put(
     `/admin/account-links/${userId}`,
@@ -496,7 +507,7 @@ export const deleteChangeRequest = (
 
 // ─── Yêu cầu thay đổi giá (price-change approval) ─────────────────────────────
 // Gọi system B: GET/DELETE /api/supplier/price-changes → proxy sang hệ thống A.
-// Token supplier; header X-Active-Supplier-Id tự đính kèm bởi axiosClient2.
+// Token supplier; header X-A-Target (mhvn|gp) tự đính kèm bởi axiosClient2.
 
 export type PriceChangeSource = 'MANUAL' | 'EXCEL';
 export type PriceChangeType = 'EDIT_AMOUNT' | 'CREATE' | 'REPLACE';
@@ -553,7 +564,7 @@ export const deleteSupplierPriceChange = (
 
 // ─── Bảng giá dịch vụ (supplier prices) ───────────────────────────────────────
 // Gọi system B: GET/PATCH /api/supplier/prices → proxy sang hệ thống A.
-// Token supplier; header X-Active-Supplier-Id tự đính kèm bởi axiosClient2.
+// Token supplier; header X-A-Target (mhvn|gp) tự đính kèm bởi axiosClient2.
 // Lưu ý: các trường số tiền là Decimal nên về dạng chuỗi (string).
 
 export interface SupplierPrice {

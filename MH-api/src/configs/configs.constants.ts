@@ -65,6 +65,27 @@ export const sharePointConfig = {
 //   apiKeyGoogle: process.env.API_KEY_GOOGLE,
 // };
 
+/**
+ * Tích hợp với hệ A (mhvn + gp). 1 account mhcom có thể đồng thời thao tác
+ * với cả hai target qua header `X-A-Target`.
+ *
+ * Backward compat: nếu chỉ set `mhcomPrivateKeyPath` (đơn lẻ), key đó sẽ
+ * được dùng cho CẢ hai target. baseUrl thì KHÔNG fallback silent vì 2 URL
+ * chắc chắn khác nhau giữa mhvn và gp — phải set tường minh.
+ */
+export const mhcomIntegrationConfig = {
+  // Private keys per target (RS256, dùng để mint token mhcom→A).
+  mhcomPrivateKeyPath: process.env.MHCOM_PRIVATE_KEY_PATH, // shared fallback
+  mhcomPrivateKeyPathMhvn: process.env.MHCOM_PRIVATE_KEY_PATH_MHVN,
+  mhcomPrivateKeyPathGp: process.env.MHCOM_PRIVATE_KEY_PATH_GP,
+  // Base URL per target. Phải set tường minh cho mỗi target khi triển khai
+  // đầy đủ multi-target. `MHVN_API_BASE_URL` giữ làm fallback duy nhất nhằm
+  // tương thích môi trường dev một-target.
+  mhvnApiBaseUrl: process.env.MHVN_API_BASE_URL, // legacy fallback
+  mhvnApiBaseUrlMhvn: process.env.MHVN_API_BASE_URL_MHVN,
+  mhvnApiBaseUrlGp: process.env.MHVN_API_BASE_URL_GP,
+};
+
 // Local postcode data configuration
 export const postcodeDataConfig = {
   dataPath: process.env.POSTCODE_DATA_PATH || './data',

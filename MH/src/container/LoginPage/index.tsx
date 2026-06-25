@@ -1,6 +1,6 @@
 /* eslint-disable unused-imports/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Form, notification } from 'antd';
+import { Form, Modal, notification } from 'antd';
 import { useForm } from 'antd/lib/form/Form';
 import useTranslation from 'next-translate/useTranslation';
 import { useRouter } from 'next/router';
@@ -8,19 +8,16 @@ import { useState } from 'react';
 
 import VInput from '@/components/common/VInput';
 
-import {
-  ACCSESS_TOKEN,
-  ACTIVE_CUSTOMER_ID,
-  ACTIVE_SUPPLIER_ID,
-  A_LINK_IDS,
-  A_LINK_TYPE,
-  REFRESH_TOKEN,
-  USER,
-} from '@/contants/Storage';
+import { ACCSESS_TOKEN, REFRESH_TOKEN, USER } from '@/contants/Storage';
 import { UsersRole } from '@/contants/types';
 import { MANAGER_BOOKINGS, SUPPLIER_COST_STATEMENT } from '@/routes/routes';
 import AuthenService from '@/services/Authen.service';
-import { getAccountLinks } from '@/services/supplier.services';
+import { fetchAccountTargets } from '@/services/account-target.services';
+import {
+  clearActiveTarget,
+  hydrateFromAccountTargets,
+} from '@/store/slices/activeTargetSlice';
+import { useAppDispatch } from '@/store/hook';
 import storage from '@/utils/storage';
 
 const LoginPage = () => {
@@ -28,7 +25,8 @@ const LoginPage = () => {
   const [isLoading, setLoading] = useState<boolean>(false);
   const [form] = useForm();
   const router = useRouter();
-  const { setItem, removeItem } = storage();
+  const dispatch = useAppDispatch();
+  const { setItem, removeAll } = storage();
 
   const handleLogin = async (e: any) => {
     e.preventDefault();
@@ -47,31 +45,36 @@ const LoginPage = () => {
       setItem(REFRESH_TOKEN, res.tokens.refresh.token);
       setItem(USER, JSON.stringify(res.user));
 
-      // Multi-link: xác định loại liên kết (supplier/customer) + chọn id active
-      // mặc định. Account chỉ thuộc đúng MỘT loại.
-      let destination: string = MANAGER_BOOKINGS;
-      // Xoá id active cũ để tránh lẫn phiên trước.
-      removeItem(ACTIVE_SUPPLIER_ID);
-      removeItem(ACTIVE_CUSTOMER_ID);
+      // Multi-target A: fetch danh sách hệ A đã liên kết, hydrate Redux.
       try {
-        const links = await getAccountLinks();
-        setItem(A_LINK_TYPE, links.linkType ?? '');
-        setItem(A_LINK_IDS, JSON.stringify(links.ids ?? []));
-
-        if (links.linkType === 'supplier' && links.ids.length > 0) {
-          setItem(ACTIVE_SUPPLIER_ID, links.ids[0]);
-          destination = SUPPLIER_COST_STATEMENT;
-        } else if (links.linkType === 'customer' && links.ids.length > 0) {
-          setItem(ACTIVE_CUSTOMER_ID, links.ids[0]);
-          destination = MANAGER_BOOKINGS;
+        const targetsResp = await fetchAccountTargets();
+        if (!targetsResp.targets || targetsResp.targets.length === 0) {
+          Modal.error({
+            title: 'Tài khoản chưa được liên kết hệ A',
+            content:
+              'Tài khoản chưa được liên kết với bất kỳ hệ A nào. Vui lòng liên hệ quản trị viên.',
+          });
+          dispatch(clearActiveTarget());
+          removeAll();
+          setLoading(false);
+          return;
         }
-      } catch {
-        // Không lấy được liên kết → coi như khách hàng thường, vào booking.
-        setItem(A_LINK_TYPE, '');
-        setItem(A_LINK_IDS, '[]');
-      }
+        dispatch(hydrateFromAccountTargets(targetsResp));
 
-      router.push(destination);
+        const destination =
+          targetsResp.account_type === 'supplier'
+            ? SUPPLIER_COST_STATEMENT
+            : MANAGER_BOOKINGS;
+        router.push(destination);
+      } catch (err) {
+        notification.error({
+          message: 'Không tải được thông tin liên kết hệ A',
+          description: 'Vui lòng thử đăng nhập lại.',
+          placement: 'top',
+        });
+        dispatch(clearActiveTarget());
+        removeAll();
+      }
       setLoading(false);
     } catch (error) {
       notification.error({

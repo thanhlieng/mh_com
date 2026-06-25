@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import FormDataNode from 'form-data';
 import multer from 'multer';
 import { MhvnIntegrationService } from '../mhvn-integration/mhvn-integration.service';
+import { ActiveAContext } from 'src/common/guards/active-target.guard';
 
 @Injectable()
 export class SupplierPricesService {
@@ -10,12 +11,12 @@ export class SupplierPricesService {
   ) {}
 
   /**
-   * Lấy danh sách giá (ServiceSupplierPrice) của supplier từ hệ thống mhvn.
+   * Lấy danh sách giá (ServiceSupplierPrice) của supplier từ hệ thống A.
    * Proxy tới: GET /api/mhcom/supplier/prices/ (token supplier).
    * Chuyển tiếp các tham số lọc/phân trang (page, page_size, route_id,
    * service_id, q, effective_from, effective_to) sang A nguyên trạng.
    */
-  async getPrices(a_supplier_id: string, query?: Record<string, string>) {
+  async getPrices(activeContext: ActiveAContext, query?: Record<string, string>) {
     const qs = this.buildQueryString(query, [
       'page',
       'page_size',
@@ -29,7 +30,7 @@ export class SupplierPricesService {
     return this.mhvnIntegrationService.callMhvn({
       method: 'GET',
       endpoint: `/api/mhcom/supplier/prices/${qs}`,
-      a_supplier_id,
+      activeContext,
     });
   }
 
@@ -37,11 +38,11 @@ export class SupplierPricesService {
    * Lấy lựa chọn bộ lọc (routes + services) cho màn giá vận chuyển.
    * Proxy tới: GET /api/mhcom/supplier/prices/filter-options/ (token supplier).
    */
-  async getFilterOptions(a_supplier_id: string) {
+  async getFilterOptions(activeContext: ActiveAContext) {
     return this.mhvnIntegrationService.callMhvn({
       method: 'GET',
       endpoint: '/api/mhcom/supplier/prices/filter-options/',
-      a_supplier_id,
+      activeContext,
     });
   }
 
@@ -69,12 +70,12 @@ export class SupplierPricesService {
    * Cập nhật giá theo lô cho supplier.
    * Proxy tới: PATCH /api/mhcom/supplier/prices/ (token supplier).
    */
-  async updatePrices(a_supplier_id: string, items: any[]) {
+  async updatePrices(activeContext: ActiveAContext, items: any[]) {
     return this.mhvnIntegrationService.callMhvn({
       method: 'PATCH',
       endpoint: '/api/mhcom/supplier/prices/',
       data: { items },
-      a_supplier_id,
+      activeContext,
     });
   }
 
@@ -83,7 +84,7 @@ export class SupplierPricesService {
    * Proxy tới: POST /api/mhcom/supplier/prices/import/ (multipart, token supplier).
    */
   async importPrices(
-    a_supplier_id: string,
+    activeContext: ActiveAContext,
     file: Express.Multer.File,
     currencyId: string,
     routeType: string,
@@ -99,21 +100,21 @@ export class SupplierPricesService {
     return this.mhvnIntegrationService.callMhvnMultipart({
       endpoint: '/api/mhcom/supplier/prices/import/',
       form,
-      a_supplier_id,
+      activeContext,
     });
   }
 
   /**
-   * Lấy danh sách yêu cầu thay đổi giá của supplier từ hệ thống mhvn.
+   * Lấy danh sách yêu cầu thay đổi giá của supplier từ hệ thống A.
    * Proxy tới: GET /api/mhcom/supplier/price-changes/ (token supplier).
    */
-  async getPriceChanges(a_supplier_id: string, status?: string) {
+  async getPriceChanges(activeContext: ActiveAContext, status?: string) {
     return this.mhvnIntegrationService.callMhvn({
       method: 'GET',
       endpoint: `/api/mhcom/supplier/price-changes/${
         status ? `?status=${encodeURIComponent(status)}` : ''
       }`,
-      a_supplier_id,
+      activeContext,
     });
   }
 
@@ -121,11 +122,11 @@ export class SupplierPricesService {
    * Xóa một yêu cầu thay đổi giá đang ở trạng thái PENDING của supplier.
    * Proxy tới: DELETE /api/mhcom/supplier/price-changes/<id>/ (token supplier).
    */
-  async deletePriceChange(a_supplier_id: string, id: string | number) {
+  async deletePriceChange(activeContext: ActiveAContext, id: string | number) {
     return this.mhvnIntegrationService.callMhvn({
       method: 'DELETE',
       endpoint: `/api/mhcom/supplier/price-changes/${id}/`,
-      a_supplier_id,
+      activeContext,
     });
   }
 }

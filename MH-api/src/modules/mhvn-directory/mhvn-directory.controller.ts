@@ -1,20 +1,28 @@
 import {
+  BadRequestException,
   Controller,
   ForbiddenException,
   Get,
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/common/guards/jwt.guard';
 import { GetUser } from 'src/common/decorators/user.decorator';
 import { ETypeUser } from '@constants/common.constants';
 import IJwtPayload from '../auth/payloads/jwt-payload';
-import { DirectoryQuery, MhvnDirectoryService } from './mhvn-directory.service';
+import { EATarget } from '../users/entities/user-a-link.entity';
+import {
+  DirectoryQuery,
+  MhvnDirectoryService,
+} from './mhvn-directory.service';
 
 /**
- * Danh mục supplier/customer (bên mhvn) phục vụ màn **web admin** tạo/liên kết
+ * Danh mục supplier/customer (bên hệ A) phục vụ màn **web admin** tạo/liên kết
  * tài khoản NCC ở mhcom. Chỉ ADMIN được gọi.
+ *
+ * Admin chọn target qua query `?target=mhvn|gp` (không dùng `ActiveTargetGuard`
+ * vì admin thường không có user_a_links).
  */
 @ApiTags('mhvn-directory')
 @ApiBearerAuth()
@@ -31,23 +39,37 @@ export class MhvnDirectoryController {
     }
   }
 
+  private parseTarget(target?: string): EATarget {
+    const lower = String(target ?? '').toLowerCase();
+    if (lower !== EATarget.MHVN && lower !== EATarget.GP) {
+      throw new BadRequestException(
+        "Query 'target' bắt buộc và phải là 'mhvn' hoặc 'gp'.",
+      );
+    }
+    return lower as EATarget;
+  }
+
   @Get('suppliers')
-  @ApiOperation({ summary: 'Danh sách nhà cung cấp (bên mhvn) — chỉ ADMIN' })
+  @ApiQuery({ name: 'target', required: true, enum: EATarget })
+  @ApiOperation({ summary: 'Danh sách NCC (bên hệ A) — chỉ ADMIN' })
   async getSuppliers(
     @GetUser() user: IJwtPayload,
+    @Query('target') target: string,
     @Query() query: DirectoryQuery,
   ) {
     this.assertAdmin(user);
-    return this.mhvnDirectoryService.getSuppliers(query);
+    return this.mhvnDirectoryService.getSuppliers(this.parseTarget(target), query);
   }
 
   @Get('customers')
-  @ApiOperation({ summary: 'Danh sách khách hàng (bên mhvn) — chỉ ADMIN' })
+  @ApiQuery({ name: 'target', required: true, enum: EATarget })
+  @ApiOperation({ summary: 'Danh sách khách hàng (bên hệ A) — chỉ ADMIN' })
   async getCustomers(
     @GetUser() user: IJwtPayload,
+    @Query('target') target: string,
     @Query() query: DirectoryQuery,
   ) {
     this.assertAdmin(user);
-    return this.mhvnDirectoryService.getCustomers(query);
+    return this.mhvnDirectoryService.getCustomers(this.parseTarget(target), query);
   }
 }
