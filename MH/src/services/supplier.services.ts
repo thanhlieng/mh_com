@@ -722,3 +722,139 @@ export const getOrderByCode = (
     params: { q },
   }) as Promise<OrderByCodeResponse>;
 };
+
+// ─── Báo cáo chất lượng (NCC ↔ MHVN/GP) ───────────────────────────────────────
+// Proxy MH-api → mhvn `/api/mhcom/supplier/quality-reports/*`.
+
+export type QualityReportSource = 'ncc' | 'mhvn';
+export type QualityReportSeverity = 'low' | 'high' | 'urgent';
+export type QualityReportStatus =
+  | 'sent'
+  | 'notified'
+  | 'received'
+  | 'processed'
+  | 'rejected';
+export type QualityReportTab = 'sent' | 'received';
+export type QualityReportStatusAction = 'received' | 'processed' | 'rejected';
+
+export interface QualityReport {
+  id: number;
+  source: QualityReportSource;
+  system_target: string;
+  supplier_id: number;
+  supplier_name: string;
+  created_by_label: string;
+  ngay_phat_sinh: string | null;
+  khach_hang: string;
+  mo_ta_loi: string;
+  anh_huong_cu_the: string;
+  muc_do: QualityReportSeverity;
+  muc_do_display: string;
+  nguyen_nhan_goc_re: string;
+  bien_phap_khac_phuc: string;
+  bien_phap_phong_ngua: string;
+  deadline_xu_ly: string | null;
+  trang_thai: QualityReportStatus;
+  trang_thai_display: string;
+  ngay_hoan_thanh: string | null;
+  ghi_chu: string;
+  can_edit: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface QualityReportListResp {
+  tab: QualityReportTab;
+  page: number;
+  page_size: number;
+  total: number;
+  results: QualityReport[];
+}
+
+export interface QualityReportListParams {
+  tab: QualityReportTab;
+  page?: number;
+  page_size?: number;
+  /** ISO datetime / date — lọc theo ngay_phat_sinh */
+  from?: string;
+  to?: string;
+  /** CSV: sent,notified,received,processed,rejected */
+  status?: string;
+  /** CSV: low,high,urgent */
+  severity?: string;
+}
+
+export interface QualityReportPayload {
+  ngay_phat_sinh?: string | null;
+  khach_hang?: string;
+  mo_ta_loi?: string;
+  anh_huong_cu_the?: string;
+  muc_do?: QualityReportSeverity;
+  nguyen_nhan_goc_re?: string;
+  bien_phap_khac_phuc?: string;
+  bien_phap_phong_ngua?: string;
+  deadline_xu_ly?: string | null;
+  ngay_hoan_thanh?: string | null;
+  ghi_chu?: string;
+}
+
+export interface QualityReportOptions {
+  severities: Array<{ value: QualityReportSeverity; label: string }>;
+  statuses: Array<{ value: QualityReportStatus; label: string }>;
+  allowed_status_actions: QualityReportStatusAction[];
+}
+
+export const listQualityReports = (
+  params: QualityReportListParams,
+): Promise<QualityReportListResp> => {
+  return axiosClient2.get('/supplier/quality-reports', {
+    params,
+  }) as Promise<QualityReportListResp>;
+};
+
+export const getQualityReport = (id: number): Promise<QualityReport> => {
+  return axiosClient2.get(
+    `/supplier/quality-reports/${id}`,
+  ) as Promise<QualityReport>;
+};
+
+export const createQualityReport = (
+  body: QualityReportPayload,
+): Promise<QualityReport> => {
+  return axiosClient2.post(
+    '/supplier/quality-reports',
+    body,
+  ) as Promise<QualityReport>;
+};
+
+export const updateQualityReport = (
+  id: number,
+  body: QualityReportPayload,
+): Promise<QualityReport> => {
+  return axiosClient2.patch(
+    `/supplier/quality-reports/${id}`,
+    body,
+  ) as Promise<QualityReport>;
+};
+
+export const deleteQualityReport = (id: number): Promise<void> => {
+  return axiosClient2.delete(
+    `/supplier/quality-reports/${id}`,
+  ) as Promise<void>;
+};
+
+export const changeQualityReportStatus = (
+  id: number,
+  status: QualityReportStatusAction,
+): Promise<QualityReport> => {
+  return axiosClient2.post(`/supplier/quality-reports/${id}/status`, {
+    status,
+  }) as Promise<QualityReport>;
+};
+
+export const getQualityReportOptions =
+  (): Promise<QualityReportOptions> => {
+    return axiosClient2.get(
+      '/supplier/quality-reports/options',
+    ) as Promise<QualityReportOptions>;
+  };

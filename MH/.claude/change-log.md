@@ -778,3 +778,23 @@ Mục đích: giúp team hiểu được những gì đang được làm mà kh�
 **Lý do / bối cảnh:** mhvn phục vụ `/media/...` public không cần auth, FE có thể request thẳng. Cấu hình host qua env `NEXT_PUBLIC_MHGS_HOST` (vd `https://mhvn.example.com`); thiếu env → dùng path tương đối (hợp khi mhvn và mhcom cùng domain qua reverse-proxy).
 
 **Ảnh hưởng fullstack:** Bỏ phụ thuộc endpoint `GET /api/supplier/chiho-files/uploads/:id/download` ở MH-api (đã revert ở MH-api). Cần set env `NEXT_PUBLIC_MHGS_HOST` ở môi trường staging/prod (Dockerfile/docker-compose) để FE biết gọi host nào.
+
+## [2026-06-26 03:24] — Trang mới: /supplier/quality-reports (Báo cáo chất lượng)
+
+**Yêu cầu:** Theo file `mhgs_log_be/docs/excel_123_structure.md`. NCC (mhcom) có thể gửi báo cáo chất lượng tới MHVN/GP, đồng thời tiếp nhận yêu cầu MHVN/GP gửi về NCC. 2 tab (gửi/nhận); pagination + filter (thời gian, trạng thái, mức độ).
+
+**Các file đã thay đổi:**
+- `src/pages/supplier/quality-reports.tsx` (mới): page sử dụng `SupplierLayout`, dynamic-import container.
+- `src/container/QualityReportsContainer/index.tsx` (mới): UI 2 tab, wrap bằng `withPrivateRouteSupplier`.
+- `src/container/QualityReportsContainer/QualityReportsTable.tsx` (mới): Ant Design Table + filter (DatePicker range, Select trạng thái/mức độ), pagination 10/20/50/100; nút tạo (tab gửi); thao tác Sửa/Xóa (chỉ khi `can_edit`); thao tác Tiếp nhận/Đã xử lý/Từ chối (tab nhận, chỉ khi `trang_thai='notified'`).
+- `src/container/QualityReportsContainer/QualityReportFormModal.tsx` (mới): Ant Design Form Modal có DatePicker cho ngày, Input/TextArea cho text, Select cho mức độ.
+- `src/container/QualityReportsContainer/types.ts` (mới): SEVERITY_OPTIONS, STATUS_OPTIONS, helpers.
+- `src/services/supplier.services.ts` (cuối file): thêm types + service functions `listQualityReports`/`getQualityReport`/`createQualityReport`/`updateQualityReport`/`deleteQualityReport`/`changeQualityReportStatus`/`getQualityReportOptions`. Gọi backend MH-api `/api/supplier/quality-reports/*`.
+- `src/routes/routes.tsx` (line 190): thêm `SUPPLIER_QUALITY_REPORTS = '/supplier/quality-reports'`.
+- `src/container/SupplierSidebar/index.tsx`: thêm icon `ClipboardListIcon` + menu item "Báo cáo chất lượng".
+
+**Lý do / bối cảnh:** Spec yêu cầu UI nằm trên cả phía mhcom (NCC) và mhvn/gp (MH-logistic). Phía mhcom: NCC tự gửi → mặc định `Đã gửi báo cáo`; có thể sửa/xóa khi vẫn đang gửi. NCC tiếp nhận báo cáo MHVN tạo (mặc định `Đã thông báo NCC`) → chuyển sang `Đã tiếp nhận` / `Đã xử lý` / `Từ chối xử lý`.
+
+**Ảnh hưởng fullstack:**
+- Yêu cầu MH-api có module `supplier-quality-reports` (đã thêm cùng phiên).
+- Cần header `X-A-Target` (mhvn|gp) — đã được Redux/Sidebar quản lý sẵn qua `activeTargetSlice` + axios interceptor như các module supplier khác.

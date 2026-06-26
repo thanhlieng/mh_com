@@ -56,6 +56,7 @@ import { SupplierChangeRequestsModule } from './modules/supplier-change-requests
 import { AccountLinksModule } from './modules/account-links/account-links.module';
 import { ServicesCatalogModule } from './modules/services-catalog/services-catalog.module';
 import { MhvnDirectoryModule } from './modules/mhvn-directory/mhvn-directory.module';
+import { SupplierQualityReportsModule } from './modules/supplier-quality-reports/supplier-quality-reports.module';
 import { Module } from '@nestjs/common';
 
 @Module({
@@ -113,6 +114,7 @@ import { Module } from '@nestjs/common';
     AccountLinksModule,
     ServicesCatalogModule,
     MhvnDirectoryModule,
+    SupplierQualityReportsModule,
   ],
   controllers: [AppController],
   providers: [GlobalSeed, AppService],

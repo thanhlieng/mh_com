@@ -427,3 +427,17 @@ Manual E2E checklist:
 **Bug phát hiện:** Không (code phase 1 + 2 hoạt động đúng spec qua các test).
 
 **Ảnh hưởng fullstack:** Không thay đổi runtime code production — chỉ test files + 2 dòng config jest (moduleNameMapper) trong `MH-api/package.json` và `MH-api/test/jest-e2e.json`. Cần đảm bảo deployer hiểu rằng config jest mới giúp resolve absolute path `src/*` trong test (không ảnh hưởng `nest build` vốn dùng `tsconfig.baseUrl`).
+
+## [2026-06-26 03:24] — Tính năng "Báo cáo chất lượng" NCC ↔ MHVN/GP (full-stack)
+
+**Yêu cầu:** Theo file `mhgs_log_be/docs/excel_123_structure.md` (Bảng 1 cho NCC trên mhcom, Bảng 2 cho MHVN/GP). Cả 2 bên đều có thể tạo bản ghi; chuyển trạng thái 2 chiều; thông báo về user GD/admin khi NCC gửi báo cáo; 2 tab gửi/nhận; filter theo thời gian, trạng thái, mức độ (mhvn thêm filter NCC); pagination.
+
+**Agent thực hiện:** claude (full-stack one-shot)
+
+**Các thay đổi chính:**
+- Backend Django (mhgs_log_be): model `QualityReport` + migration `0002_qualityreport.py`; 2 view-set (mhcom supplier-token & mhvn web-user-token); thông báo `QUALITY_REPORT` cho user có `role.desc` chứa `GD` hoặc `is_superuser=True`.
+- Backend NestJS (MH-api): module `supplier-quality-reports` proxy sang Django bằng JWT supplier RS256, gắn vào `ActiveTargetGuard` (`X-A-Target`).
+- Frontend Next.js (MH): page `/supplier/quality-reports`, container `QualityReportsContainer` (Tabs gửi/nhận, Table với pagination + filter, Modal Form Ant Design).
+- Frontend React Vite (MH-logistic): page `QualityReport` với 2 tab, filter có thêm NCC, modal tạo/sửa có select supplier.
+
+**Ảnh hưởng fullstack:** Tính năng mới hoàn toàn — không phá vỡ contract cũ. Yêu cầu chạy migration Django (`python manage.py migrate notifications`) và rebuild MH-api + MH + MH-logistic. Xem chi tiết trong `QUALITY_REPORTS_FEATURE.md` ở project root.

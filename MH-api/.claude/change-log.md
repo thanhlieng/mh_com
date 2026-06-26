@@ -434,3 +434,19 @@ Frontend đã thêm service tương ứng trong `MH/src/services/supplier.servic
 **Lý do / bối cảnh:** Hệ thống mhvn (A) phục vụ `/media/...` public; FE mhcom có thể truy cập thẳng URL đầy đủ. Proxy qua MH-api là dư thừa khi không cần auth.
 
 **Ảnh hưởng fullstack:** Bỏ endpoint `GET /api/supplier/chiho-files/uploads/:id/download` — không endpoint nào ngoài đời đang phụ thuộc (mới thêm trong cùng session).
+
+## [2026-06-26 03:24] — Module mới: supplier-quality-reports
+
+**Yêu cầu:** Thêm proxy cho tính năng Báo cáo chất lượng NCC ↔ MHVN/GP (xem `QUALITY_REPORTS_FEATURE.md` ở project root).
+
+**Các file đã thay đổi:**
+- `src/modules/supplier-quality-reports/supplier-quality-reports.module.ts` (mới): module wrapper, import `MhvnIntegrationModule` + `ActiveTargetModule`.
+- `src/modules/supplier-quality-reports/supplier-quality-reports.service.ts` (mới): proxy 6 endpoint sang Django `/api/mhcom/supplier/quality-reports/*` qua `MhvnIntegrationService.callMhvn` (token supplier theo `ActiveAContext`).
+- `src/modules/supplier-quality-reports/supplier-quality-reports.controller.ts` (mới): `GET/POST /api/supplier/quality-reports`, `GET/PATCH/DELETE /api/supplier/quality-reports/:id`, `POST /api/supplier/quality-reports/:id/status`, `GET /api/supplier/quality-reports/options`. Bảo vệ bằng `JwtAuthGuard` + `ActiveTargetGuard`, header `X-A-Target` bắt buộc.
+- `src/app.module.ts` (line ~59 + ~115): import và thêm `SupplierQualityReportsModule` vào `imports`.
+
+**Lý do / bối cảnh:** Pattern y hệt `supplier-chiho-files` — mhcom backend đứng giữa, mint JWT supplier RS256, route sang đúng base URL (mhvn hoặc gp).
+
+**Ảnh hưởng fullstack:**
+- Endpoint mới cho frontend `MH/src/services/supplier.services.ts` (đã thêm functions tương ứng).
+- Bắt buộc Django (mhgs_log_be) đã chạy migration `notifications/0002_qualityreport.py` và có view `mhcom/supplier_quality_report_views.py` (cả hai mới tạo cùng phiên này).

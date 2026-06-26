@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import {
+  ClipboardListIcon,
   FileTextIcon,
   HandCoinsIcon,
   LogOutIcon,
@@ -23,6 +24,7 @@ import { USER } from '@/contants/Storage';
 import {
   SUPPLIER_COST_STATEMENT,
   SUPPLIER_PAYMENT_MANAGEMENT,
+  SUPPLIER_QUALITY_REPORTS,
   SUPPLIER_SHIPPING_RATE,
 } from '@/routes/routes';
 import storage from '@/utils/storage';
@@ -62,6 +64,11 @@ const NAV_ITEMS = [
     label: 'Thiết lập giá vận chuyển',
     href: SUPPLIER_SHIPPING_RATE,
     icon: RouteIcon,
+  },
+  {
+    label: 'Báo cáo chất lượng',
+    href: SUPPLIER_QUALITY_REPORTS,
+    icon: ClipboardListIcon,
   },
 ];
 
