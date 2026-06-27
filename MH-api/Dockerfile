@@ -10,7 +10,7 @@ WORKDIR /usr/src/app
 COPY package.json yarn.lock* ./
 
 # Install dependencies
-RUN yarn install --frozen-lockfile
+RUN yarn install 
 
 # Rebuild bcrypt for the container's architecture
 # RUN npm rebuild bcrypt --build-from-source
