@@ -1,0 +1,242 @@
+<html>
+
+<head>
+  <style>
+    @page {
+      size: A4;
+      margin: 10mm;
+    }
+
+    th,
+    td {
+      border-top-style: solid;
+      border: 1px solid black;
+      font-size: 10px;
+      font-weight: bold;
+      text-align: center;
+      padding: 0;
+      margin: 0;
+    }
+
+    table {
+      border-spacing: 0px;
+    }
+
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      text-align: center;
+      width: 555px;
+    }
+
+    .title {
+      font-size: 42px;
+      font-weight: bold;
+      text-align: center;
+    }
+
+    .description-cell {
+      max-width: 180px;
+      text-align: left;
+      padding: 3px;
+      word-break: break-word;
+    }
+  </style>
+</head>
+
+<body>
+  <p class="title">INVOICE</p>
+  <table style="width: 555px;">
+    <tr>
+      <th style="width: 83px;font-size: 11px;height: 26px;border-right: none">INVOICE NO</th>
+      <th style="width: 83px;font-size: 11px;height: 26px;border-right: none">DATE</th>
+      <th style="width: 83px;font-size: 11px;height: 26px;border-right: none">ACCOUNT</th>
+      <th style="width: 130px;font-size: 11px;height: 26px;border-right: none">BILL NUMBER</th>
+      <th rowspan="2" style="width: 170px;font-size: 11px;height: 26px;">{{invoiceType}}</th>
+    </tr>
+    <tr>
+      <td style="width: 110px;max-width: 180px;word-break: break-word;font-size: 11px;height: 26px;border-top: none;border-right: none">{{invoiceNumber}}</td>
+      <td style="width: 100px;font-size: 11px;height: 26px;border-top: none;border-right: none">{{invoiceDate}}</td>
+      <td style="width: 120px;font-size: 11px;height: 26px;border-top: none;border-right: none">
+        {{customerCode}}</td>
+      <td style="width: 170px;font-size: 11px;height: 26px;border-top: none;border-right: none;">{{bookingCode}}</td>
+    </tr>
+
+    <tr>
+      <td colspan="5" style="height: 15px;border: none;"></td>
+    </tr>
+
+    <tr>
+      <th colspan="5" style="border-bottom: none;">
+        <div style="display: flex; flex-direction: row;">
+          <div
+            style="width: 50%; font-size: 12px;height: 20px;display: flex;flex-direction: row;justify-content: center;align-items: center;">
+            SHIPPER / EXPORTER</div>
+          <div
+            style="width: 50%; font-size: 12px;height: 20px;display: flex;flex-direction: row;justify-content: center;align-items: center;border-left: 1px solid black">
+            CONSIGNEE/ DELIVERY TO</div>
+        </div>
+      </th>
+    </tr>
+
+    <tr>
+      <td colspan="5">
+        <div style="display: flex;flex-direction: row;">
+          <div style="width: 50%;">
+            <p style="padding-left: 2pt;text-indent: 0pt;line-height:
+              11pt;text-align: left;">Company: <span class="s1">{{senderName}}</span></p>
+            <p style="margin-top: 20px; padding-left: 2pt;text-indent:
+              0pt;line-height: 11pt;text-align: left;">Address:
+              <span class="s1">{{senderAddress}}</span> <br />
+              <span class="s1">{{senderTown}}</span> <br />
+              <span class="s1">{{senderProvince}}</span> <br />
+              <span class="s1">{{senderCountry}}</span>
+            </p>
+            <p style="margin-top: 20px; padding-left: 2pt;text-indent:
+              0pt;line-height: 11pt;text-align: left;">PostCode:
+              <span class="s1">{{senderPostalCode}}</span>
+            </p>
+            <p style="margin-top: 20px; padding-left: 2pt;text-indent:
+              0pt;line-height: 11pt;text-align: left;">Name:
+              <span class="s1">{{senderContactPerson}}</span>
+            </p>
+            <p style="margin-top: 20px; padding-left: 2pt;text-indent:
+              0pt;line-height: 11pt;text-align: left;">Tel: <span class="s1"> {{senderPhoneNumber}}</span></p>
+          </div>
+
+
+          <div style="width: 50%;border-left:1px solid black ;">
+            <p style="padding-left: 2pt;text-indent: 0pt;line-height:
+              11pt;text-align: left;">Company: <span class="s1">{{receiverName}}</span></p>
+            <p style="margin-top: 20px; padding-left: 2pt;text-indent:
+            0pt;line-height: 11pt;text-align: left;">Address:
+              <span class="s1">{{receiverAddress}}</span> <br />
+              <span class="s1">{{receiverTown}}</span> <br />
+              <span class="s1">{{receiverProvince}}</span> <br />
+              <span class="s1">{{receiverCountry}}</span>
+            </p>
+
+            <p style="margin-top: 20px; padding-left: 2pt;text-indent:
+              0pt;line-height: 11pt;text-align: left;">PostCode:
+              <span class="s1">{{receiverPostalCode}}</span>
+            </p>
+            <p style="margin-top: 20px; padding-left: 2pt;text-indent:
+              0pt;line-height: 11pt;text-align: left;">Name:
+              <span class="s1">{{receiverContactPerson}}</span>
+            </p>
+            <p style="margin-top: 20px; padding-left: 2pt;text-indent:
+              0pt;line-height: 11pt;text-align: left;">Tel: <span class="s1">{{receiverPhoneNumber}}</span></p>
+          </div>
+        </div>
+      </td>
+
+    </tr>
+    <tr>
+      <td colspan="5" style="border: none;">
+
+        <p style="
+            text-decoration: underline;
+            font-size: 13px;
+            text-align: left;
+            font-weight: bold;
+            margin-top: 12px;
+
+            ">
+          IMPORTER <br />
+        </p>
+        <p style="text-align: left;padding-left: 50px;font-weight: 400;font-size: 16px; ">{{importers}}</p>
+
+      </td>
+    </tr>
+
+  </table>
+
+  <div style="width: 100%;">
+
+  </div>
+  <div style="margin-top: 12px; width: 100%;">
+
+    <table style="width: 555px;">
+      <tr>
+        <th style="width: 40px;height: 37px;font-size: 10px;">STT</th>
+        <th style="width: 180px;font-size: 10px;">DESCRIPTION</th>
+        <th style="width: 60px;font-size: 10px;">UNIT</th>
+        <th style="width: 80px;font-size: 10px;">MATERIAL</th>
+        <th style="width: 70px;font-size: 10px;">HS CODE</th>
+        <th style="width: 60px;font-size: 10px;">ORIGIN</th>
+        <th style="width: 70px;font-size: 10px;">QUANTILY</th>
+        <th style="width: 80px;font-size: 10px;">PRICE ({{currencyUnitCode}})</th>
+        <th style="width: 80px;font-size: 10px;">AMOUNT ({{currencyUnitCode}})</th>
+      </tr>
+
+      {{htmlShowListInvoiceDetail}}
+
+      <tr>
+        <td style="height: 22px;"></td>
+        <td style="font-weight: bold">Total</td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td>{{totalItem}}</td>
+        <td></td>
+        <td>{{amount}}</td>
+      </tr>
+    </table>
+  </div>
+  <div style="margin-top: 25px; width: 100%;">
+    <table style="width: 100%">
+      <tr>
+        <th style="font-size: 14px; text-align: left;height: 25px;font-size: 10px;">
+          <p style="font-weight: bold">
+            DELIVERY TERM: <span style="font-weight: normal">{{deliveryCondition}}</span>
+          </p>
+        </th>
+        <th style="font-size: 14px; text-align: left;font-size: 10px;">
+          <p style="font-weight: bold">
+            Number of packages:
+            <span style="font-weight: normal; text-align: center">{{totalBaleNumber}} </span>
+          </p>
+        </th>
+      </tr>
+      <tr>
+        <td style="font-size: 14px; text-align: left;height: 25px;font-size: 10px;">
+          <p style="font-weight: bold">
+            Net Weight: <span style="font-weight: normal">{{totalNetWeight}}</span>
+          </p>
+        </td>
+        <td style="font-size: 14px; text-align: left;font-size: 10px;">
+          <p style="font-weight: bold">
+            VOLUME WEIGHT:
+            <span style="font-weight: normal; text-align: center">{{totalBulkyWeight}}</span>
+          </p>
+        </td>
+      </tr>
+
+      <tr>
+        <td style="font-size: 14px; text-align: left;height: 25px;font-size: 10px;max-width: 180px;word-break: break-word;">
+          <p style="font-weight: bold">
+            REASON FOR EXPORT:
+            <span style="font-weight: normal">{{reasonExport}}</span>
+          </p>
+        </td>
+        <td style="font-size: 14px; text-align: left;font-size: 10px;max-width: 180px;word-break: break-word;">
+          <p style="font-weight: bold">
+            DIMENSION:
+            <span style="font-weight: normal; text-align: center">{{dimension}}</span>
+          </p>
+        </td>
+      </tr>
+    </table>
+
+  </div>
+  <div style="margin-top: 23px;">
+    <p style="text-align: left;font-size: 8px;font-weight: bold;">
+      Note:<span>..........................................</span></p>
+  </div>
+  <div style="display: flex;flex-direction: row; align-items: center;justify-content:space-between;">
+    <p style="font-size: 8;text-align: left;width:50% ;font-weight: bold;">COMPANY STAMP </p>
+    <p style="font-size: 8;text-align: left;width:50% ;font-weight: bold">SIGNATURE</p>
+  </div>
+</body>
+
+</html>

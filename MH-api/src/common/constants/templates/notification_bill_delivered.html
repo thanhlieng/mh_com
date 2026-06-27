@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Thông tin người nhận</title>
+
+  <style>
+    table {
+      font-family: arial, sans-serif;
+      border-collapse: collapse;
+      width: 100%;
+    }
+
+    td,
+    th {
+      border: 1px solid #dddddd;
+      text-align: left;
+      padding: 8px;
+    }
+
+    th {
+      background-color: yellow;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>THÔNG TIN NGƯỜI NHẬN</h1>
+  <br />
+
+  <p>Kính gửi quý khách hàng!</p>
+  <p>Phòng Chăm sóc khách hàng - Công ty MH Great Sun xin thông báo Quý khách hàng</p>
+  <p>thông tin người nhận Bưu phẩm sau:</p>
+  <br />
+
+  <table>
+    <tr>
+      <th>Số vận đơn</th>
+      <th>Nước gửi</th>
+      <th>Nước đến</th>
+      <th>Ngày xuất</th>
+      <th>Ngày nhận</th>
+      <th>Giờ nhận</th>
+      <th>Thông tin người nhận</th>
+    </tr>
+    <tr>
+      <td>{{acfBill}}</td>
+      <td>{{senderCountry}}</td>
+      <td>{{country}}</td>
+      <td>{{exportDate}}</td>
+      <td>{{receiveDate}}</td>
+      <td>{{receiveTime}}</td>
+      <td>{{receiverInfo}}</td>
+    </tr>
+  </table>
+
+  <br />
+  <p>Mong Quý khách hàng lưu lại thông tin.</p>
+  <p>Nếu cần thêm thông tin xin vui lòng liên lạc lại cho chúng tôi theo số</p>
+  <p>Hotline +84 024 38 22 33 55 trong thời gian sớm nhất</p>
+  <p>Xin chân thành cảm ơn!</p>
+
+  <br />
+  <h1>CONSIGNEE'S INFORMATION</h1>
+  <br />
+
+  <p>Dear Customer,</p>
+  <p>Customer Service Department - MH Great Sun Co., Ltd is pleased to announce the consignee’s information as follows:</p>
+  <br />
+
+  <table>
+    <tr>
+      <th>Tracking number</th>
+      <th>Origin</th>
+      <th>Destination</th>
+      <th>Exported date</th>
+      <th>Arrival date</th>
+      <th>Arrival time</th>
+      <th>Consignee’s information</th>
+    </tr>
+    <tr>
+      <td>{{acfBill}}</td>
+      <td>{{senderCountry}}</td>
+      <td>{{country}}</td>
+      <td>{{exportDate}}</td>
+      <td>{{receiveDate}}</td>
+      <td>{{receiveTime}}</td>
+      <td>{{receiverInfo}}</td>
+    </tr>
+  </table>
+
+  <br />
+  <p>Please kindly take note this information.</p>
+  <p>Should you need further assistance, feel free to reach us through our</p>
+  <p>Hotline +84 024 38 22 33 55</p>
+  <p>Sincerely,</p>
+</body>
+
+</html>
