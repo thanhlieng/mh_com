@@ -381,27 +381,56 @@ export const listChiHoUploads = (
 };
 
 /**
- * Base URL của hệ thống mhvn (Django, mhgs_log_be) để build full URL cho file
- * `/media/...`. `/media/` là public, không cần auth → FE có thể mở/tải trực tiếp.
+ * Base URL của các instance hệ A để build full URL cho file `/media/...`.
+ * `/media/` là public, không cần auth → FE mở/tải trực tiếp, không proxy qua MH-api.
  *
- * Cấu hình qua env `NEXT_PUBLIC_MHGS_HOST` (vd: https://mhvn.example.com).
- * Nếu thiếu env, fallback `''` → trả về path tương đối (chạy được khi mhvn và
- * mhcom cùng domain qua reverse-proxy).
+ * Env:
+ *   - `NEXT_PUBLIC_MHGS_MHVN_HOST` — host instance mhvn (vd: https://mhvn.example.com)
+ *   - `NEXT_PUBLIC_MHGS_GP_HOST` — host instance gp (vd: https://gp.example.com)
+ *   - `NEXT_PUBLIC_MHGS_HOST` — legacy, fallback cho cả 2 nếu env mới chưa set
+ *
+ * Thiếu env tương ứng → fallback `''` → trả path tương đối (chạy được khi cùng
+ * domain qua reverse-proxy).
  */
-export const MHGS_HOST = process.env.NEXT_PUBLIC_MHGS_HOST ?? '';
+const LEGACY_MHGS_HOST = process.env.NEXT_PUBLIC_MHGS_HOST ?? '';
+export const MHGS_HOST_MHVN =
+  process.env.NEXT_PUBLIC_MHGS_MHVN_HOST ?? LEGACY_MHGS_HOST;
+export const MHGS_HOST_GP =
+  process.env.NEXT_PUBLIC_MHGS_GP_HOST ?? LEGACY_MHGS_HOST;
+/** @deprecated Dùng `MHGS_HOST_MHVN` hoặc `MHGS_HOST_GP`. Giữ để backward-compat. */
+export const MHGS_HOST = MHGS_HOST_MHVN;
+
+const ACTIVE_TARGET_STORAGE_KEY = 'mhcom_active_target';
+
+const readActiveTargetHost = (): string => {
+  if (typeof window === 'undefined') return MHGS_HOST_MHVN;
+  const target = window.localStorage.getItem(ACTIVE_TARGET_STORAGE_KEY);
+  return target === 'gp' ? MHGS_HOST_GP : MHGS_HOST_MHVN;
+};
 
 /**
- * Build URL tuyệt đối tới file Chi hộ trên hệ thống mhvn để mở/tải trực tiếp
- * (không cần proxy qua MH-api). `fileUrl` lấy từ response API — thường dạng
- * `/media/order_chiho_files/...`. Trả null nếu input rỗng.
+ * Build URL tuyệt đối tới file Chi hộ trên hệ A đang active để mở/tải trực tiếp.
+ * `fileUrl` lấy từ response API — thường dạng `/media/order_chiho_files/...`.
+ *
+ * Tham số `target` (optional): override host theo target cụ thể. Bỏ trống → đọc
+ * từ localStorage `mhcom_active_target` để chọn đúng host (mhvn vs gp).
+ *
+ * Trả null nếu input rỗng.
  */
 export const resolveChiHoFileUrl = (
   fileUrl: string | null | undefined,
+  target?: 'mhvn' | 'gp',
 ): string | null => {
   if (!fileUrl) return null;
   // Đã absolute (http/https) → giữ nguyên.
   if (/^https?:\/\//i.test(fileUrl)) return fileUrl;
-  return `${MHGS_HOST}${fileUrl}`;
+  const host =
+    target === 'gp'
+      ? MHGS_HOST_GP
+      : target === 'mhvn'
+        ? MHGS_HOST_MHVN
+        : readActiveTargetHost();
+  return `${host}${fileUrl}`;
 };
 
 /**

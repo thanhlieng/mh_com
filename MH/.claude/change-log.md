@@ -980,3 +980,20 @@ Fix kép: (a) cơ chế persist robust — hydrate luôn ghi localStorage; (b) l
 **Lý do / bối cảnh:** Phía A (BE) hiện chưa có cơ chế track is_read cho từng NCC; gọn nhất là client-side dùng localStorage so sánh `created_at`. Baseline frozen ở component mount để badge "Mới" trên hàng không biến mất ngay khi user mở page (lastSeen vừa được ghi). Sidebar dot dùng lastSeen "live" → user mở page → write now → invalidate → dot tắt. 60s refetch + focus refetch cho sidebar đủ realtime nhẹ. Tách key per-target để switch hệ không thấy nhầm dữ liệu.
 
 **Ảnh hưởng fullstack:** Không. BE đã có endpoint `GET /api/mhcom/supplier/quality-reports` với param `tab=received`; chỉ dùng thêm trả về cho sidebar count.
+
+
+## [2026-06-27 11:25] — resolveChiHoFileUrl hỗ trợ host gp
+
+**Yêu cầu:** `resolveChiHoFileUrl` hiện chỉ trỏ host MHVN, cần setup thêm GP để mở file chi hộ từ cả 2 instance.
+
+**Các file đã thay đổi:**
+- `src/services/supplier.services.ts`:
+  - Thêm const `MHGS_HOST_MHVN` (env `NEXT_PUBLIC_MHGS_MHVN_HOST`) và `MHGS_HOST_GP` (env `NEXT_PUBLIC_MHGS_GP_HOST`); cả 2 fallback `NEXT_PUBLIC_MHGS_HOST` (legacy) → backward-compat khi deploy chưa set env mới.
+  - `MHGS_HOST` cũ giữ làm alias `MHGS_HOST_MHVN` + đánh dấu @deprecated.
+  - Helper internal `readActiveTargetHost()` đọc localStorage `mhcom_active_target`; mặc định mhvn nếu thiếu/không hợp lệ.
+  - `resolveChiHoFileUrl(fileUrl, target?)` — thêm tham số `target` optional. Không truyền → tự đọc target active từ localStorage. Truyền `'mhvn'`/`'gp'` → override host theo target chỉ định.
+- `src/container/PaymentManagementContainer/UploadRequestsTab.tsx`: cập nhật comment trỏ đúng env mới.
+
+**Lý do / bối cảnh:** Mỗi instance A (mhvn vs gp) deploy độc lập trên domain riêng, mỗi domain serve `/media/` của DB tương ứng. File chi hộ từ supplier liên kết với gp phải load từ host gp, không phải mhvn. Tự đọc target từ localStorage giữ call sites không phải sửa (giảm scope). Tham số `target` optional cho case sau này cần override (vd render file của cross-target).
+
+**Ảnh hưởng fullstack:** Không. Chỉ thêm env biến mới ở FE deploy. Production cần set `NEXT_PUBLIC_MHGS_MHVN_HOST` + `NEXT_PUBLIC_MHGS_GP_HOST` (hoặc giữ legacy `NEXT_PUBLIC_MHGS_HOST` nếu cả 2 cùng host).

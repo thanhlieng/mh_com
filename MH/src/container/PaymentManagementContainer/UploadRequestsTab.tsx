@@ -56,9 +56,10 @@ const formatDateTime = (iso: string) => {
 };
 
 /**
- * Mở file Chi hộ trong tab mới. `file_url` của mhvn là path tương đối (vd
- * `/media/...`) — `resolveChiHoFileUrl` prepend host mhvn (`NEXT_PUBLIC_MHGS_HOST`)
- * để tạo URL tuyệt đối. `/media/` ở mhvn là public, không cần auth.
+ * Mở file Chi hộ trong tab mới. `file_url` của hệ A là path tương đối (vd
+ * `/media/...`) — `resolveChiHoFileUrl` prepend host theo target đang active
+ * (env `NEXT_PUBLIC_MHGS_MHVN_HOST` / `NEXT_PUBLIC_MHGS_GP_HOST`) để tạo URL
+ * tuyệt đối. `/media/` ở hệ A là public, không cần auth.
  */
 const openFile = (url: string | null) => {
   const full = resolveChiHoFileUrl(url);
