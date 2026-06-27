@@ -48,11 +48,16 @@ export class SupplierTransactionsService {
    */
   async getKeCuocChiHo(
     activeContext: ActiveAContext,
-    query: { from?: string; to?: string } = {},
+    query: { from?: string; to?: string; locked?: boolean | string } = {},
   ) {
     const params = new URLSearchParams();
     if (query.from) params.set('start_date', query.from);
     if (query.to) params.set('end_date', query.to);
+    // `locked=true` → tab "Chi phí đã chốt" (PNL trucking đã nằm trong request).
+    // Mặc định (không truyền) → behavior cũ: loại các PNL đã chốt.
+    if (query.locked === true || query.locked === 'true') {
+      params.set('locked', 'true');
+    }
 
     const qs = params.toString();
     const endpoint = `/api/mhcom/supplier/ke-cuoc-chi-ho/${qs ? `?${qs}` : ''}`;

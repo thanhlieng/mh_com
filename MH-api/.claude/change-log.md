@@ -450,3 +450,16 @@ Frontend đã thêm service tương ứng trong `MH/src/services/supplier.servic
 **Ảnh hưởng fullstack:**
 - Endpoint mới cho frontend `MH/src/services/supplier.services.ts` (đã thêm functions tương ứng).
 - Bắt buộc Django (mhgs_log_be) đã chạy migration `notifications/0002_qualityreport.py` và có view `mhcom/supplier_quality_report_views.py` (cả hai mới tạo cùng phiên này).
+
+
+## [2026-06-27 13:30] — Proxy param `?locked=true` cho ke-cuoc-chi-ho
+
+**Yêu cầu:** FE thêm tab "Chi phí đã chốt" cần BE proxy thêm flag để lấy ngược lại bộ rows (PNL trucking đã nằm trong request).
+
+**Các file đã thay đổi:**
+- `src/modules/supplier-transactions/supplier-transactions.controller.ts` — `GET /api/supplier/transactions/ke-cuoc-chi-ho` thêm `@Query('locked')` optional, forward xuống service.
+- `src/modules/supplier-transactions/supplier-transactions.service.ts` — `getKeCuocChiHo` nhận `locked?: boolean | string`, set `?locked=true` vào URL khi truthy. Nguyên tắc cũ (không truyền) giữ behavior cũ.
+
+**Lý do / bối cảnh:** Phối hợp với FE tab "Chi phí đã chốt": cần đảo logic filter `RequestItem` để liệt kê các PNL ĐÃ chốt thay vì loại đi như mặc định.
+
+**Ảnh hưởng fullstack:** Django (mhgs_log_be) đã chỉnh `build_kecuoc_chiho_rows(suppliers, start, end, managed, locked=False)` để hỗ trợ flip filter. FE `MH/src/services/supplier.services.ts` `KeCuocChiHoParams` thêm `locked?: boolean`.

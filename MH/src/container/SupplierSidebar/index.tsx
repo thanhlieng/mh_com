@@ -3,6 +3,7 @@ import {
   ClipboardListIcon,
   FileTextIcon,
   HandCoinsIcon,
+  KeyRoundIcon,
   LogOutIcon,
   RouteIcon,
   TruckIcon,
@@ -22,6 +23,8 @@ import { clearActiveTarget } from '@/store/slices/activeTargetSlice';
 
 import { ACTIVE_A_TARGET, USER } from '@/contants/Storage';
 import { useQualityReportNewCount } from '@/hook/useQualityReportNewMarker';
+
+import ChangePasswordModal from './ChangePasswordModal';
 import {
   SUPPLIER_COST_STATEMENT,
   SUPPLIER_PAYMENT_MANAGEMENT,
@@ -107,6 +110,7 @@ const SupplierSidebar = ({ open = false, onClose }: SupplierSidebarProps) => {
 
   // Số báo cáo chất lượng MỚI (NCC chưa xem) — để hiện dot ở menu item.
   const qrNewCount = useQualityReportNewCount();
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [username, setUsername] = useState('');
 
   useEffect(() => {
@@ -216,6 +220,15 @@ const SupplierSidebar = ({ open = false, onClose }: SupplierSidebarProps) => {
         <Button
           variant='ghost'
           size='sm'
+          className='mb-1 w-full justify-start gap-3 text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground'
+          onClick={() => setChangePasswordOpen(true)}
+        >
+          <KeyRoundIcon className='h-4 w-4' />
+          Đổi mật khẩu
+        </Button>
+        <Button
+          variant='ghost'
+          size='sm'
           className='w-full justify-start gap-3 text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground'
           onClick={handleLogout}
         >
@@ -224,6 +237,11 @@ const SupplierSidebar = ({ open = false, onClose }: SupplierSidebarProps) => {
         </Button>
       </div>
       </aside>
+
+      <ChangePasswordModal
+        open={changePasswordOpen}
+        onClose={() => setChangePasswordOpen(false)}
+      />
     </>
   );
 };

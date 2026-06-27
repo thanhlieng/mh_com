@@ -226,6 +226,11 @@ export const getSupplierTransactions = (
 export interface KeCuocChiHoParams {
   from?: string; // YYYY-MM-DD
   to?: string; // YYYY-MM-DD
+  /**
+   * `true` → CHỈ trả PNL trucking đã nằm trong request ("Chi phí đã chốt" — read-only).
+   * Mặc định/`undefined` → hành vi cũ: loại PNL đã chốt (chi phí còn editable).
+   */
+  locked?: boolean;
 }
 
 /**

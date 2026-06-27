@@ -997,3 +997,53 @@ Fix kép: (a) cơ chế persist robust — hydrate luôn ghi localStorage; (b) l
 **Lý do / bối cảnh:** Mỗi instance A (mhvn vs gp) deploy độc lập trên domain riêng, mỗi domain serve `/media/` của DB tương ứng. File chi hộ từ supplier liên kết với gp phải load từ host gp, không phải mhvn. Tự đọc target từ localStorage giữ call sites không phải sửa (giảm scope). Tham số `target` optional cho case sau này cần override (vd render file của cross-target).
 
 **Ảnh hưởng fullstack:** Không. Chỉ thêm env biến mới ở FE deploy. Production cần set `NEXT_PUBLIC_MHGS_MHVN_HOST` + `NEXT_PUBLIC_MHGS_GP_HOST` (hoặc giữ legacy `NEXT_PUBLIC_MHGS_HOST` nếu cả 2 cùng host).
+
+
+## [2026-06-27 11:50] — NCC tự đổi mật khẩu ở sidebar supplier
+
+**Yêu cầu:** Web mhcom thêm chức năng cho NCC tự đổi mật khẩu tài khoản.
+
+**Các file đã thay đổi:**
+- `src/container/SupplierSidebar/ChangePasswordModal.tsx` (mới): modal antd với Form 3 field (oldPassword/newPassword/confirmPassword), validate ≥6 ký tự + confirm khớp newPassword. Gọi mutation `changePassword({ data: values })` (service sẵn có ở `services/booking.services.ts:156` → `PATCH /api/users/change-password`). Success → notification + reset form + close; Error → notification từ response message.
+- `src/container/SupplierSidebar/index.tsx`:
+  - Import `KeyRoundIcon` + `ChangePasswordModal`, thêm state `changePasswordOpen`.
+  - Thêm Button "Đổi mật khẩu" phía trên Button "Đăng xuất" trong khối user (cùng style ghost, icon trái).
+  - Mount `<ChangePasswordModal>` sau `</aside>`.
+
+**Lý do / bối cảnh:** BE đã có sẵn endpoint `PATCH /api/users/change-password` (`users.controller.ts:135`, DTO yêu cầu 3 field oldPassword/newPassword/confirmPassword min 6 ký tự, guard JWT) — chỉ cần UI ở phía NCC. Đặt entry point trong sidebar (chỗ user info + logout) là vị trí trực giác nhất, không cần thêm trang riêng.
+
+**Ảnh hưởng fullstack:** Không (dùng endpoint sẵn có). Validation FE khớp DTO BE (min 6 + confirm match).
+
+
+## [2026-06-27 12:05] — Fix ChangePasswordModal gửi body sai cấu trúc
+
+**Yêu cầu:** BE trả "property data should not exist" + báo các field oldPassword/newPassword/confirmPassword không tồn tại khi submit form đổi mật khẩu ở NCC sidebar.
+
+**Các file đã thay đổi:**
+- `src/container/SupplierSidebar/ChangePasswordModal.tsx` — đổi `changePassword({ data: values })` → `changePassword(values as any)`. Service `changePassword(data: { data: any })` thực chất spread thẳng vào body (`HttpRequest.patch(..., { ...data })`), nên caller phải truyền PHẲNG. Wrap thêm 1 lớp `{ data: ... }` làm body gửi BE là `{ data: { oldPassword, ... } }` → DTO `forbidNonWhitelisted` reject `data` + không bind được field con.
+
+**Lý do / bối cảnh:** Signature TS của service `changePassword` gây nhầm lẫn (`data: { data: any }`). Caller hiện hữu (`InfoUser.tsx`) bypass type bằng `mutate({ ...res })` flatten. Comment trong file ghi rõ kèm tham chiếu để tránh lặp bug.
+
+**Ảnh hưởng fullstack:** Không. BE contract không đổi; chỉ fix client gửi body đúng.
+
+
+## [2026-06-27 13:30] — Tab "Chi phí đã chốt" tại /supplier/cost-statement
+
+**Yêu cầu:** Thêm tab mới "Chi phí đã chốt" tại màn cost-statement của mhcom, hiển thị các chi phí đã thuộc request (PNL trucking đã nằm trong RequestItem), read-only. Hover ô tiền > 0 hiển thị "Đã chốt — không thể sửa".
+
+**Các file đã thay đổi:**
+- `src/services/supplier.services.ts` — `KeCuocChiHoParams` thêm field `locked?: boolean`.
+- `src/container/CostStatementContainer/index.tsx`:
+  - Type `View` mở rộng: `'kecuoc' | 'locked' | 'requests'`.
+  - Thêm tab button "Chi phí đã chốt" (icon `LockIcon`) xen giữa "Kê cước & chi hộ" và "Đề nghị thay đổi".
+  - Render `<KeCuocChiHoTable locked />` khi view='locked'.
+- `src/container/CostStatementContainer/KeCuocChiHoTable.tsx`:
+  - Component nhận prop `locked?: boolean` (mặc định false).
+  - Query key + params include `locked` → React Query cache tách biệt giữa 2 tab.
+  - `isCellEditable`: nếu `locked` → luôn false.
+  - `EditableMoneyCell` thêm prop `lockedTooltip` (mặc định "Đã khoá — Liên hệ MH..."). Tab locked truyền "Đã chốt — không thể sửa.".
+  - Action bar "Hoàn tác/Gửi đề nghị" tự ẩn vì `dirtyCount` luôn = 0 khi không có cell editable.
+
+**Lý do / bối cảnh:** Tận dụng cùng component + cùng cấu trúc data, chỉ thay filter API và lock edit logic. Tránh duplicate code/table. Tab mới giúp NCC xem lại lịch sử các chi phí đã được tạo request (đã chốt).
+
+**Ảnh hưởng fullstack:** Đã thêm param `?locked=true` ở `GET /api/supplier/transactions/ke-cuoc-chi-ho` (MH-api → mhvn). BE Django `build_kecuoc_chiho_rows` nhận thêm tham số `locked=False` mặc định, `True` → invert filter để CHỈ trả PNL trucking đang nằm trong request.

@@ -3,6 +3,7 @@ import { notification } from 'antd';
 import {
   FileTextIcon,
   ListChecksIcon,
+  LockIcon,
   RefreshCwIcon,
   TableIcon,
 } from 'lucide-react';
@@ -25,8 +26,10 @@ import { type ChangeRequest, mapApiResponseToChangeRequest } from './types';
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-// 2 view con: 'kecuoc' = kê cước & chi hộ (mặc định) | 'requests' = đề nghị thay đổi
-type View = 'kecuoc' | 'requests';
+// 3 view con: 'kecuoc' = kê cước & chi hộ (editable, mặc định) |
+// 'locked' = chi phí đã chốt (read-only, PNL đã nằm trong request) |
+// 'requests' = đề nghị thay đổi
+type View = 'kecuoc' | 'locked' | 'requests';
 
 const CostStatementContainer = () => {
   const [view, setView] = React.useState<View>('kecuoc');
@@ -121,6 +124,18 @@ const CostStatementContainer = () => {
           Kê cước &amp; chi hộ
         </button>
         <button
+          onClick={() => setView('locked')}
+          className={cn(
+            'flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-xs font-medium transition-colors',
+            view === 'locked'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          )}
+        >
+          <LockIcon className='h-3.5 w-3.5' />
+          Chi phí đã chốt
+        </button>
+        <button
           onClick={() => setView('requests')}
           className={cn(
             'flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-xs font-medium transition-colors',
@@ -140,6 +155,8 @@ const CostStatementContainer = () => {
       </div>
 
       {view === 'kecuoc' && <KeCuocChiHoTable />}
+
+      {view === 'locked' && <KeCuocChiHoTable locked />}
 
       {view === 'requests' && (
         <ChangeRequestList

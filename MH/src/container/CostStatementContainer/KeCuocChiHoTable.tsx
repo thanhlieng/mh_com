@@ -148,12 +148,7 @@ const FROZEN_COL_IDS = [
   'tuyen',
   'loai_don_hang',
   'so_cont',
-  'loai_cont',
-  'loai_hang',
-  'cang_ha',
-  'cang_nang',
-  'so_xe',
-  'thang_cong_no',
+  
 ] as const;
 const INFO_COL_COUNT = FROZEN_COL_IDS.length;
 
@@ -169,11 +164,14 @@ function EditableMoneyCell({
   editable,
   isDirty,
   onCommit,
+  lockedTooltip = 'Đã khoá — Liên hệ MH để thay đổi.',
 }: {
   value: number;
   editable: boolean;
   isDirty: boolean;
   onCommit: (v: number) => void;
+  /** Tooltip text khi cell read-only (value > 0). */
+  lockedTooltip?: string;
 }) {
   const [editing, setEditing] = React.useState(false);
   const [draft, setDraft] = React.useState(String(value));
@@ -188,7 +186,7 @@ function EditableMoneyCell({
 
   if (!editable) {
     return (
-      <Tooltip title={value > 0 ? 'Đã khoá — Liên hệ MH để thay đổi.':''}>
+      <Tooltip title={value > 0 ? lockedTooltip : ''}>
         <div className='cursor-not-allowed px-1 py-1 text-right text-xs tabular-nums text-muted-foreground'>
           {formatVND(value)}
         </div>
@@ -357,7 +355,18 @@ function LeafTh({
   );
 }
 
-const KeCuocChiHoTable = () => {
+interface KeCuocChiHoTableProps {
+  /**
+   * `true` → tab "Chi phí đã chốt": fetch chỉ rows có PNL đã nằm trong request,
+   * mọi cell tiền nhóm Cước trở thành read-only, ẩn nút "Gửi đề nghị" + "Hoàn tác",
+   * tooltip "Đã chốt — không thể sửa".
+   */
+  locked?: boolean;
+}
+
+const KeCuocChiHoTable: React.FC<KeCuocChiHoTableProps> = ({
+  locked = false,
+}) => {
   const defaultRange = React.useRef<DateRange>(getDefaultDateRange()).current;
   const [dateRange, setDateRange] = React.useState<DateRange | undefined>(
     defaultRange
@@ -492,8 +501,8 @@ const KeCuocChiHoTable = () => {
   const queryClient = useQueryClient();
 
   const apiQuery = useQuery(
-    ['supplier-ke-cuoc-chi-ho', params],
-    () => getSupplierKeCuocChiHo(params),
+    ['supplier-ke-cuoc-chi-ho', { ...params, locked }],
+    () => getSupplierKeCuocChiHo({ ...params, locked }),
     {
       keepPreviousData: true,
       retry: false,
@@ -535,6 +544,8 @@ const KeCuocChiHoTable = () => {
     field: CuocField,
     idsKey: string
   ) => {
+    // Tab "Chi phí đã chốt": tuyệt đối không sửa.
+    if (locked) return false;
     if (row.order_completed) return false;
     const ids = (row[idsKey as keyof KeCuocChiHoRow] as number[]) ?? [];
     return ids.length === 1 && row.order_id != null;
@@ -1030,8 +1041,8 @@ const KeCuocChiHoTable = () => {
                       rowSpan={headerRowSpan}
                       onResize={onResize}
                       width={colWidths.loai_cont}
-                      className={FROZEN_HEADER_CLASS}
-                      style={frozenHeaderStyle('loai_cont')}
+                      // className={FROZEN_HEADER_CLASS}
+                      // style={frozenHeaderStyle('loai_cont')}
                     >
                       Loại cont
                     </LeafTh>
@@ -1040,8 +1051,8 @@ const KeCuocChiHoTable = () => {
                       rowSpan={headerRowSpan}
                       onResize={onResize}
                       width={colWidths.loai_hang}
-                      className={FROZEN_HEADER_CLASS}
-                      style={frozenHeaderStyle('loai_hang')}
+                      // className={FROZEN_HEADER_CLASS}
+                      // style={frozenHeaderStyle('loai_hang')}
                     >
                       Loại hàng
                     </LeafTh>
@@ -1050,8 +1061,8 @@ const KeCuocChiHoTable = () => {
                       rowSpan={headerRowSpan}
                       onResize={onResize}
                       width={colWidths.cang_ha}
-                      className={FROZEN_HEADER_CLASS}
-                      style={frozenHeaderStyle('cang_ha')}
+                      // className={FROZEN_HEADER_CLASS}
+                      // style={frozenHeaderStyle('cang_ha')}
                     >
                       Cảng hạ
                     </LeafTh>
@@ -1060,8 +1071,8 @@ const KeCuocChiHoTable = () => {
                       rowSpan={headerRowSpan}
                       onResize={onResize}
                       width={colWidths.cang_nang}
-                      className={FROZEN_HEADER_CLASS}
-                      style={frozenHeaderStyle('cang_nang')}
+                      // className={FROZEN_HEADER_CLASS}
+                      // style={frozenHeaderStyle('cang_nang')}
                     >
                       Cảng nâng
                     </LeafTh>
@@ -1070,8 +1081,8 @@ const KeCuocChiHoTable = () => {
                       rowSpan={headerRowSpan}
                       onResize={onResize}
                       width={colWidths.so_xe}
-                      className={FROZEN_HEADER_CLASS}
-                      style={frozenHeaderStyle('so_xe')}
+                      // className={FROZEN_HEADER_CLASS}
+                      // style={frozenHeaderStyle('so_xe')}
                     >
                       Số xe
                     </LeafTh>
@@ -1080,8 +1091,8 @@ const KeCuocChiHoTable = () => {
                       rowSpan={headerRowSpan}
                       onResize={onResize}
                       width={colWidths.thang_cong_no}
-                      className={FROZEN_HEADER_CLASS}
-                      style={frozenHeaderStyle('thang_cong_no')}
+                      // className={FROZEN_HEADER_CLASS}
+                      // style={frozenHeaderStyle('thang_cong_no')}
                     >
                       Tháng công nợ
                     </LeafTh>
@@ -1334,37 +1345,37 @@ const KeCuocChiHoTable = () => {
                         </td>
                         <td
                           className='border-r border-border bg-background'
-                          style={frozenBody('loai_cont')}
+                          // style={frozenBody('loai_cont')}
                         >
                           <Text v={row.loai_cont} />
                         </td>
                         <td
                           className='border-r border-border bg-background'
-                          style={frozenBody('loai_hang')}
+                          // style={frozenBody('loai_hang')}
                         >
                           <Text v={row.loai_hang} />
                         </td>
                         <td
                           className='border-r border-border bg-background'
-                          style={frozenBody('cang_ha')}
+                          // style={frozenBody('cang_ha')}
                         >
                           <Text v={row.cang_ha} />
                         </td>
                         <td
                           className='border-r border-border bg-background'
-                          style={frozenBody('cang_nang')}
+                          // style={frozenBody('cang_nang')}
                         >
                           <Text v={row.cang_nang} />
                         </td>
                         <td
                           className='border-r border-border bg-background'
-                          style={frozenBody('so_xe')}
+                          // style={frozenBody('so_xe')}
                         >
                           <Text v={row.so_xe} />
                         </td>
                         <td
                           className='border-r border-border bg-background'
-                          style={frozenBody('thang_cong_no')}
+                          // style={frozenBody('thang_cong_no')}
                         >
                           <Text v={formatThangCongNo(row.thang_cong_no)} />
                         </td>
@@ -1392,6 +1403,11 @@ const KeCuocChiHoTable = () => {
                                   )}
                                   isDirty={dirty.has(`${row.tt}-${f.key}`)}
                                   onCommit={(v) => handleEdit(row.tt, f.key, v)}
+                                  lockedTooltip={
+                                    locked
+                                      ? 'Đã chốt — không thể sửa.'
+                                      : undefined
+                                  }
                                 />
                               </td>
                             ))}
@@ -1512,6 +1528,12 @@ const KeCuocChiHoTable = () => {
                         className='sticky left-0 z-10 border-x border-border bg-muted px-2 py-2 text-xs'
                       >
                         Tổng ({filteredRows.length} container)
+                      </td>
+                      <td
+                        colSpan={6}
+                        className=' left-0 z-10 border-x border-border bg-muted px-2 py-2 text-xs'
+                      >
+                        
                       </td>
                       {visibleMoneyCols.map((col) => (
                         <td

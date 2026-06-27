@@ -54,7 +54,12 @@ export class SupplierTransactionsController {
     @GetActiveContext() ctx: ActiveAContext,
     @Query('from') from: string,
     @Query('to') to: string,
+    @Query('locked') locked?: string,
   ) {
-    return this.supplierTransactionsService.getKeCuocChiHo(ctx, { from, to });
+    return this.supplierTransactionsService.getKeCuocChiHo(ctx, {
+      from,
+      to,
+      locked,
+    });
   }
 }
