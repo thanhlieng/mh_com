@@ -5,47 +5,49 @@ services:
     build: ./MH-api
     container_name: backend-mh
     environment:
-      DATABASE_URL: postgresql://1:password@localhost:5432/mhcom_db
+      DATABASE_URL: postgresql://dev:devdsea123@103.216.115.200:5432/mhcom_db
       NODE_ENV: local
     volumes:
       - mh_uploads:/usr/src/app/uploads
     networks:
+      - proxy
       - mh-internal
     restart: unless-stopped
     expose:
       - "3000"
     # Backend is not publicly exposed; only accessible via internal network
-    # No Traefik labels here to keep it internal. `expose` keeps the port on the
-    # mh-internal network only — it is NOT published to the host.
+    # No Traefik labels here to keep it internal
 
   frontend-mh:
     build:
       context: ./MH
       dockerfile: Dockerfile
       args:
-        # Trình duyệt gọi cùng domain với frontend; Next.js rewrites proxy về backend nội bộ.
         - NEXT_PUBLIC_API_HOST=https://mhgreatsun.com
         - NODE_ENV=production
+        - NEXT_PUBLIC_MHGS_HOST=https://mhgreatsun.vn
     container_name: frontend-mh
     depends_on:
       - backend-mh
     environment:
-      NEXT_PUBLIC_API_HOST: https://mhgreatsun.com
+      NEXT_PUBLIC_API_URL: https://mhgreatsun.com
       NODE_ENV: production
     labels:
-      - "traefik.enable=true"
-      # HTTP → redirect sang HTTPS
-      - "traefik.http.routers.mhcom-frontend.rule=Host(`mhgreatsun.com`)"
-      - "traefik.http.routers.mhcom-frontend.entrypoints=web"
-      - "traefik.http.routers.mhcom-frontend.middlewares=mhcom-frontend-https"
-      - "traefik.http.middlewares.mhcom-frontend-https.redirectscheme.scheme=https"
-      # HTTPS
-      - "traefik.http.routers.mhcom-frontend-secure.rule=Host(`mhgreatsun.com`)"
-      - "traefik.http.routers.mhcom-frontend-secure.entrypoints=websecure"
-      - "traefik.http.routers.mhcom-frontend-secure.tls.certresolver=le"
-      - "traefik.http.routers.mhcom-frontend-secure.service=mhcom-frontend"
-      # Service
-      - "traefik.http.services.mhcom-frontend.loadbalancer.server.port=3000"
+        - "traefik.enable=true"
+
+  # HTTP
+        - "traefik.http.routers.mhcom-frontend.rule=Host(`mhgreatsun.com`)"
+        - "traefik.http.routers.mhcom-frontend.entrypoints=web"
+        - "traefik.http.middlewares.mhcom-frontend-https.redirectscheme.scheme=https"
+
+  # HTTPS
+        - "traefik.http.routers.mhcom-frontend-secure.rule=Host(`mhgreatsun.com`)"
+        - "traefik.http.routers.mhcom-frontend-secure.entrypoints=websecure"
+        - "traefik.http.routers.mhcom-frontend-secure.tls.certresolver=le"
+        - "traefik.http.routers.mhcom-frontend-secure.service=mhcom-frontend"
+
+  # Service
+        - "traefik.http.services.mhcom-frontend.loadbalancer.server.port=3000"
     networks:
       - proxy
       - mh-internal
