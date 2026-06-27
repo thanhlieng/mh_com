@@ -798,3 +798,185 @@ Mục đích: giúp team hiểu được những gì đang được làm mà kh�
 **Ảnh hưởng fullstack:**
 - Yêu cầu MH-api có module `supplier-quality-reports` (đã thêm cùng phiên).
 - Cần header `X-A-Target` (mhvn|gp) — đã được Redux/Sidebar quản lý sẵn qua `activeTargetSlice` + axios interceptor như các module supplier khác.
+
+
+## [2026-06-26 11:30] — Redesign bảng /supplier/quality-reports cho giống các bảng supplier khác
+
+**Yêu cầu:** Bảng tại /supplier/quality-reports đang dùng Ant Design Table — thiết kế lại cho giống các bảng supplier khác (PriceChangeList, ChangeRequestList) cho đẹp hơn.
+
+**Các file đã thay đổi:**
+- `src/container/QualityReportsContainer/types.ts` (toàn file): đổi `SEVERITY_OPTIONS` / `STATUS_OPTIONS` từ `color: string` (kiểu antd) sang `variant: BadgeVariant` (kiểu shadcn `@/components/ui/badge`); export `severityVariant` / `statusVariant` thay cho `severityColor` / `statusColor`.
+- `src/container/QualityReportsContainer/QualityReportsTable.tsx` (rewrite): bỏ `<Table>` của antd, dùng native HTML `<table>` + Tailwind theo pattern của `SupplierPriceChangeContainer/PriceChangeList`. Filter bar đổi sang filter pills (rounded-full) cho status + severity, giữ `DatePicker.RangePicker` antd cho ngày, thêm nút "Tải lại" + nút primary "Gửi báo cáo" với icon lucide. Pagination antd (size small) đặt cuối table. Badge dùng `@/components/ui/badge` với variant; Button dùng `@/components/ui/button`. Cell mô tả/nguyên nhân/biện pháp dùng line-clamp 2 dòng với `title` tooltip. Hover row, zebra rows, tabular-nums cho ngày.
+
+**Lý do / bối cảnh:** Pattern UI hiện tại của các bảng supplier (PriceChangeList, ChangeRequestList, KeCuocChiHoTable) đã chuyển sang native table + shadcn components để đồng bộ trải nghiệm và giảm phụ thuộc antd. QualityReports vẫn còn dùng antd Table cũ → không nhất quán visual + filter UI rườm rà với multi-select dropdown. Sau đổi: cùng style với các trang khác, filter trực quan hơn, hover/zebra rõ hơn.
+
+**Ảnh hưởng fullstack:** Không. Chỉ thay đổi tầng UI; logic gọi `listQualityReports` / `deleteQualityReport` / `changeQualityReportStatus` giữ nguyên, contract API không đổi.
+
+
+## [2026-06-26 12:10] — Bổ sung nút "Xem chi tiết" + cho phép chuyển trạng thái từ "Đã tiếp nhận"
+
+**Yêu cầu:** Bảng /supplier/quality-reports thêm nút xem chi tiết báo cáo (modal read-only), đảm bảo bảng horizontal scroll mượt, và cho phép NCC chuyển trạng thái từ "Đã tiếp nhận" sang "Đã xử lý" hoặc "Từ chối" (trước đó chỉ làm được từ "Đã thông báo NCC").
+
+**Các file đã thay đổi:**
+- `src/container/QualityReportsContainer/QualityReportDetailModal.tsx` (mới): modal antd hiển thị toàn bộ field của báo cáo (ngày phát sinh, mức độ, khách hàng, trạng thái, deadline, ngày hoàn thành, mô tả lỗi, ảnh hưởng, nguyên nhân, biện pháp khắc phục/phòng ngừa, ghi chú, người tạo, ngày tạo). Dùng shadcn `Badge` cho mức độ/trạng thái, layout grid 2 cột cho meta + text block cho các trường dài.
+- `src/container/QualityReportsContainer/QualityReportsTable.tsx`:
+  - Import `EyeIcon` + `QualityReportDetailModal`, thêm state `viewing`.
+  - Rewrite `renderActions`: nút "Xem" luôn render cho mọi row (cả tab `sent` lẫn `received`). Tab `sent`: thêm Xem cạnh Sửa/Xóa khi `can_edit`. Tab `received`: bỏ guard cứng `row.trang_thai !== 'notified'`, thay bằng (a) `notified` → Tiếp nhận + Đã xử lý + Từ chối, (b) `received` → Đã xử lý + Từ chối, (c) `processed`/`rejected` → chỉ Xem.
+  - Wrapper bảng đổi sang `max-w-full overflow-x-auto` để đảm bảo scroll ngang xảy ra trong khung table, không tràn page (bảng có `min-w-[1600px]`).
+  - Mount `<QualityReportDetailModal>` cuối container.
+
+**Lý do / bối cảnh:** (1) BE đã cho phép NCC chuyển từ bất kỳ status nào trong `{received, processed, rejected}` (`mhcom/supplier_quality_report_views.py` — `ALLOWED_NCC_STATUS_FOR_MHVN_REPORT`), nhưng FE đang chặn ở client. (2) Bảng có nhiều cột nhưng các action chính (Sửa/Xóa/đổi trạng thái) chỉ phụ trợ — user cần một modal đọc rõ toàn bộ nội dung báo cáo, đặc biệt các trường textarea dài bị ellipsis 2 dòng trong cell. (3) Bảng dùng `min-w-[1600px]` đôi khi tràn ra ngoài container do thiếu `max-w-full` ở wrapper ngoài.
+
+**Ảnh hưởng fullstack:** Không thay đổi contract. Endpoint `POST /api/mhcom/supplier/quality-reports/<id>/status/` đã hỗ trợ sẵn `received → processed/rejected`.
+
+
+## [2026-06-26 12:35] — Tăng vùng cuộn ngang cho bảng /supplier/quality-reports
+
+**Yêu cầu:** Bảng tại /supplier/quality-reports cần cuộn ngang được nhiều hơn để xem dữ liệu thoải mái.
+
+**Các file đã thay đổi:**
+- `src/container/QualityReportsContainer/QualityReportsTable.tsx`:
+  - `table.min-w-[1600px]` → `min-w-[2400px]` để bảng luôn rộng hơn viewport thông dụng → wrapper `overflow-x-auto` luôn kích hoạt scroll ngang.
+  - Tăng max-width line-clamp cho cell text dài: mô tả lỗi 260 → 360, ảnh hưởng/nguyên nhân/biện pháp 220 → 320, ghi chú 200 → 280 (text dễ đọc trong cell, không bị bóp chật).
+- `src/container/QualityReportsContainer/index.tsx`:
+  - Outer container đổi `space-y-4 p-4 md:p-6` → `flex min-w-0 max-w-full flex-col gap-4 p-4 md:p-6` để đảm bảo flex child có thể shrink (cần `min-w-0` để overflow-x-auto của bảng hoạt động đúng trong flex layout).
+  - Wrap `<Tabs>` trong `<div className='min-w-0 max-w-full'>` để Tabs panel không bị table bên trong đẩy rộng.
+
+**Lý do / bối cảnh:** SupplierLayout dùng `flex flex-col overflow-hidden` + `<main overflow-y-auto>` (chỉ scroll Y) → nếu container con không có `min-w-0` thì children với `min-w-[2400px]` có thể đẩy main expand thay vì để wrapper inner overflow-x-auto cuộn. Thêm `min-w-0` + `max-w-full` ở các tầng container đảm bảo chỉ có wrapper bảng được phép scroll ngang.
+
+**Ảnh hưởng fullstack:** Không. Chỉ thay đổi layout/CSS.
+
+
+## [2026-06-26 12:55] — Sticky cột "Thao tác" cuối bảng /supplier/quality-reports
+
+**Yêu cầu:** Khi cuộn ngang bảng, cột thao tác cuối cùng phải luôn hiển thị để thao tác được ở bất kỳ vị trí scroll nào.
+
+**Các file đã thay đổi:**
+- `src/container/QualityReportsContainer/QualityReportsTable.tsx`:
+  - `<th>` Thao tác: thêm `sticky right-0 z-20 min-w-[260px] border-l border-border bg-muted/40` + shadow trái nhẹ (`shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.08)]`) tạo visual separator với vùng scroll.
+  - `<tr>` body: thêm class `group` để hover propagate vào sticky cell.
+  - `<td>` Thao tác: thêm `sticky right-0 z-10 border-l border-border shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.08)]` + bg explicit theo zebra (`bg-background` chẵn / `bg-muted/10` lẻ) + `group-hover:bg-accent/40` để hover row vẫn áp dụng được trên cell sticky.
+
+**Lý do / bối cảnh:** Bảng có `min-w-[2400px]` → khi cuộn ngang xa thì cột thao tác (cuối cùng) bị khuất, không click được nếu không cuộn về cuối. Sticky-right giải quyết bằng cách pin cột thao tác. Phải set bg explicit cho cell sticky (bằng zebra của row) vì sticky element transparent sẽ thấy các cell phía sau khi scroll. Shadow trái tạo cảm giác cột "nổi" tách khỏi vùng cuộn.
+
+**Ảnh hưởng fullstack:** Không. Chỉ CSS.
+
+
+## [2026-06-26 13:05] — Fix nền cột "Thao tác" sticky không bị xuyên thấu
+
+**Yêu cầu:** Cột thao tác sticky vẫn nhìn xuyên thấy nội dung cột phía sau khi cuộn ngang.
+
+**Các file đã thay đổi:**
+- `src/container/QualityReportsContainer/QualityReportsTable.tsx`:
+  - `<th>` Thao tác: `bg-muted/40` → `bg-muted` (solid).
+  - `<td>` Thao tác: bỏ zebra `bg-background` / `bg-muted/10` (cái `/10` là alpha → xuyên thấu), luôn dùng `bg-background` (solid). Hover state đổi `group-hover:bg-accent/40` → `group-hover:bg-accent` (solid).
+
+**Lý do / bối cảnh:** Sticky cell cần nền đục hoàn toàn — bất kỳ class màu có alpha (`/40`, `/10`, …) đều xuyên thấu thấy nội dung cell scroll phía sau. Pattern này đã có ghi chú rõ trong `KeCuocChiHoTable.tsx` ("Nền header phải đục bg-muted, không phải /50").
+
+**Ảnh hưởng fullstack:** Không. Chỉ CSS.
+
+
+## [2026-06-26 13:30] — Sticky header bảng "Kê cước & Chi hộ" khi cuộn dọc
+
+**Yêu cầu:** Bảng kê cước & chi hộ (`/supplier/bang-ke-chi-phi` → tab "Bảng kê") header phải luôn hiển thị khi cuộn dọc xuống dưới.
+
+**Các file đã thay đổi:**
+- `src/container/CostStatementContainer/KeCuocChiHoTable.tsx`:
+  - `TH` constant: thêm `sticky top-0 z-20` → mọi `<th>` cells pin đỉnh wrapper scroll Y.
+  - `LeafTh`: bỏ class `relative` (sticky đã đóng vai trò containing block cho Resizer absolute, lại tránh conflict với `sticky` vì tailwind `important: true`).
+  - `FROZEN_HEADER_CLASS`: `'sticky z-20'` → `'z-30'` (sticky đã có từ TH; chỉ cần raise z để corner cell top-left đè lên header thường khi cả 2 cùng sticky).
+  - Outer table area: `flex-1 overflow-auto` → `flex min-h-0 flex-1 flex-col overflow-hidden` để biến wrapper bodyScrollRef thành viewport scroll Y nội bộ (cha là flex column).
+  - `bodyScrollRef` wrapper: `overflow-x-auto` → `min-h-0 flex-1 overflow-auto` để scroll cả 2 trục trong khung wrapper (sticky thead pin chỉ kick in khi nearest scrolling ancestor là wrapper, không phải outer parent).
+  - `topScrollRef` wrapper: thêm `shrink-0` để không bị flex bóp khi wrapper bodyScrollRef chiếm flex-1.
+
+**Lý do / bối cảnh:** Layout cũ outer = scroll Y, wrapper inner = scroll X. `position: sticky` của thead pin theo nearest scrolling ancestor. Theo CSS spec, `overflow-x: auto` + `overflow-y: visible` được browser computed thành cả hai = auto → wrapper inner đã là scroll ancestor — NHƯNG nội dung wrapper fit chiều cao nên không scroll Y nội bộ, mà thực sự outer mới scroll Y → khi user cuộn outer, wrapper di chuyển theo, thead di chuyển theo wrapper → thead không sticky. Fix: chuyển scroll Y xuống wrapper inner bằng flex chain (outer flex column overflow-hidden, wrapper flex-1 min-h-0 overflow-auto). Sau đó wrapper là scroll viewport thật → sticky thead top-0 pin đúng.
+
+**Ảnh hưởng fullstack:** Không. Chỉ CSS/layout.
+
+
+## [2026-06-26 13:50] — Fix: 2 dòng group header bị đè khi sticky top
+
+**Yêu cầu:** Dòng "CHI HỘ MH (có VAT)" và "CHI HỘ XUẤT KHÁCH HÀNG (có VAT)" bị ẩn khi cuộn dọc — sticky trước đó chỉ thấy 1 dòng leaf header.
+
+**Các file đã thay đổi:**
+- `src/container/CostStatementContainer/KeCuocChiHoTable.tsx`:
+  - Chuyển sticky-top từ TỪNG `<th>` sang cả `<thead>` block: `<thead className='sticky top-0 z-20'>`.
+  - `TH` constant: gỡ `sticky top-0 z-20` (chỉ giữ phần style nền/font).
+  - `LeafTh`: khôi phục class `relative` làm containing block cho Resizer absolute (mặc định khi không sticky horizontal).
+  - `FROZEN_HEADER_CLASS`: từ `'z-30'` → `'sticky z-30'` để cột frozen-left vẫn pin theo trục ngang qua inline `left` (sticky child trong sticky thead hoạt động độc lập với nearest scrolling ancestor là wrapper bodyScrollRef).
+
+**Lý do / bối cảnh:** Header có 2 dòng (group + leaf). Khi đặt `sticky top-0` cho TỪNG cell, cells của cả 2 dòng đều pin về `top: 0` → dòng 2 (leaf) đè dòng 1 (group). Đặt sticky ở `<thead>` block thì cả 2 dòng pin cùng nhau như 1 khối → dòng group hiển thị bên trên, dòng leaf bên dưới (đúng natural layout). Trình duyệt hiện đại (Chrome 91+, Firefox 59+) hỗ trợ `position: sticky` trên `<thead>`.
+
+**Ảnh hưởng fullstack:** Không. Chỉ CSS.
+
+
+## [2026-06-27 09:30] — Fix flicker màu primary (MHVN xanh lá → mặc định xanh đậm) khi reload
+
+**Yêu cầu:** Đang ở MHVN (UI xanh lá) → reload trang → các button đổi về xanh biển đậm (màu primary default), không phục hồi.
+
+**Các file đã thay đổi:**
+- `src/store/slices/activeTargetSlice.ts` — `hydrateFromAccountTargets`: gỡ persist nằm rải rác trong các nhánh if/else, luôn gọi `persistTarget(state.current)` ở cuối reducer. Đảm bảo localStorage `mhcom_active_target` LUÔN đồng bộ với state hiện tại sau mỗi lần hydrate, kể cả khi current không đổi.
+- `src/layout/SupplierLayout.tsx` — thêm `readPersistedTarget()` đọc localStorage ngay khi component mount (qua `useState(initializer)`). `currentSystem = storeCurrent ?? persistedCurrent` → CSS vars `--primary` xanh lá áp dụng ngay lần render đầu, không phụ thuộc thời điểm useSelector trả giá trị mới sau hydrate.
+- `src/container/SupplierSidebar/index.tsx` — pattern tương tự cho `MHVN_SIDEBAR_VARS`: import `ACTIVE_A_TARGET`, thêm `readPersistedTarget` + fallback `storeCurrent ?? persistedCurrent`.
+
+**Lý do / bối cảnh:** Slice `initialState.current` đọc localStorage qua `readInitialTarget()` chỉ khi module load client-side. Vẫn có khe rất ngắn giữa SSR (Next.js render với `current=null`) → React hydrate → useSelector cập nhật. Trong khe đó React đã commit DOM với `style=undefined` (xanh đậm). Nếu thêm vào: user nào logged-in trước khi cơ chế persist được deploy thì localStorage rỗng, hydrate API hoàn tất mới set current → kẹt xanh đậm cho đến khi API trả về.
+
+Fix kép: (a) cơ chế persist robust — hydrate luôn ghi localStorage; (b) layout đọc localStorage TRỰC TIẾP làm fallback khi store chưa hydrate → first paint đã có CSS vars đúng.
+
+**Ảnh hưởng fullstack:** Không. Chỉ logic client-side state/persistence.
+
+
+## [2026-06-27 09:55] — Fix tiếp: bug màu primary vẫn về default sau reload
+
+**Yêu cầu:** Fix trước chưa hiệu quả, reload vẫn ra xanh đậm.
+
+**Các file đã thay đổi:**
+- `src/layout/SupplierLayout.tsx` — đổi từ `useState(readPersistedTarget)` sang `useState(null) + useEffect(setPersistedCurrent(readPersistedTarget()))`. Lý do: `useState` initializer chạy trên cả SSR + client; trên SSR trả null, trên client trả 'mhvn' → khác giá trị → React 18 hydration giữ tree server (style=undefined), KHÔNG patch CSS vars sau hydrate → kẹt xanh đậm. Set qua `useEffect` chỉ chạy client sau mount → tránh mismatch, chấp nhận 1 frame flash từ default → MHVN style.
+- `src/container/SupplierSidebar/index.tsx` — pattern tương tự.
+- `src/routes/withPrivateRouteSupplier.tsx` — sau khi verify token, dispatch `setActiveTarget(persisted)` từ localStorage. Đảm bảo store.activeTarget.current sync với localStorage ngay khi vào màn supplier, kể cả khi slice initialState không pickup được giá trị (vd: store module được evaluate trên server với window undefined).
+
+**Lý do / bối cảnh:** SSR Next.js render component server-side với `current=null`. Client hydrate cần khớp tree server để không bị React 18 cancel hydration. Trước đây dùng `useState(initializer)` thì initializer chạy trên cả SSR + client (Next.js Pages router) → giá trị khác nhau → React không phát hiện cần re-render style. Phải tách: state khởi tạo = null (khớp SSR), sau đó useEffect set giá trị thật → React commit re-render mới với style chính xác.
+
+**Ảnh hưởng fullstack:** Không. Chỉ client-side.
+
+
+## [2026-06-27 10:15] — Fix lần 3: áp CSS vars qua DOM API thay vì style prop
+
+**Yêu cầu:** Sidebar màu đã chuyển đúng nhưng buttons trong content vẫn về xanh đậm sau reload. Sidebar dùng `dynamic ssr:false` nên client-only → style apply ngon. Layout content pane bị SSR → React-Redux + React 18 không patch style sau hydrate.
+
+**Các file đã thay đổi:**
+- `src/layout/SupplierLayout.tsx` — Bỏ pattern `style={... CSS_VARS : undefined}` trên React render. Thay bằng `ref` + `useEffect` set CSS custom properties trực tiếp lên DOM (`el.style.setProperty('--primary', ...)`) khi storeCurrent thay đổi. Bypass React render diff cho style → hydration mismatch không còn liên quan; CSS vars luôn được áp/gỡ đúng theo target hiện tại.
+
+**Lý do / bối cảnh:** Sidebar (ssr:false) hoạt động đúng pattern react-state-driven style; nhưng Layout content pane là SSR. Trên server: storeCurrent=null (no window, slice initialState trả null). HTML render với style=undefined. Client hydrate: React-Redux v8 dùng `useSyncExternalStore` với serverSnapshot — trong hydration phase trả lại giá trị nullserver, render lại sau hydrate mới có giá trị client. Trong khoảng đó React đã commit DOM với style=undefined; sau khi store cập nhật, React quyết định không re-render attribute (chỗ này có vẻ là quirk specific React-Redux/Next.js Pages router). DOM API setProperty là cách tin cậy nhất — bỏ qua hoàn toàn React render path cho style.
+
+**Ảnh hưởng fullstack:** Không.
+
+
+## [2026-06-27 10:35] — Redesign TargetSwitcher: segmented pills thay vì antd Select
+
+**Yêu cầu:** UI chọn hệ thống ở sidebar chỉnh đẹp hơn, bỏ dropdown.
+
+**Các file đã thay đổi:**
+- `src/components/TargetSwitcher/index.tsx` — rewrite: thay `<Select>` antd bằng segmented control 2 pills (MHVN | GP) trong container `rounded-lg border bg-sidebar-accent/40`. Pill active nền `bg-sidebar-primary`, text trắng + badge số NCC/KH (`bg-sidebar-primary-foreground/20`). Pill inactive text `sidebar-foreground/60`, hover `bg-sidebar-accent`. Gắn `role='radiogroup'` + `aria-checked` để giữ accessibility. Logic dispatch + `queryClient.resetQueries()` + `notification.success` giữ nguyên.
+- `src/components/TargetSwitcher/index.spec.tsx` — cập nhật test theo UI pills: dùng `getByRole('radio', { checked: true/false })` thay cho query antd Select trigger. Mock `queryClient.resetQueries` thay vì `clear` (khớp với code thực tế).
+
+**Lý do / bối cảnh:** Sidebar có không gian giới hạn nhưng chỉ có 2 hệ → dropdown overkill, click 2 lần (mở + chọn). Segmented pills 1-click switch, hiển thị cả 2 lựa chọn cùng lúc + visual chỉ rõ hệ nào active + count entity.
+
+**Ảnh hưởng fullstack:** Không. Chỉ UI client.
+
+
+## [2026-06-27 11:00] — Đánh dấu báo cáo chất lượng mới ở sidebar + list
+
+**Yêu cầu:** Màn quality report của mhcom nhận diện báo cáo mới từ MHVN/GP. Hiển thị dot ở sidebar menu + dấu hiệu trên hàng mới trong list.
+
+**Các file đã thay đổi:**
+- `src/contants/Storage.ts` — thêm `QR_LAST_SEEN_PREFIX = 'mhcom_qr_last_seen:'` (key localStorage, append target để tách giữa mhvn/gp).
+- `src/hook/useQualityReportNewMarker.ts` (mới):
+  - `useQualityReportSeenBaseline()` — freeze baseline lastSeen tại thời điểm mount component, đồng thời write lastSeen=now + invalidate `quality-reports-new-count` để sidebar dot tắt ngay. Trả `isNew(row)` so sánh `row.source==='mhvn' && row.created_at > baseline`.
+  - `useQualityReportNewCount()` — useQuery fetch tab `received` (page_size=50, refetch 60s + on focus). Trả số report có `source='mhvn'` và `created_at > readLastSeen(target)`. Chỉ enabled khi `accountType==='supplier'`.
+- `src/container/SupplierSidebar/index.tsx` — gọi `useQualityReportNewCount()`. Menu item "Báo cáo chất lượng" hiển thị badge rose chứa số (clamp 99+) khi count > 0 và menu chưa active.
+- `src/container/QualityReportsContainer/QualityReportsTable.tsx` — gọi `useQualityReportSeenBaseline()`. Mỗi hàng nếu `isNew(row)`: thêm dot rose nhỏ trước STT + Badge `destructive` "Mới" cạnh cột Ngày phát sinh.
+
+**Lý do / bối cảnh:** Phía A (BE) hiện chưa có cơ chế track is_read cho từng NCC; gọn nhất là client-side dùng localStorage so sánh `created_at`. Baseline frozen ở component mount để badge "Mới" trên hàng không biến mất ngay khi user mở page (lastSeen vừa được ghi). Sidebar dot dùng lastSeen "live" → user mở page → write now → invalidate → dot tắt. 60s refetch + focus refetch cho sidebar đủ realtime nhẹ. Tách key per-target để switch hệ không thấy nhầm dữ liệu.
+
+**Ảnh hưởng fullstack:** Không. BE đã có endpoint `GET /api/mhcom/supplier/quality-reports` với param `tab=received`; chỉ dùng thêm trả về cho sidebar count.

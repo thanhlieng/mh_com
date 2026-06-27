@@ -320,11 +320,18 @@ function SearchHeader({
 // ─── Main component ───────────────────────────────────────────────────────────
 
 // Nền header phải đục (bg-muted, không phải /50) để khi sticky không bị lộ nội
-// dung cuộn phía sau.
+// dung cuộn phía sau. Sticky-top được đặt ở `<thead>` (xem block tag), không
+// đặt ở từng `<th>` để 2 dòng header (group + leaf) không cùng pin về top:0
+// và đè lên nhau.
 const TH =
   'border border-border bg-muted px-2 py-1 text-center text-[11px] font-semibold align-middle';
 
-/** Header của một cột lá: kèm tay cầm kéo giãn (Resizer). */
+/** Header của một cột lá: kèm tay cầm kéo giãn (Resizer).
+ *
+ *  `relative` được giữ làm containing block mặc định cho Resizer absolute.
+ *  Với cột frozen-left, className override sang `sticky` (twMerge loại
+ *  `relative`) để pin theo trục ngang.
+ */
 function LeafTh({
   id,
   rowSpan,
@@ -425,12 +432,12 @@ const KeCuocChiHoTable = () => {
     return map;
   }, [colWidths]);
 
-  // Đóng băng theo trục NGANG cho các cột bên trái (không cố định header khi
-  // cuộn dọc). Lưu ý: tailwind config bật `important: true` nên class `relative`
-  // trong LeafTh là `position: relative !important` → KHÔNG thể dùng inline
-  // `position: sticky` cho header (sẽ bị đè). Thay vào đó truyền class `sticky`
-  // (cũng !important, và twMerge sẽ loại `relative`), chỉ để `left` ở inline.
-  const FROZEN_HEADER_CLASS = 'sticky z-20';
+  // Đóng băng theo trục NGANG cho các cột bên trái. Vì cell trong LeafTh mặc
+  // định `relative`, cần class `sticky` (cùng !important — twMerge loại
+  // `relative`) để pin theo trục ngang qua inline `left`. z-30 để corner
+  // (top-left của thead) đè lên: header thường (parent thead pin top z-20) và
+  // body cells frozen-left (z-10).
+  const FROZEN_HEADER_CLASS = 'sticky z-30';
   const frozenHeaderStyle = (id: string): React.CSSProperties => ({
     left: frozenLeft[id],
   });
@@ -882,7 +889,10 @@ const KeCuocChiHoTable = () => {
       )}
 
       {/* ── Table ── */}
-      <div className='flex-1 overflow-auto px-4 py-4 md:px-6'>
+      {/* Outer: flex column + overflow-hidden để bodyScrollRef (flex-1 min-h-0
+          overflow-auto) là viewport scroll Y → sticky thead pin được vào đỉnh
+          wrapper khi cuộn dọc trong bảng. */}
+      <div className='flex min-h-0 flex-1 flex-col overflow-hidden px-4 py-4 md:px-6'>
         {apiQuery.isLoading ? (
           <div className='flex h-full min-h-[320px] flex-col items-center justify-center gap-3 rounded-md border border-dashed border-border bg-muted/10 text-muted-foreground'>
             <Loader2Icon className='h-9 w-9 animate-spin text-primary' />
@@ -899,7 +909,7 @@ const KeCuocChiHoTable = () => {
             <div
               ref={topScrollRef}
               onScroll={onTopScroll}
-              className='w-full overflow-x-auto'
+              className='w-full shrink-0 overflow-x-auto'
             >
               <div style={{ width: tableWidth, height: 1 }} />
             </div>
@@ -907,7 +917,7 @@ const KeCuocChiHoTable = () => {
             <div
               ref={bodyScrollRef}
               onScroll={onBodyScroll}
-              className='relative mt-1 w-full overflow-x-auto rounded-md border border-border'
+              className='relative mt-1 min-h-0 w-full flex-1 overflow-auto rounded-md border border-border'
             >
               {/* Overlay loading khi tải lại (đã có dữ liệu cũ) */}
               {apiQuery.isFetching && (
@@ -929,7 +939,7 @@ const KeCuocChiHoTable = () => {
                     <col key={c.id} style={{ width: colWidths[c.id] ?? c.w }} />
                   ))}
                 </colgroup>
-                <thead>
+                <thead className='sticky top-0 z-20'>
                   <tr>
                     <LeafTh
                       id='tt'

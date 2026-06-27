@@ -20,7 +20,8 @@ import { Separator } from '@/components/ui/separator';
 import { useAppDispatch, useAppSelector } from '@/store/hook';
 import { clearActiveTarget } from '@/store/slices/activeTargetSlice';
 
-import { USER } from '@/contants/Storage';
+import { ACTIVE_A_TARGET, USER } from '@/contants/Storage';
+import { useQualityReportNewCount } from '@/hook/useQualityReportNewMarker';
 import {
   SUPPLIER_COST_STATEMENT,
   SUPPLIER_PAYMENT_MANAGEMENT,
@@ -79,6 +80,12 @@ interface SupplierSidebarProps {
   onClose?: () => void;
 }
 
+const readPersistedTarget = (): 'mhvn' | 'gp' | null => {
+  if (typeof window === 'undefined') return null;
+  const raw = window.localStorage.getItem(ACTIVE_A_TARGET);
+  return raw === 'mhvn' || raw === 'gp' ? raw : null;
+};
+
 const SupplierSidebar = ({ open = false, onClose }: SupplierSidebarProps) => {
   const router = useRouter();
   const { removeAll } = storage();
@@ -86,7 +93,20 @@ const SupplierSidebar = ({ open = false, onClose }: SupplierSidebarProps) => {
   const hasMultipleTargets = useAppSelector(
     (s) => s.activeTarget.availableTargets.length >= 2,
   );
-  const currentSystem = useAppSelector((s) => s.activeTarget.current)
+  const storeCurrent = useAppSelector((s) => s.activeTarget.current);
+  // Fallback localStorage qua useEffect (không phải useState initializer) —
+  // tránh hydration mismatch SSR vs client khi store/localStorage có giá trị
+  // khác null. Xem comment cùng pattern trong SupplierLayout.tsx.
+  const [persistedCurrent, setPersistedCurrent] = useState<'mhvn' | 'gp' | null>(
+    null,
+  );
+  useEffect(() => {
+    setPersistedCurrent(readPersistedTarget());
+  }, []);
+  const currentSystem = storeCurrent ?? persistedCurrent;
+
+  // Số báo cáo chất lượng MỚI (NCC chưa xem) — để hiện dot ở menu item.
+  const qrNewCount = useQualityReportNewCount();
   const [username, setUsername] = useState('');
 
   useEffect(() => {
@@ -141,6 +161,9 @@ const SupplierSidebar = ({ open = false, onClose }: SupplierSidebarProps) => {
         </p>
         {NAV_ITEMS.map(({ label, href, icon: Icon }) => {
           const active = router.pathname === href;
+          // Chỉ menu "Báo cáo chất lượng" có dot khi có report mới chưa xem.
+          const showNewDot =
+            href === SUPPLIER_QUALITY_REPORTS && qrNewCount > 0 && !active;
           return (
             <Link key={href} href={href} passHref>
               <a
@@ -153,7 +176,15 @@ const SupplierSidebar = ({ open = false, onClose }: SupplierSidebarProps) => {
                 )}
               >
                 <Icon className='h-4 w-4 shrink-0' />
-                {label}
+                <span className='flex-1'>{label}</span>
+                {showNewDot && (
+                  <span
+                    aria-label={`${qrNewCount} báo cáo mới`}
+                    className='inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold leading-none text-white'
+                  >
+                    {qrNewCount > 99 ? '99+' : qrNewCount}
+                  </span>
+                )}
               </a>
             </Link>
           );

@@ -666,7 +666,7 @@ const ShippingRateContainer = () => {
                       Thời gian áp dụng
                     </th>
                     <th className='px-3 py-2 text-right text-xs font-semibold'>
-                      Tần suất (3 tháng)
+                      Chuyến chạy
                     </th>
                   </tr>
                 </thead>

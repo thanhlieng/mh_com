@@ -11,15 +11,15 @@ import activeTargetReducer, {
 import { queryClient } from '@/lib/queryClient';
 
 /**
- * Component tests cho TargetSwitcher.
+ * Component tests cho TargetSwitcher (segmented pills).
  *
- * Verify hành vi UI + side-effects (queryClient.clear, dispatch setActiveTarget).
+ * Verify hành vi UI + side-effects (queryClient.resetQueries, dispatch setActiveTarget).
  */
 
-// Mock queryClient để spy lời gọi clear() khi user switch target.
+// Mock queryClient để spy lời gọi resetQueries() khi user switch target.
 jest.mock('@/lib/queryClient', () => ({
   queryClient: {
-    clear: jest.fn(),
+    resetQueries: jest.fn(),
   },
 }));
 
@@ -61,7 +61,7 @@ const renderWithStore = (state: Partial<ActiveTargetState>) => {
 
 describe('TargetSwitcher', () => {
   beforeEach(() => {
-    (queryClient.clear as jest.Mock).mockClear();
+    (queryClient.resetQueries as jest.Mock).mockClear();
   });
 
   it('không render gì khi availableTargets có 1 phần tử', () => {
@@ -94,7 +94,7 @@ describe('TargetSwitcher', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('render dropdown với label NCC cho supplier — current=mhvn hiển thị "MHVN (2 NCC)"', () => {
+  it('render 2 pills với label NCC cho supplier — pill MHVN đang active', () => {
     renderWithStore({
       current: 'mhvn',
       accountType: 'supplier',
@@ -103,11 +103,16 @@ describe('TargetSwitcher', () => {
         { a_target: 'gp', entity_ids: ['7'] },
       ],
     });
-    // Selected value text hiển thị trên trigger
-    expect(screen.getByText('MHVN (2 NCC)')).toBeInTheDocument();
+    const mhvnPill = screen.getByRole('radio', { checked: true });
+    expect(mhvnPill).toHaveTextContent('MHVN');
+    expect(mhvnPill).toHaveTextContent('2 NCC');
+
+    const gpPill = screen.getByRole('radio', { checked: false });
+    expect(gpPill).toHaveTextContent('GP');
+    expect(gpPill).toHaveTextContent('1 NCC');
   });
 
-  it('render dropdown với label KH cho customer', () => {
+  it('render label KH cho customer', () => {
     renderWithStore({
       current: 'gp',
       accountType: 'customer',
@@ -116,10 +121,12 @@ describe('TargetSwitcher', () => {
         { a_target: 'gp', entity_ids: ['200'] },
       ],
     });
-    expect(screen.getByText('GP (1 KH)')).toBeInTheDocument();
+    const active = screen.getByRole('radio', { checked: true });
+    expect(active).toHaveTextContent('GP');
+    expect(active).toHaveTextContent('1 KH');
   });
 
-  it('khi user chọn target khác → dispatch setActiveTarget và queryClient.clear()', () => {
+  it('khi user click pill khác → dispatch setActiveTarget và queryClient.resetQueries()', () => {
     const { store, dispatchSpy } = renderWithStore({
       current: 'mhvn',
       accountType: 'supplier',
@@ -129,24 +136,15 @@ describe('TargetSwitcher', () => {
       ],
     });
 
-    // antd Select v4 dropdown nằm trong body; click vào trigger trước.
-    const trigger = screen.getByText('MHVN (2 NCC)').closest('.ant-select');
-    expect(trigger).toBeTruthy();
-    fireEvent.mouseDown(trigger!.querySelector('.ant-select-selector')!);
-
-    // Sau khi mở dropdown, các option mới render.
-    const gpOption = document.querySelector(
-      '.ant-select-item-option[title="GP (1 KH)"], .ant-select-item-option[title="GP (1 NCC)"]',
-    );
-    expect(gpOption).not.toBeNull();
-    fireEvent.click(gpOption!);
+    const gpPill = screen.getByRole('radio', { checked: false });
+    fireEvent.click(gpPill);
 
     expect(dispatchSpy).toHaveBeenCalledWith(setActiveTarget('gp'));
-    expect(queryClient.clear).toHaveBeenCalledTimes(1);
+    expect(queryClient.resetQueries).toHaveBeenCalledTimes(1);
     expect(store.getState().activeTarget.current).toBe('gp');
   });
 
-  it('khi user chọn target trùng với current → không dispatch và không clear cache', () => {
+  it('khi user click pill trùng với current → không dispatch và không reset cache', () => {
     const { dispatchSpy } = renderWithStore({
       current: 'mhvn',
       accountType: 'supplier',
@@ -156,17 +154,9 @@ describe('TargetSwitcher', () => {
       ],
     });
 
-    const trigger = screen.getByText('MHVN (1 NCC)').closest('.ant-select');
-    fireEvent.mouseDown(trigger!.querySelector('.ant-select-selector')!);
+    const activePill = screen.getByRole('radio', { checked: true });
+    fireEvent.click(activePill);
 
-    const mhvnOption = document.querySelector(
-      '.ant-select-item-option[title="MHVN (1 NCC)"]',
-    );
-    expect(mhvnOption).not.toBeNull();
-    fireEvent.click(mhvnOption!);
-
-    // dispatchSpy có thể được gọi cho action nội bộ antd; chỉ assert
-    // setActiveTarget KHÔNG bị gọi và queryClient KHÔNG bị clear.
     const setActiveCalls = dispatchSpy.mock.calls.filter(
       (c) =>
         typeof c[0] === 'object' &&
@@ -174,6 +164,6 @@ describe('TargetSwitcher', () => {
         (c[0] as { type?: string }).type === setActiveTarget.type,
     );
     expect(setActiveCalls).toHaveLength(0);
-    expect(queryClient.clear).not.toHaveBeenCalled();
+    expect(queryClient.resetQueries).not.toHaveBeenCalled();
   });
 });

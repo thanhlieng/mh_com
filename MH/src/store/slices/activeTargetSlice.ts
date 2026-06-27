@@ -82,23 +82,20 @@ const activeTargetSlice = createSlice({
         // Account chỉ liên kết 1 hệ → LUÔN ép `current` về đúng hệ đó (bỏ qua
         // giá trị cũ trong localStorage). Tránh kẹt ở hệ cũ nếu admin đổi liên
         // kết mà localStorage còn lưu hệ trước đó.
-        const only = targets[0].a_target;
-        if (state.current !== only) {
-          state.current = only;
-          persistTarget(only);
+        state.current = targets[0].a_target;
+      } else {
+        // Nhiều hệ: giữ lựa chọn hiện tại nếu còn hợp lệ, ngược lại lấy hệ đầu.
+        const stillValid =
+          state.current !== null &&
+          targets.some((t) => t.a_target === state.current);
+        if (!stillValid) {
+          state.current = targets.length > 0 ? targets[0].a_target : null;
         }
-        return;
       }
-
-      // Nhiều hệ: giữ lựa chọn hiện tại nếu còn hợp lệ, ngược lại lấy hệ đầu.
-      const stillValid =
-        state.current !== null &&
-        targets.some((t) => t.a_target === state.current);
-      if (!stillValid) {
-        const next = targets.length > 0 ? targets[0].a_target : null;
-        state.current = next;
-        persistTarget(next);
-      }
+      // LUÔN persist current (kể cả khi không đổi) để localStorage đồng bộ —
+      // reload sau slice init đọc đúng giá trị, CSS vars apply ngay lần render
+      // đầu, không cần đợi API hydrate.
+      persistTarget(state.current);
     },
     /** Xoá toàn bộ state + localStorage khi logout. */
     clearActiveTarget(state) {

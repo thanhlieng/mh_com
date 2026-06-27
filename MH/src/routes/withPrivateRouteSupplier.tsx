@@ -3,10 +3,17 @@ import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 
 import { useAppDispatch, useAppSelector } from '@/store/hook';
-import { hydrateFromAccountTargets } from '@/store/slices/activeTargetSlice';
+import {
+  hydrateFromAccountTargets,
+  setActiveTarget,
+} from '@/store/slices/activeTargetSlice';
 
 import { LOGIN_HOME } from '@/contants/endpoint';
-import { ACCOUNT_TYPE, ACCSESS_TOKEN } from '@/contants/Storage';
+import {
+  ACCOUNT_TYPE,
+  ACCSESS_TOKEN,
+  ACTIVE_A_TARGET,
+} from '@/contants/Storage';
 import { fetchAccountTargets } from '@/services/account-target.services';
 
 export function withPrivateRouteSupplier(WrappedComponent: any) {
@@ -27,10 +34,18 @@ export function withPrivateRouteSupplier(WrappedComponent: any) {
       // Chỉ account loại supplier mới được vào các màn supplier.
       if (accessToken && accountType === 'supplier') {
         setVerified(true);
+        // Sync store.activeTarget từ localStorage ngay sau verify. Khắc phục
+        // case slice initialState không pickup được localStorage do bundling
+        // (vd: store module evaluate trên server với window undefined → null;
+        // client store bị frozen ở null nếu redux/next có cơ chế share).
+        const persisted = localStorage.getItem(ACTIVE_A_TARGET);
+        if (persisted === 'mhvn' || persisted === 'gp') {
+          dispatch(setActiveTarget(persisted));
+        }
       } else {
         router.replace(LOGIN_HOME);
       }
-    }, [router]);
+    }, [router, dispatch]);
 
     // Re-hydrate danh sách hệ A khi vào lại trang (vd sau refresh) để: khôi phục
     // TargetSwitcher đa hệ + re-validate `current` (single-link sẽ bị ép đúng hệ
