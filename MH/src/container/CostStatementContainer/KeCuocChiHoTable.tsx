@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { notification, Tooltip } from 'antd';
+import { notification, Select, Tooltip } from 'antd';
 import { format, parseISO, startOfMonth } from 'date-fns';
 import {
   CheckCircleIcon,
@@ -36,6 +36,7 @@ import {
 import { ChiHoUploadModal } from './ChiHoUploadModal';
 import { ConfirmChangesModal, type DirtyRowChange } from './ConfirmChangesModal';
 import { DEFAULT_EDIT_REASON } from './types';
+import { Label } from '@/components/ui/label';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -418,6 +419,13 @@ const KeCuocChiHoTable: React.FC<KeCuocChiHoTableProps> = ({
     so_bill_booking: '',
     so_cont: '',
     tuyen: '',
+    cang_nang:"",
+    cang_ha:"",
+    so_xe:'',
+    thang_cong_no:'',
+    loai_don_hang:'',
+    loai_cont:'',
+    loai_hang: ''
   });
   const setFilter = (key: keyof typeof filters, value: string) =>
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -1020,7 +1028,20 @@ const KeCuocChiHoTable: React.FC<KeCuocChiHoTableProps> = ({
                       className={FROZEN_HEADER_CLASS}
                       style={frozenHeaderStyle('loai_don_hang')}
                     >
-                      Loại đơn hàng
+                      <div className='flex flex-col gap-1'>
+                      <span>Loại đơn hàng</span>
+                <Select
+                  allowClear
+                  showSearch
+                  value={filters.loai_don_hang}
+                  placeholder='Đơn hàng'
+                  optionFilterProp='label'
+                  // loading={optionsQuery.isLoading}
+                  onChange={(v) => setFilter('loai_don_hang', v)}
+                  // style={{ width: 240 }}
+                  options={[{label:'Nhập khẩu', value: 'Nhập khẩu'}, {label:'Xuất khẩu', value: 'Xuất khẩu'}]}
+                  size='small'
+                /></div>
                     </LeafTh>
                     <LeafTh
                       id='so_cont'
@@ -1044,7 +1065,13 @@ const KeCuocChiHoTable: React.FC<KeCuocChiHoTableProps> = ({
                       // className={FROZEN_HEADER_CLASS}
                       // style={frozenHeaderStyle('loai_cont')}
                     >
-                      Loại cont
+                      
+
+                      <SearchHeader
+                        label='Loại cont'
+                        value={filters.so_cont}
+                        onChange={(v) => setFilter('loai_cont', v)}
+                      />
                     </LeafTh>
                     <LeafTh
                       id='loai_hang'
@@ -1054,7 +1081,12 @@ const KeCuocChiHoTable: React.FC<KeCuocChiHoTableProps> = ({
                       // className={FROZEN_HEADER_CLASS}
                       // style={frozenHeaderStyle('loai_hang')}
                     >
-                      Loại hàng
+                      
+                       <SearchHeader
+                        label='Loại hàng'
+                        value={filters.so_cont}
+                        onChange={(v) => setFilter('loai_hang', v)}
+                      />
                     </LeafTh>
                     <LeafTh
                       id='cang_ha'
@@ -1064,7 +1096,12 @@ const KeCuocChiHoTable: React.FC<KeCuocChiHoTableProps> = ({
                       // className={FROZEN_HEADER_CLASS}
                       // style={frozenHeaderStyle('cang_ha')}
                     >
-                      Cảng hạ
+                      <SearchHeader
+                        label='Cảng hạ'
+                        value={filters.so_cont}
+                        onChange={(v) => setFilter('cang_ha', v)}
+                      />
+                      
                     </LeafTh>
                     <LeafTh
                       id='cang_nang'
@@ -1074,7 +1111,12 @@ const KeCuocChiHoTable: React.FC<KeCuocChiHoTableProps> = ({
                       // className={FROZEN_HEADER_CLASS}
                       // style={frozenHeaderStyle('cang_nang')}
                     >
-                      Cảng nâng
+                      <SearchHeader
+                        label='Cảng nâng'
+                        value={filters.so_cont}
+                        onChange={(v) => setFilter('cang_nang', v)}
+                      />
+                      
                     </LeafTh>
                     <LeafTh
                       id='so_xe'
@@ -1084,7 +1126,12 @@ const KeCuocChiHoTable: React.FC<KeCuocChiHoTableProps> = ({
                       // className={FROZEN_HEADER_CLASS}
                       // style={frozenHeaderStyle('so_xe')}
                     >
-                      Số xe
+                      <SearchHeader
+                        label='Số xe'
+                        value={filters.so_cont}
+                        onChange={(v) => setFilter('so_xe', v)}
+                      />
+                      
                     </LeafTh>
                     <LeafTh
                       id='thang_cong_no'
@@ -1094,7 +1141,12 @@ const KeCuocChiHoTable: React.FC<KeCuocChiHoTableProps> = ({
                       // className={FROZEN_HEADER_CLASS}
                       // style={frozenHeaderStyle('thang_cong_no')}
                     >
-                      Tháng công nợ
+                      <SearchHeader
+                        label='Tháng công nợ'
+                        value={filters.so_cont}
+                        onChange={(v) => setFilter('thang_cong_no', v)}
+                      />
+                      
                     </LeafTh>
                     {/* <LeafTh
                       id='so_to_khai'
