@@ -61,7 +61,7 @@ const formatDateTime = (iso: string) => {
  * (env `NEXT_PUBLIC_MHGS_MHVN_HOST` / `NEXT_PUBLIC_MHGS_GP_HOST`) để tạo URL
  * tuyệt đối. `/media/` ở hệ A là public, không cần auth.
  */
-const openFile = (url: string | null) => {
+export const openFile = (url: string | null) => {
   const full = resolveChiHoFileUrl(url);
   if (!full) return;
   window.open(full, '_blank', 'noopener,noreferrer');

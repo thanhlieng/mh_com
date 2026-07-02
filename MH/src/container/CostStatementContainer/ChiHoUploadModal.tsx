@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button';
 
 import { listChiHoFiles, uploadChiHoFiles } from '@/services/supplier.services';
 import type { ChiHoApprovalStatus, ChiHoFile } from '@/services/supplier.services';
+import { openFile } from '../PaymentManagementContainer/UploadRequestsTab';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -331,7 +332,7 @@ export function ChiHoUploadModal({
                               </div>
                               {f.file_url && (
                                 <a
-                                  href={f.file_url}
+                                  href={openFile(f.file_url)}
                                   target='_blank'
                                   rel='noreferrer'
                                   className='shrink-0 text-[10px] text-primary hover:underline'

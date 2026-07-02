@@ -1069,7 +1069,7 @@ const KeCuocChiHoTable: React.FC<KeCuocChiHoTableProps> = ({
 
                       <SearchHeader
                         label='Loại cont'
-                        value={filters.so_cont}
+                        value={filters.loai_cont}
                         onChange={(v) => setFilter('loai_cont', v)}
                       />
                     </LeafTh>
@@ -1084,7 +1084,7 @@ const KeCuocChiHoTable: React.FC<KeCuocChiHoTableProps> = ({
                       
                        <SearchHeader
                         label='Loại hàng'
-                        value={filters.so_cont}
+                        value={filters.loai_hang}
                         onChange={(v) => setFilter('loai_hang', v)}
                       />
                     </LeafTh>
@@ -1098,7 +1098,7 @@ const KeCuocChiHoTable: React.FC<KeCuocChiHoTableProps> = ({
                     >
                       <SearchHeader
                         label='Cảng hạ'
-                        value={filters.so_cont}
+                        value={filters.cang_ha}
                         onChange={(v) => setFilter('cang_ha', v)}
                       />
                       
@@ -1113,7 +1113,7 @@ const KeCuocChiHoTable: React.FC<KeCuocChiHoTableProps> = ({
                     >
                       <SearchHeader
                         label='Cảng nâng'
-                        value={filters.so_cont}
+                        value={filters.cang_nang}
                         onChange={(v) => setFilter('cang_nang', v)}
                       />
                       
@@ -1128,7 +1128,7 @@ const KeCuocChiHoTable: React.FC<KeCuocChiHoTableProps> = ({
                     >
                       <SearchHeader
                         label='Số xe'
-                        value={filters.so_cont}
+                        value={filters.so_xe}
                         onChange={(v) => setFilter('so_xe', v)}
                       />
                       
@@ -1143,7 +1143,7 @@ const KeCuocChiHoTable: React.FC<KeCuocChiHoTableProps> = ({
                     >
                       <SearchHeader
                         label='Tháng công nợ'
-                        value={filters.so_cont}
+                        value={filters.thang_cong_no}
                         onChange={(v) => setFilter('thang_cong_no', v)}
                       />
                       
