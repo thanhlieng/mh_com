@@ -19,7 +19,7 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
-import { listChiHoFiles, uploadChiHoFiles } from '@/services/supplier.services';
+import { listChiHoFiles, resolveChiHoFileUrl, uploadChiHoFiles } from '@/services/supplier.services';
 import type { ChiHoApprovalStatus, ChiHoFile } from '@/services/supplier.services';
 import { openFile } from '../PaymentManagementContainer/UploadRequestsTab';
 
@@ -332,7 +332,7 @@ export function ChiHoUploadModal({
                               </div>
                               {f.file_url && (
                                 <a
-                                  href={openFile(f.file_url)}
+                                  href={resolveChiHoFileUrl(f.file_url)}
                                   target='_blank'
                                   rel='noreferrer'
                                   className='shrink-0 text-[10px] text-primary hover:underline'

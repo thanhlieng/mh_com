@@ -425,8 +425,8 @@ const readActiveTargetHost = (): string => {
 export const resolveChiHoFileUrl = (
   fileUrl: string | null | undefined,
   target?: 'mhvn' | 'gp',
-): string | null => {
-  if (!fileUrl) return null;
+): string | undefined => {
+  if (!fileUrl) return undefined;
   // Đã absolute (http/https) → giữ nguyên.
   if (/^https?:\/\//i.test(fileUrl)) return fileUrl;
   const host =
