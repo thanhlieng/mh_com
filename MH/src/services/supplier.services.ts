@@ -227,10 +227,12 @@ export interface KeCuocChiHoParams {
   from?: string; // YYYY-MM-DD
   to?: string; // YYYY-MM-DD
   /**
+   * `'all'` → tab hợp nhất: trả cả PNL đã chốt lẫn chưa chốt; ô đã chốt được
+   *   đánh dấu qua `locked_pnl_ids` để khoá riêng từng ô.
    * `true` → CHỈ trả PNL trucking đã nằm trong request ("Chi phí đã chốt" — read-only).
    * Mặc định/`undefined` → hành vi cũ: loại PNL đã chốt (chi phí còn editable).
    */
-  locked?: boolean;
+  locked?: boolean | 'all';
 }
 
 /**
@@ -268,6 +270,12 @@ export interface KeCuocChiHoRow {
   lach_huyen_pnl_ids: number[];
   phat_sinh: number;
   phat_sinh_pnl_ids: number[];
+  /**
+   * Các pnl nhóm Cước đã chốt (nằm trong request trucking). Chỉ có ý nghĩa ở chế
+   * độ hợp nhất (`locked='all'`) — FE dùng để khoá riêng từng ô đã chốt. Rỗng ở
+   * chế độ `locked=false`/`true`.
+   */
+  locked_pnl_ids?: number[];
   tong: number;
   // nhóm Chi hộ về MH
   so_tien_nang_cont_mh: number;

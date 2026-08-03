@@ -31,6 +31,11 @@ import { type ChangeRequest, mapApiResponseToChangeRequest } from './types';
 // 'requests' = đề nghị thay đổi
 type View = 'kecuoc' | 'locked' | 'requests';
 
+// Tab "Chi phí đã chốt" đã được HỢP NHẤT vào tab "Kê cước & chi hộ" (bảng chung,
+// khoá riêng từng ô đã chốt). Ẩn tab này ở UI nhưng GIỮ NGUYÊN logic + render
+// branch bên dưới để có thể bật lại. Đổi true để hiện lại tab.
+const SHOW_LOCKED_TAB = false;
+
 const CostStatementContainer = () => {
   const [view, setView] = React.useState<View>('kecuoc');
   const queryClient = useQueryClient();
@@ -123,18 +128,20 @@ const CostStatementContainer = () => {
           <TableIcon className='h-3.5 w-3.5' />
           Kê cước &amp; chi hộ
         </button>
-        <button
-          onClick={() => setView('locked')}
-          className={cn(
-            'flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-xs font-medium transition-colors',
-            view === 'locked'
-              ? 'border-primary text-primary'
-              : 'border-transparent text-muted-foreground hover:text-foreground'
-          )}
-        >
-          <LockIcon className='h-3.5 w-3.5' />
-          Chi phí đã chốt
-        </button>
+        {SHOW_LOCKED_TAB && (
+          <button
+            onClick={() => setView('locked')}
+            className={cn(
+              'flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-xs font-medium transition-colors',
+              view === 'locked'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <LockIcon className='h-3.5 w-3.5' />
+            Chi phí đã chốt
+          </button>
+        )}
         <button
           onClick={() => setView('requests')}
           className={cn(
@@ -154,8 +161,9 @@ const CostStatementContainer = () => {
         </button>
       </div>
 
-      {view === 'kecuoc' && <KeCuocChiHoTable />}
+      {view === 'kecuoc' && <KeCuocChiHoTable consolidated />}
 
+      {/* Giữ nguyên logic tab "Chi phí đã chốt"; chỉ ẩn nút chuyển tab ở UI. */}
       {view === 'locked' && <KeCuocChiHoTable locked />}
 
       {view === 'requests' && (
