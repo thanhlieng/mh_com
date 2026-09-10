@@ -361,13 +361,24 @@ interface KeCuocChiHoTableProps {
    * `true` → tab "Chi phí đã chốt": fetch chỉ rows có PNL đã nằm trong request,
    * mọi cell tiền nhóm Cước trở thành read-only, ẩn nút "Gửi đề nghị" + "Hoàn tác",
    * tooltip "Đã chốt — không thể sửa".
+   *
+   * Giữ nguyên logic tab "Chi phí đã chốt" — hiện đã ẩn ở UI nhưng không xoá.
    */
   locked?: boolean;
+  /**
+   * `true` → tab HỢP NHẤT: fetch cả PNL đã chốt lẫn chưa chốt (`locked='all'`),
+   * hiển thị chung một bảng và khoá RIÊNG từng ô đã chốt (theo `row.locked_pnl_ids`)
+   * thay vì khoá toàn bảng như `locked`.
+   */
+  consolidated?: boolean;
 }
 
 const KeCuocChiHoTable: React.FC<KeCuocChiHoTableProps> = ({
   locked = false,
+  consolidated = false,
 }) => {
+  // Giá trị `locked` gửi lên API: 'all' khi hợp nhất, true/false theo tab cũ.
+  const lockedParam: boolean | 'all' = consolidated ? 'all' : locked;
   const defaultRange = React.useRef<DateRange>(getDefaultDateRange()).current;
   const [dateRange, setDateRange] = React.useState<DateRange | undefined>(
     defaultRange
@@ -509,8 +520,8 @@ const KeCuocChiHoTable: React.FC<KeCuocChiHoTableProps> = ({
   const queryClient = useQueryClient();
 
   const apiQuery = useQuery(
-    ['supplier-ke-cuoc-chi-ho', { ...params, locked }],
-    () => getSupplierKeCuocChiHo({ ...params, locked }),
+    ['supplier-ke-cuoc-chi-ho', { ...params, locked: lockedParam }],
+    () => getSupplierKeCuocChiHo({ ...params, locked: lockedParam }),
     {
       keepPreviousData: true,
       retry: false,
@@ -556,7 +567,16 @@ const KeCuocChiHoTable: React.FC<KeCuocChiHoTableProps> = ({
     if (locked) return false;
     if (row.order_completed) return false;
     const ids = (row[idsKey as keyof KeCuocChiHoRow] as number[]) ?? [];
-    return ids.length === 1 && row.order_id != null;
+    if (ids.length !== 1 || row.order_id == null) return false;
+    // Tab hợp nhất: khoá riêng ô có pnl đã chốt (nằm trong request trucking).
+    if (row.locked_pnl_ids?.includes(ids[0])) return false;
+    return true;
+  };
+
+  /** Ô Cước bị khoá vì pnl của nó đã chốt (tab hợp nhất). */
+  const isCellLocked = (row: KeCuocChiHoRow, idsKey: string) => {
+    const ids = (row[idsKey as keyof KeCuocChiHoRow] as number[]) ?? [];
+    return ids.length === 1 && !!row.locked_pnl_ids?.includes(ids[0]);
   };
 
   const handleEdit = (tt: number, field: CuocField, value: number) => {
@@ -1456,7 +1476,8 @@ const KeCuocChiHoTable: React.FC<KeCuocChiHoTableProps> = ({
                                   isDirty={dirty.has(`${row.tt}-${f.key}`)}
                                   onCommit={(v) => handleEdit(row.tt, f.key, v)}
                                   lockedTooltip={
-                                    locked
+                                    locked ||
+                                    isCellLocked(row, f.idsKey)
                                       ? 'Đã chốt — không thể sửa.'
                                       : undefined
                                   }

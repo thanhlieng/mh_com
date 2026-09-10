@@ -53,9 +53,13 @@ export class SupplierTransactionsService {
     const params = new URLSearchParams();
     if (query.from) params.set('start_date', query.from);
     if (query.to) params.set('end_date', query.to);
+    // `locked=all` → tab hợp nhất: trả cả PNL đã chốt lẫn chưa chốt, hệ A đánh
+    //   dấu ô đã chốt qua `locked_pnl_ids`.
     // `locked=true` → tab "Chi phí đã chốt" (PNL trucking đã nằm trong request).
     // Mặc định (không truyền) → behavior cũ: loại các PNL đã chốt.
-    if (query.locked === true || query.locked === 'true') {
+    if (query.locked === 'all') {
+      params.set('locked', 'all');
+    } else if (query.locked === true || query.locked === 'true') {
       params.set('locked', 'true');
     }
 
