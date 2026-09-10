@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "mh-dev",
+      "runtimeExecutable": "yarn",
+      "runtimeArgs": ["--cwd", "MH", "start:dev"],
+      "port": 8000
+    }
+  ]
+}

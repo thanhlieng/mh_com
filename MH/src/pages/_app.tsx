@@ -11,6 +11,7 @@ import '@fontsource/roboto';
 
 import { queryClient } from '@/lib/queryClient';
 import { store } from '@/store/store';
+import '@/lib/fonts';
 
 import '@/styles/globals.css';
 import 'antd/dist/antd.css';

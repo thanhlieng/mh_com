@@ -5,7 +5,7 @@ export const BASE_URL_GEN_BILL = process.env.NEXT_PUBLIC_API_HOST
   : 'http://localhost:3000/api';
 export const BASE_URL = process.env.NEXT_PUBLIC_API_HOST
   ? process.env.NEXT_PUBLIC_API_HOST + '/api'
-  : 'http://localhost:3000';
+  : 'http://localhost:3001';
 export const UPLOAD_ENDPOINT = `${
   process.env.NEXT_PUBLIC_API_HOST
     ? process.env.NEXT_PUBLIC_API_HOST

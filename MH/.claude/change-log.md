@@ -1047,3 +1047,94 @@ Fix kép: (a) cơ chế persist robust — hydrate luôn ghi localStorage; (b) l
 **Lý do / bối cảnh:** Tận dụng cùng component + cùng cấu trúc data, chỉ thay filter API và lock edit logic. Tránh duplicate code/table. Tab mới giúp NCC xem lại lịch sử các chi phí đã được tạo request (đã chốt).
 
 **Ảnh hưởng fullstack:** Đã thêm param `?locked=true` ở `GET /api/supplier/transactions/ke-cuoc-chi-ho` (MH-api → mhvn). BE Django `build_kecuoc_chiho_rows` nhận thêm tham số `locked=False` mặc định, `True` → invert filter để CHỈ trả PNL trucking đang nằm trong request.
+
+## [2026-09-10 14:29] — Redesign web công khai (Giai đoạn 1–3): trang chủ + 3 trang dịch vụ
+
+**Yêu cầu:** Sửa giao diện web công khai cho đẹp và hiện đại hơn, dùng màu chủ đạo `#1769B3` + `#1AA851`, loại bỏ hoàn toàn thiết kế cũ, thêm nhiều animation/hình ảnh, tạo 3 trang dịch vụ lõi (đường bộ, đường biển, khai báo hải quan) — chưa nối CMS (đợt sau).
+
+**Agent thực hiện:** claude (redesign one-shot, theo plan đã duyệt)
+
+**Các file đã thêm mới:**
+- Hệ thiết kế: `tailwind.config.js` (thang màu `brand-blue`/`brand-green`/`brand-teal`/`navy`/`amber`/`paper`, thang chữ `display-*`, keyframes `marquee`/`draw-line`/`pulse-dot`, breakpoint riêng `tab/lap/dsk/wide` — KHÔNG đổi `xs/sm/md` cũ vì 360+ chỗ code hiện có (admin/supplier) dùng ngữ nghĩa cũ).
+- Font: `src/lib/fonts.ts` (Be Vietnam Pro qua `@fontsource`, KHÔNG đổi font mặc định body — Inter cũ của admin/manager/supplier không bị ảnh hưởng), import 1 dòng trong `src/pages/_app.tsx`.
+- Content (hardcode, shape khớp CMS tương lai): `src/content/types.ts`, `src/content/home.content.ts`, `src/content/services.content.ts`, `src/utils/pickLang.ts`.
+- UI kit: `src/components/ui/{Container,CtaButton,SectionHeading,Reveal,Counter,Accordion,ServiceIcon}.tsx`.
+- Vỏ trang public: `src/components/public/{Header,MobileNav,Footer,TrackingBar}.tsx`, `src/layout/PublicLayout.tsx` (import thường — SSR bình thường, khác `HomeLayout` cũ bị `dynamic(ssr:false)`).
+- Trang chủ: `src/components/home/{Hero,RouteArt,ServiceCard,ServiceGrid,StatBand,ProcessTimeline,ProcessSection,RouteMap,TrustBand,NewsTeaser,QuoteCta}.tsx`, viết lại hoàn toàn `src/pages/index.tsx`.
+- Trang dịch vụ: `src/components/service/{ServiceHero,SpecTable,ServiceFAQ,RelatedServices}.tsx`, template `src/pages/dich-vu/[slug].tsx` (SSG qua `getStaticPaths`/`getStaticProps`, 3 slug: `van-chuyen-duong-bo`, `van-chuyen-duong-bien`, `khai-bao-hai-quan`).
+
+**File đã sửa (không phải trang public cũ):**
+- `src/pages/_app.tsx`: thêm `import '@/lib/fonts'`.
+- `src/styles/globals.css`: thêm block `@media (prefers-reduced-motion: reduce)` tắt 3 animation CSS-keyframe mới.
+
+**Lý do / bối cảnh:**
+- Trang chủ cũ: hero là `banner.png` bị `object-fill` kéo méo + margin riêng từng breakpoint; 3 dịch vụ lõi không có trang; biến `dataFakeNew.dataFake` (số liệu giả) chạy production; toàn bộ trang public SSR tắt (`dynamic(..., {ssr:false})`) → mất SEO.
+- Quyết định kỹ thuật quan trọng: KHÔNG sửa `sm`/`md` breakpoint cũ (dùng ngữ nghĩa range khác chuẩn Tailwind, 360+ chỗ dùng ngoài phạm vi) — thêm bộ breakpoint mới tên riêng cho code public mới. KHÔNG đổi font mặc định toàn site (Inter đang load qua link `cdnfonts.com` dùng chung mọi trang) — chỉ thêm font mới áp riêng qua utility `font-display`.
+- `@next/font` yêu cầu Next.js ≥13 (dự án đang Next 12.3.7) → đổi sang `@fontsource/be-vietnam-pro` (cùng cách project đã dùng `@fontsource/roboto`).
+- Next 12.3.7 `next/link` mặc định `legacyBehavior=true` (yêu cầu đúng 1 child) — mọi `<Link>` bọc nhiều children phải set `legacyBehavior={false}`.
+- Nội dung 3 trang dịch vụ + số liệu trang chủ là dữ liệu minh hoạ/mẫu (số liệu StatBand, hero/thẻ dịch vụ chưa có ảnh thật — dựng bằng SVG/CSS route-art tạm thời), cần thay bằng dữ liệu thật và ảnh thật trước khi lên production.
+
+**Ảnh hưởng fullstack:** Không có — toàn bộ nội dung hardcode phía frontend, không có endpoint mới, không đổi API contract nào. `QuoteCta` trỏ sang trang liên hệ có sẵn `/customer-supports` (endpoint `POST /api/public/quote-requests` riêng cho lead báo giá nằm ngoài phạm vi đợt này).
+
+**Kết quả kiểm thử:**
+- `yarn typecheck`: sạch.
+- `yarn lint` trên toàn bộ file mới: 0 lỗi, 0 cảnh báo (đã autofix thứ tự import).
+- `yarn build`: pass toàn bộ 120 trang, bao gồm 13 trang public cũ + admin/manager/supplier — không trang nào bị vỡ. `/` và `/dich-vu/[slug]` (3 trang) giờ là SSG (●) thay vì client-only.
+- Kiểm tra qua dev server: desktop/tablet/mobile (375/768/1280px) không có thanh cuộn ngang; console sạch; cả 3 trang dịch vụ + `/en` trả 200 đúng nội dung song ngữ.
+- Sửa 1 lỗi a11y: headline hero chia theo từ để animate thiếu khoảng trắng thật trong DOM text → thêm `aria-label` câu đầy đủ trên `<h1>`, ẩn phần chia từ khỏi accessibility tree.
+
+**Chưa làm / đợt sau:** nối CMS ở admin để chỉnh nội dung trang public (theo yêu cầu ban đầu), 13 trang public cũ còn lại, ảnh thật (xem slot đã dựng theo đúng tỉ lệ), số liệu StatBand thật, endpoint nhận lead báo giá.
+
+## [2026-09-10 15:04] — Tinh chỉnh redesign: bỏ Trung Quốc, gắn ảnh thật, sửa header/input đơn điệu
+
+**Yêu cầu:** (1) Bỏ mọi nội dung liên quan Trung Quốc, thay bằng "toàn thế giới"; tuyến khai thác thực tế là quốc tế → cảng Hải Phòng, và cảng Hải Phòng → sâu nội địa. (2) Header quá trắng, các section quá đơn điệu toàn màu trắng. (3) Lấy ảnh thật trên mạng cho các chỗ đang là placeholder. (4) Input còn xấu.
+
+**Agent thực hiện:** claude
+
+**Các file đã thay đổi:**
+- `src/content/home.content.ts`: headline/sub hero đổi hướng "cảng Hải Phòng đi khắp thế giới"; stat "2 quốc gia" → "50+ tuyến tàu quốc tế"; viết lại toàn bộ `route.points` — cảng Hải Phòng làm `hub` duy nhất (trước đây Hà Nội/TP.HCM là hub, có cả Thâm Quyến/Quảng Châu), các điểm còn lại là phân phối nội địa (Hà Nội, Bắc Ninh, Hải Dương, Đà Nẵng, TP.HCM, Cát Lái).
+- `src/content/services.content.ts`: dịch vụ đường bộ đổi từ "cửa khẩu biên giới" (Lạng Sơn/Móng Cái/Lào Cai) sang "phân phối từ cảng Hải Phòng vào nội địa"; dịch vụ đường biển đổi từ "Việt Nam–Trung Quốc" sang "cảng Hải Phòng ↔ 50+ cảng quốc tế toàn cầu".
+- `src/components/home/RouteMap.tsx`: nhãn `KIND_LABEL` đổi ngữ nghĩa (hub = "Cảng Hải Phòng — trung tâm"); thêm nhóm đường nét đứt + badge "Tuyến quốc tế" (vẽ tay bằng SVG, không gắn quốc gia cụ thể) toả ra từ hub, tượng trưng kết nối toàn cầu; thêm dải gradient màu ở đầu card thay viền trắng phẳng.
+- `src/pages/index.tsx`, `src/components/public/Footer.tsx`: bỏ nốt câu SEO description và footer description còn nhắc "Việt Nam và Trung Quốc".
+- **Ảnh thật** (tải từ Unsplash, giấy phép Unsplash License — miễn phí, không cần ghi nguồn): `public/images/hero/hero-cargo.jpg` (cảng đêm, cần cẩu container), `public/images/services/{road,sea,customs}-{card,hero}.jpg` (xe tải cao tốc; cảng container trên cao; con dấu trên tài liệu pháp lý — đổi ảnh customs ban đầu vì có tiền mặt trong khung hình, không phù hợp).
+- `src/components/home/Hero.tsx`: gắn ảnh `hero.image` làm nền thật (trước đây chỉ có gradient + SVG); gradient overlay đổi từ 3 lớp chéo đậm (95/85/75%) sang ngang trái→phải (95/75/30%) để ảnh hiện rõ mà chữ vẫn đọc được.
+- `src/components/service/ServiceHero.tsx`: gắn ảnh `service.heroImage` làm nền thật; cùng kiểu gradient ngang theo accent dịch vụ.
+- `src/components/home/ServiceCard.tsx`: thêm ảnh `service.cardImage` ở đầu thẻ (trước đây thẻ chỉ có icon, không dùng field `cardImage` dù đã khai báo trong content) — icon nổi đè lên mép ảnh, overlay gradient màu theo accent.
+- `src/components/ui/ServiceIcon.tsx`: thêm token `imageOverlay` vào `ACCENT_CLASSES` (gradient phủ ảnh theo accent).
+- `src/components/ui/SectionGlow.tsx` (mới): quầng gradient mờ trang trí cho section nền trắng — gắn vào `ServiceGrid`, `ProcessSection`, phần thông số + FAQ ở trang dịch vụ.
+- `src/components/service/SpecTable.tsx`: nhận thêm prop `accent`, thêm dải màu ở đầu bảng + hover row.
+- `src/components/public/Header.tsx`: thêm dải gradient 3px (xanh lá→xanh dương→teal) ở đáy header khi cuộn, thay viền xám phẳng.
+- `src/components/public/TrackingBar.tsx`: làm lại input — icon trong vòng tròn màu, `focus-within` ring rõ, nút có icon mũi tên + shadow nâng khi hover (cả 2 biến thể hero/compact).
+
+**Lý do / bối cảnh:** Yêu cầu định hướng lại mô hình khai thác — không còn tuyến cố định sang Trung Quốc, mà là cảng Hải Phòng làm trung tâm nhận hàng quốc tế rồi phân phối nội địa. Phần thiết kế: gradient overlay quá đậm trước đó gần như che kín ảnh nền khiến trang "trắng/phẳng"; `ServiceCard`/`ServiceHero` khai báo `cardImage`/`heroImage` trong content nhưng chưa từng render — nay đã gắn đúng. Input tra cứu trước đó thiếu chiều sâu thị giác (chỉ viền + nền trắng phẳng).
+
+**Kiểm thử:** `yarn typecheck` sạch, `yarn lint` trên toàn bộ file mới sạch (0 lỗi/0 cảnh báo), `yarn build` pass toàn bộ 120 trang. Xác nhận qua `curl` mọi ảnh trả `200` + `Content-Type: image/jpeg` đúng cả đường dẫn gốc và qua `/_next/image`. Không còn chuỗi "Trung Quốc"/"China"/"Thâm Quyến"/"Quảng Châu" nào trong nội dung hiển thị (grep xác nhận).
+
+**Ảnh hưởng fullstack:** Không có — chỉ thay nội dung tĩnh + ảnh phía frontend.
+
+**Lưu ý:** Ảnh Unsplash là ảnh minh hoạ tạm thời (đúng như yêu cầu), không phải ảnh thật của MH — cần thay bằng ảnh do công ty chụp trước khi lên production.
+
+## [2026-09-10 15:34] — Sửa header, làm lại quy trình, bỏ bản đồ tuyến, thêm mục Đối tác
+
+**Yêu cầu:** (1) Header vẫn xấu, nền trắng mờ che mất thông tin; các mục bấm được trong header dính liền nhau. (2) Phần quy trình trắng trơn, chỉ toàn chữ với số. (3) Bỏ phần tuyến đường khai thác. (4) Thêm mục đối tác: "đối tác cảng biển" là các hãng tàu có tuyến chạy đến cảng Việt Nam, "đối tác nội địa" là các công ty sản xuất ở Việt Nam.
+
+**Agent thực hiện:** claude
+
+**Các file đã thay đổi:**
+- `src/components/public/Header.tsx`: bỏ `bg-white/90 + backdrop-blur-md` (nội dung cuộn phía dưới lộ qua làm chữ khó đọc) → khi cuộn dùng **nền navy đặc** `bg-navy-600` + `shadow-lift`; chữ luôn trắng ở cả 2 trạng thái nên không còn đổi màu giữa chừng. Giãn điều hướng: `gap-1`→`gap-2`, mục `py-2`→`py-2.5`, thêm mũi tên `ChevronDown` cho "Dịch vụ", thêm **vạch ngăn dọc** giữa nhóm điều hướng và nhóm hành động (`gap-4`), nút Đăng nhập đổi sang `variant='accent'` (vàng) cho nổi trên nền navy. Dropdown dịch vụ căn trái thay vì căn giữa.
+- `src/components/home/ProcessTimeline.tsx`: viết lại hoàn toàn — mỗi bước giờ là một **thẻ** có icon minh hoạ riêng, số thứ tự cỡ lớn làm hoa văn nền, nhãn "bên thực hiện" dạng chip, vạch màu chạy ở đáy thẻ khi hover, vạch nối ngang giữa các thẻ. Trước đây chỉ có vòng tròn số + chữ trên nền trắng.
+- `src/components/ui/ProcessIcon.tsx` (mới): map 11 tên icon sang lucide-react.
+- `src/content/types.ts`: thêm `ProcessIconName` + trường `icon` bắt buộc cho `ProcessStep`; bỏ `RoutePoint`/`TrustLogo`; thêm `PartnerItem` và khối `partners` trong `HomeContent`.
+- `src/content/home.content.ts`: bỏ `route` và `trust`; thêm `partners` (8 hãng tàu + 6 nhóm ngành nội địa); thêm icon cho 5 bước quy trình.
+- `src/content/services.content.ts`: thêm icon cho 15 bước quy trình của 3 dịch vụ.
+- `src/components/home/PartnersSection.tsx` (mới): 2 nhóm thẻ song song — "Đối tác cảng biển" (tone xanh dương, icon tàu) và "Đối tác nội địa" (tone xanh lá, icon nhà máy), mỗi đối tác là một chip có tên + dòng phụ (tuyến khai thác / ngành hàng + khu vực).
+- `src/components/home/RouteMap.tsx`, `src/components/home/TrustBand.tsx`: **đã xoá**. `src/pages/index.tsx` thay 2 mục này bằng `PartnersSection`.
+- `src/components/home/ProcessSection.tsx` + `src/pages/dich-vu/[slug].tsx`: nền mục quy trình `bg-white` → `bg-paper` + viền trên/dưới, để các thẻ trắng nổi lên thay vì chìm vào nền trắng.
+
+**Lý do / bối cảnh:** Nền trắng mờ + backdrop-blur của header sticky khiến nội dung trang cuộn phía dưới lộ qua, chữ header mất tương phản — nền đặc xử lý triệt để. Quy trình trước đó thiếu tín hiệu thị giác (không icon, không thẻ, không màu) nên đọc như một danh sách đánh số.
+
+**⚠️ Dữ liệu cần xác nhận trước khi lên production:** 8 hãng tàu trong `partners.carriers` (Maersk, MSC, CMA CGM, COSCO, Evergreen, ONE, HMM, SITC) đều thực sự có tuyến đến cảng Việt Nam, nhưng **việc gọi họ là "đối tác" của MH thì chỉ MH mới xác nhận được** — phải rà lại theo quan hệ booking/hợp đồng thật, tránh tuyên bố quan hệ chưa có. Nhóm `domestic` cố ý ghi theo **ngành hàng + khu vực** thay vì bịa tên doanh nghiệp cụ thể; thay bằng tên khách hàng thật (kèm sự đồng ý của họ) khi có. Hiển thị bằng chữ, không dùng logo hãng tàu để tránh dùng nhãn hiệu bên thứ ba khi chưa có thoả thuận.
+
+**Kiểm thử:** `yarn typecheck` sạch, `yarn lint` trên toàn bộ file mới sạch, `yarn build` pass 120 trang. Kiểm tra HTML prerender của trang chủ: có "Đối tác cảng biển"/"Đối tác nội địa"/"Maersk", không còn "Phạm vi khai thác"; header khởi tạo đúng trạng thái `bg-transparent`, computed `backdrop-filter: none` (đã bỏ blur).
+
+**Ảnh hưởng fullstack:** Không có — chỉ nội dung tĩnh và component phía frontend.

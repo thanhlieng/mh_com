@@ -2,6 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Redesign web công khai — tôn trọng prefers-reduced-motion cho các animation
+   CSS-keyframe thuần (framer-motion tự xử lý riêng qua useReducedMotion()). */
+@media (prefers-reduced-motion: reduce) {
+  .animate-draw-line,
+  .animate-pulse-dot,
+  .animate-marquee {
+    animation: none !important;
+  }
+  .animate-draw-line {
+    stroke-dashoffset: 0 !important;
+  }
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;
