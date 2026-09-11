@@ -23,7 +23,7 @@ export function StatBand({ stats }: { stats: StatItem[] }) {
         <RevealGroup className='grid grid-cols-2 gap-8 tab:grid-cols-4'>
           {stats.map((stat, i) => (
             <motion.div key={i} variants={revealItemVariants} className='text-center'>
-              <div className='font-display text-4xl font-extrabold text-white tab:text-5xl'>
+              <div className='font-display text-4xl font-light text-white tab:text-5xl'>
                 <Counter value={stat.value} suffix={stat.suffix} />
               </div>
               <p className='mt-2 text-sm text-white/65'>{pickLang(stat.label, lang)}</p>

@@ -19,7 +19,7 @@ export function ServiceFAQ({ faqs }: { faqs: FaqItem[] }) {
           title={lang === 'en' ? 'Common questions' : 'Những điều khách hàng hay hỏi'}
         />
       </Reveal>
-      <Reveal delay={0.1} className='mt-8 rounded-2xl border border-surface-line bg-white px-6 shadow-soft'>
+      <Reveal delay={0.1} className='mt-8 rounded-md border border-surface-line bg-white px-6 shadow-soft'>
         {faqs.map((faq, i) => (
           <AccordionItem key={i} question={pickLang(faq.question, lang)} answer={pickLang(faq.answer, lang)} />
         ))}

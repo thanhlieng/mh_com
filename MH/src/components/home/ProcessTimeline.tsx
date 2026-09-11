@@ -40,18 +40,18 @@ export function ProcessTimeline({ steps, accent = 'brand-blue' }: ProcessTimelin
         <motion.div
           key={step.step}
           variants={revealItemVariants}
-          className='group relative flex h-full flex-col overflow-hidden rounded-2xl border border-surface-line bg-white p-5 shadow-soft transition-all duration-300 hover:-translate-y-1 hover:shadow-lift'
+          className='group relative flex h-full flex-col overflow-hidden rounded-md border border-surface-line bg-white p-5 shadow-soft transition-all duration-300 hover:-translate-y-1 hover:shadow-lift'
         >
           {/* Số thứ tự cỡ lớn làm hoa văn nền — nhấn thứ tự mà không chiếm chỗ. */}
           <span
             aria-hidden
-            className='pointer-events-none absolute -right-2 -top-3 font-display text-6xl font-extrabold text-navy-50 transition-colors duration-300 group-hover:text-paper'
+            className='pointer-events-none absolute -right-2 -top-3 font-display text-6xl font-light text-navy-50 transition-colors duration-300 group-hover:text-paper'
           >
             {step.step}
           </span>
 
           <span
-            className={`relative flex h-12 w-12 items-center justify-center rounded-xl ${accentClasses.bg50} transition-colors duration-300 ${accentClasses.groupHoverBg500}`}
+            className={`relative flex h-12 w-12 items-center justify-center rounded ${accentClasses.bg50} transition-colors duration-300 ${accentClasses.groupHoverBg500}`}
           >
             <ProcessIcon
               icon={step.icon}
@@ -62,7 +62,7 @@ export function ProcessTimeline({ steps, accent = 'brand-blue' }: ProcessTimelin
           <div className='relative mt-4 flex flex-1 flex-col'>
             {step.actor && (
               <span
-                className={`mb-1.5 inline-flex w-fit rounded-full ${accentClasses.bg50} px-2 py-0.5 font-display text-[10px] font-semibold uppercase tracking-wide ${accentClasses.text}`}
+                className={`mb-1.5 inline-flex w-fit rounded ${accentClasses.bg50} px-2 py-0.5 font-display text-[10px] font-semibold uppercase tracking-wide ${accentClasses.text}`}
               >
                 {pickLang(step.actor, lang)}
               </span>

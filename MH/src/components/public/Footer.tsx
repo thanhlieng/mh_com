@@ -2,21 +2,26 @@ import { Mail, MapPin, Phone } from 'lucide-react';
 import Link from 'next/link';
 import useTranslation from 'next-translate/useTranslation';
 
+import { IS_DEMO } from '@/lib/demoMode';
+
 import { Container } from '@/components/ui/Container';
 
+import { contactContent } from '@/content/contact.content';
 import { serviceSummaries } from '@/content/services.content';
 import { pickLang } from '@/utils/pickLang';
 
+// Mục "Tra cứu vận đơn" (/tracking) tạm ẩn theo yêu cầu — thêm lại vào mảng
+// này khi bật lại tính năng tra cứu.
 const TOOLS = [
-  { href: '/tracking', label: { vi: 'Tra cứu vận đơn', en: 'Track shipment' } },
   { href: '/customer-supports', label: { vi: 'Yêu cầu báo giá', en: 'Request a quote' } },
 ];
 
 const COMPANY = [
   { href: '/about', label: { vi: 'Về MH', en: 'About MH' } },
-  { href: '/recruitment', label: { vi: 'Tuyển dụng', en: 'Careers' } },
+  // `/recruitment` là trang cũ, cần API → ẩn ở chế độ demo.
+  { href: '/recruitment', label: { vi: 'Tuyển dụng', en: 'Careers' }, needsApi: true },
   { href: '/customer-supports', label: { vi: 'Liên hệ', en: 'Contact' } },
-];
+].filter((item) => !(IS_DEMO && item.needsApi));
 
 /**
  * Footer cho trang public redesign — nền navy đặc thay ảnh `footer-bg.jpg`
@@ -32,7 +37,7 @@ export function Footer() {
     <footer className='bg-navy-600 text-white'>
       <Container className='grid gap-10 py-16 tab:grid-cols-2 lap:grid-cols-4'>
         <div className='lap:col-span-1'>
-          <span className='font-display text-xl font-extrabold'>
+          <span className='font-display text-xl font-bold'>
             MH<span className='text-brand-green-400'>.</span>
           </span>
           <p className='mt-4 max-w-xs text-sm leading-relaxed text-white/65'>
@@ -61,7 +66,7 @@ export function Footer() {
           <ul className='mt-4 flex flex-col gap-3'>
             {serviceSummaries.map((s) => (
               <li key={s.slug}>
-                <Link
+                <Link legacyBehavior={false}
                   href={`/dich-vu/${s.slug}`}
                   className='text-sm text-white/75 transition-colors hover:text-white'
                 >
@@ -79,7 +84,7 @@ export function Footer() {
           <ul className='mt-4 flex flex-col gap-3'>
             {TOOLS.map((item) => (
               <li key={item.href}>
-                <Link href={item.href} className='text-sm text-white/75 transition-colors hover:text-white'>
+                <Link legacyBehavior={false} href={item.href} className='text-sm text-white/75 transition-colors hover:text-white'>
                   {pickLang(item.label, lang)}
                 </Link>
               </li>
@@ -91,7 +96,7 @@ export function Footer() {
           <ul className='mt-4 flex flex-col gap-3'>
             {COMPANY.map((item) => (
               <li key={item.href}>
-                <Link href={item.href} className='text-sm text-white/75 transition-colors hover:text-white'>
+                <Link legacyBehavior={false} href={item.href} className='text-sm text-white/75 transition-colors hover:text-white'>
                   {pickLang(item.label, lang)}
                 </Link>
               </li>
@@ -104,22 +109,23 @@ export function Footer() {
             {lang === 'en' ? 'Contact' : 'Liên hệ'}
           </p>
           <ul className='mt-4 flex flex-col gap-3 text-sm text-white/75'>
-            <li className='flex items-start gap-2.5'>
-              <MapPin className='mt-0.5 h-4 w-4 shrink-0 text-brand-green-400' aria-hidden />
-              <span>{lang === 'en' ? 'Ho Chi Minh City, Vietnam' : 'TP. Hồ Chí Minh, Việt Nam'}</span>
-            </li>
-            <li className='flex items-center gap-2.5'>
-              <Phone className='h-4 w-4 shrink-0 text-brand-green-400' aria-hidden />
-              <a href='tel:+842873001234' className='hover:text-white'>
-                +84 28 7300 1234
-              </a>
-            </li>
-            <li className='flex items-center gap-2.5'>
-              <Mail className='h-4 w-4 shrink-0 text-brand-green-400' aria-hidden />
-              <a href='mailto:contact@mhgreatsun.com' className='hover:text-white'>
-                contact@mhgreatsun.com
-              </a>
-            </li>
+            {/* Nguồn duy nhất: src/content/contact.content.ts */}
+            {contactContent.channels.map((channel) => {
+              const Icon =
+                channel.kind === 'phone' ? Phone : channel.kind === 'email' ? Mail : MapPin;
+              return (
+                <li key={channel.kind} className='flex items-start gap-2.5'>
+                  <Icon className='mt-0.5 h-4 w-4 shrink-0 text-brand-green-400' aria-hidden />
+                  {channel.href ? (
+                    <a href={channel.href} className='hover:text-white'>
+                      {channel.value}
+                    </a>
+                  ) : (
+                    <span>{channel.value}</span>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </div>
       </Container>

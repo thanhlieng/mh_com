@@ -28,7 +28,7 @@ export function NewsTeaser({ news }: { news: HomeContent['news'] }) {
         <RevealGroup className='mt-10 grid grid-cols-1 gap-6 tab:grid-cols-3'>
           {news.items.map((item) => (
             <motion.div key={item.href} variants={revealItemVariants}>
-              <Link href={item.href} className='group block overflow-hidden rounded-2xl border border-surface-line bg-white shadow-soft transition-shadow hover:shadow-lift'>
+              <Link legacyBehavior={false} href={item.href} className='group block overflow-hidden rounded-md border border-surface-line bg-white shadow-soft transition-shadow hover:shadow-lift'>
                 <div className='relative aspect-[16/10] overflow-hidden bg-paper'>
                   {/* Next 12 Image API: layout="fill" (không phải `fill` như Next 13+). */}
                   <Image

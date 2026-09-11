@@ -7,7 +7,8 @@
 @media (prefers-reduced-motion: reduce) {
   .animate-draw-line,
   .animate-pulse-dot,
-  .animate-marquee {
+  .animate-marquee,
+  .animate-marquee-reverse {
     animation: none !important;
   }
   .animate-draw-line {

@@ -3,12 +3,12 @@ import Image from 'next/image';
 import useTranslation from 'next-translate/useTranslation';
 
 import { Container } from '@/components/ui/Container';
+import { CtaButton } from '@/components/ui/CtaButton';
 
 import { HomeContent } from '@/content/types';
 import { pickLang } from '@/utils/pickLang';
 
 import { RouteArt } from './RouteArt';
-import { TrackingBar } from '../public/TrackingBar';
 
 interface HeroProps {
   hero: HomeContent['hero'];
@@ -41,12 +41,12 @@ export function Hero({ hero }: HeroProps) {
           để ảnh cảng đêm thật vẫn hiện rõ — tránh phủ kín ảnh như một khối màu phẳng. */}
       <div
         aria-hidden
-        className='absolute inset-0 bg-gradient-to-r from-navy-600/95 via-navy-600/75 to-navy-600/30 tab:to-brand-teal-700/20'
+        className='absolute inset-0 bg-gradient-to-r from-navy-600/95 via-navy-600/70 to-navy-600/10'
       />
-      <div aria-hidden className='absolute inset-0 bg-gradient-to-t from-navy-600/70 via-transparent to-navy-600/40' />
+      <div aria-hidden className='absolute inset-0 bg-gradient-to-t from-navy-600/55 via-transparent to-navy-600/20' />
       <motion.div
         aria-hidden
-        className='pointer-events-none absolute inset-0 opacity-60'
+        className='pointer-events-none absolute inset-0 opacity-40'
         style={{
           backgroundImage:
             'radial-gradient(circle at 20% 20%, rgba(255,255,255,0.10), transparent 45%), radial-gradient(circle at 85% 15%, rgba(26,168,81,0.25), transparent 40%)',
@@ -63,7 +63,7 @@ export function Hero({ hero }: HeroProps) {
             initial={reduceMotion ? undefined : { opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className='mb-5 inline-flex items-center rounded-full border border-white/20 bg-white/10 px-4 py-1.5 font-display text-xs font-semibold uppercase tracking-[0.14em] text-amber-300'
+            className='mb-5 font-display text-xs font-semibold uppercase tracking-[0.16em] text-brand-green-400'
           >
             {pickLang(hero.eyebrow, lang)}
           </motion.p>
@@ -75,7 +75,7 @@ export function Hero({ hero }: HeroProps) {
           */}
           <h1
             aria-label={pickLang(hero.headline, lang)}
-            className='text-balance font-display text-display-xl font-extrabold text-white'
+            className='text-balance font-display text-display-xl font-light text-white'
           >
             <span aria-hidden='true'>
               {words.map((word, i) => (
@@ -102,13 +102,26 @@ export function Hero({ hero }: HeroProps) {
             {pickLang(hero.sub, lang)}
           </motion.p>
 
+          {/* Ô tra cứu vận đơn tạm ẩn theo yêu cầu — thay bằng 2 CTA (mẫu
+              hero của maersk.com: một nút đặc + một nút viền). Bật lại bằng
+              cách render <TrackingBar variant='hero' /> tại đây. */}
           <motion.div
             initial={reduceMotion ? undefined : { opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.7, duration: 0.6 }}
-            className='mt-9'
+            className='mt-9 flex flex-wrap gap-3'
           >
-            <TrackingBar variant='hero' />
+            <CtaButton href='/dich-vu/van-chuyen-duong-bien' variant='light' size='lg'>
+              {lang === 'en' ? 'Explore our services' : 'Xem dịch vụ'}
+            </CtaButton>
+            <CtaButton
+              href='/customer-supports'
+              variant='outline'
+              size='lg'
+              showArrow={false}
+            >
+              {lang === 'en' ? 'Contact us' : 'Liên hệ tư vấn'}
+            </CtaButton>
           </motion.div>
         </div>
       </Container>

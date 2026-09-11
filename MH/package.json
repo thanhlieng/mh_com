@@ -5,6 +5,8 @@
     "dev": "next dev",
     "start:dev": "next dev -p 8000",
     "build": "next build",
+    "build:demo": "NEXT_PUBLIC_DEMO_MODE=true next build",
+    "start:demo": "NEXT_PUBLIC_DEMO_MODE=true next start -p 8000",
     "start": "next start -p 8000",
     "lint": "next lint",
     "lint:fix": "eslint src --fix && yarn format",

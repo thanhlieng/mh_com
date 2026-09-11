@@ -1138,3 +1138,143 @@ Fix kép: (a) cơ chế persist robust — hydrate luôn ghi localStorage; (b) l
 **Kiểm thử:** `yarn typecheck` sạch, `yarn lint` trên toàn bộ file mới sạch, `yarn build` pass 120 trang. Kiểm tra HTML prerender của trang chủ: có "Đối tác cảng biển"/"Đối tác nội địa"/"Maersk", không còn "Phạm vi khai thác"; header khởi tạo đúng trạng thái `bg-transparent`, computed `backdrop-filter: none` (đã bỏ blur).
 
 **Ảnh hưởng fullstack:** Không có — chỉ nội dung tĩnh và component phía frontend.
+
+## [2026-09-10 23:19] — UI theo hướng maersk.com: header đặc 2 tầng, ẩn tra cứu, sửa lỗi nút mất style
+
+**Yêu cầu:** (1) Tạm ẩn phần tra cứu đơn hàng. (2) Header ở đầu trang vẫn trắng và mất thông tin. (3) Các tab trên header thiết kế xấu, nút "Về MH"/"Liên hệ" nên đồng bộ kiểu với "Dịch vụ". (4) Học UI từ maersk.com, lưu ý web MH ít thông tin hơn.
+
+**Agent thực hiện:** claude
+
+**🐞 Hai lỗi thật đã tìm ra và sửa:**
+
+1. **Header trắng ở đầu trang** — không phải lỗi màu mà là lỗi bố cục: `Header` nằm TRƯỚC `<main>` trong luồng của `PublicLayout`, nên `bg-transparent` không lộ hero mà lộ nền `bg-paper` (gần trắng) của layout → chữ trắng trên nền trắng, mất sạch thông tin. Sửa: header dùng **nền navy đặc ở mọi trạng thái**.
+
+2. **Mọi nút/link có `href` bị mất sạch style** — `<Link className=...>` với `legacyBehavior` mặc định (Next 12) KHÔNG truyền `className` xuống thẻ con; Link ở chế độ này không render thẻ DOM nào mà chỉ clone con. Hậu quả: nút CTA hero, nút "Đăng nhập", toàn bộ link footer, logo header, menu mobile đều render thành **chữ trơn không nền** — chính là "các nút thiết kế xấu". Sửa: thêm `legacyBehavior={false}` cho `CtaButton` và 6 thẻ `<Link>` còn lại (quét bằng script để không sót).
+
+**Học từ maersk.com (đo trực tiếp trên trang của họ):**
+- Tiêu đề h1: 50px **weight 300**, letter-spacing bình thường → MH đổi từ `font-extrabold` + tracking âm sang `font-light` + tracking 0; thang `display-*` giảm cỡ tối đa (4.5rem → 3.5rem).
+- Nút: bo góc **5px** (không phải pill), `font-weight 400` → `CtaButton` đổi `rounded-full`+`font-semibold` sang `rounded`+`font-medium`, bỏ shadow, thêm variant `light` (nền trắng) cho hero.
+- Nav: chữ thường 15–16px, không nền pill, giãn cách rộng, gạch chân màu cho mục đang mở.
+- Header 2 tầng: tầng tiện ích mảnh (điện thoại, hỗ trợ, đổi ngôn ngữ) + tầng điều hướng chính.
+- Hero: 1 nút đặc + 1 nút viền.
+- Bo góc toàn site giảm: `rounded-2xl/3xl` → `rounded-md`; các tiêu đề mục và số liệu đổi sang `font-light`.
+
+**Các file đã thay đổi:**
+- `src/components/public/Header.tsx`: viết lại theo cấu trúc 2 tầng nền navy đặc; mọi mục nav dùng chung class `navItem` nên "Về MH"/"Tin tức"/"Liên hệ" đồng bộ hoàn toàn với "Dịch vụ" (chỉ khác ở chevron của dropdown); bỏ `TrackingBar` thu gọn.
+- `src/components/home/Hero.tsx`: bỏ `TrackingBar`, thay bằng 2 CTA; tiêu đề `font-light`; eyebrow bỏ khung pill; **làm nhẹ lớp phủ gradient** (95/70/10 thay vì 95/85/75) vì lớp phủ cũ che gần kín ảnh cảng.
+- `src/components/service/ServiceHero.tsx`: làm nhẹ lớp phủ tương tự, tiêu đề `font-light`.
+- `src/components/ui/CtaButton.tsx`: sửa lỗi `legacyBehavior`, đổi kiểu nút, thêm variant `light`.
+- `tailwind.config.js`: chỉnh thang `display-*`.
+- `src/components/public/Footer.tsx`: tạm bỏ link "Tra cứu vận đơn" khỏi mục Công cụ.
+- `src/components/{ui,home,service,public}/*`: đồng bộ bo góc + nét chữ (script thay thế hàng loạt).
+
+**Tra cứu vận đơn:** component `components/public/TrackingBar.tsx` **vẫn giữ nguyên**, chỉ ngừng render. Bật lại: thêm `<TrackingBar variant='hero' />` vào Hero (có comment đánh dấu đúng chỗ), `<TrackingBar variant='compact' />` vào Header, và trả link `/tracking` vào mảng `TOOLS` của Footer.
+
+**Kiểm thử:** `yarn typecheck` sạch; `yarn lint` 0 lỗi trên file mới; `yarn build` pass. Kiểm tra trên bản production chạy thật: header `background: rgb(8,34,56)` (navy đặc), 3 thẻ dịch vụ và 14 chip đối tác render đúng kích thước, ảnh hero hiển thị rõ. HTML prerender: có "Đối tác cảng biển"/"Xem dịch vụ"/"Liên hệ tư vấn", **không còn** "Nhập mã vận đơn" và "Phạm vi khai thác".
+
+**⚠️ Sự cố do tôi gây ra:** tôi chạy `rm -rf .next && yarn build` trong khi dev server của bạn đang chạy trên cùng thư mục `.next` → dev server ở cổng 3002 lỗi `__webpack_modules__[moduleId] is not a function` (HTTP 500). **Cần khởi động lại `yarn dev` là hết.** Rút kinh nghiệm: không build production khi dev server đang chạy.
+
+**Ảnh hưởng fullstack:** Không có.
+
+## [2026-09-11 00:32] — Chuyển 3 trang Về MH / Tin tức / Liên hệ sang design mới
+
+**Yêu cầu:** Chuyển luôn các phần Về MH, Tin tức, Liên hệ theo design mới.
+
+**Agent thực hiện:** claude
+
+**Phát hiện khi rà trang cũ:**
+- `/about` (`container/AboutForm`) viết về **ACF — một thương hiệu khác**, và ghép từ `about.svg`, `about2.svg`, `about-3.svg`…`about-6.svg` **không tồn tại** trong `public/images` → trang chỉ hiện ảnh vỡ. Không mang nội dung cũ sang.
+- `/customer-supports` (`container/CustomerSupportForm`) có form nhưng nút "Gửi" **không gắn handler nào**, backend cũng không có endpoint nhận liên hệ → form chỉ tạo cảm giác đã gửi. Thông tin liên hệ trong đó cũng là của ACF (Vinhomes Thăng Long Hà Nội · 19008972 · acf@gmail.com).
+- `/tin-tuc` **chưa từng tồn tại** — link trên header đang trỏ vào trang 404.
+
+**Các file đã thêm:**
+- `src/components/public/PageHero.tsx`: hero gọn dùng chung cho trang phụ (breadcrumb, eyebrow, tiêu đề `font-light`, ảnh nền tuỳ chọn) — cùng ngôn ngữ thiết kế với `ServiceHero` nhưng thấp hơn và không gắn màu dịch vụ.
+- `src/content/about.content.ts`: nội dung trang Về MH, song ngữ. Viết mới cho MH dựa trên định vị đã thống nhất (cửa ngõ Hải Phòng, 3 dịch vụ, phân phối nội địa, checkpoint). **Cố ý không bịa** năm thành lập / số nhân sự / giấy phép / lịch sử phát triển.
+- `src/content/contact.content.ts`: **nguồn duy nhất** cho thông tin liên hệ (hotline, email, văn phòng, giờ làm việc, checklist thông tin cần gửi để báo giá).
+- `src/pages/tin-tuc/index.tsx`: trang Tin tức mới.
+
+**Các file đã viết lại:**
+- `src/pages/about/index.tsx`: PageHero → giới thiệu (chữ + ảnh) → dải số liệu → 4 giá trị → 3 thẻ dịch vụ → quy trình → CTA. Dùng lại `StatBand`, `ServiceCard`, `ProcessSection`, `QuoteCta` của trang chủ.
+- `src/pages/customer-supports/index.tsx`: PageHero (kèm 2 nút gọi/email) → 3 thẻ kênh liên hệ → checklist "gửi kèm gì để được báo giá nhanh". **Không dựng lại form** vì chưa có endpoint; thay bằng kênh hoạt động thật (`tel:` và `mailto:` đã điền sẵn tiêu đề). Khi có `POST /api/public/quote-requests` thì thêm form vào đúng khối checklist.
+
+**Các file đã sửa:**
+- `src/components/public/Footer.tsx` + `Header.tsx`: lấy thông tin liên hệ từ `contact.content.ts` thay vì hardcode — trước đó Footer ghi "TP. Hồ Chí Minh" trong khi toàn bộ định vị đã chuyển về cảng Hải Phòng (lệch nhau).
+
+**Tin tức nối API thật:** dùng `getListPost` (module `posts` của MH-api) qua React Query, trỏ bài viết sang trang chi tiết có sẵn `/detail-post/[slug]` (slug ở route đó chính là `post.id`). Có đủ 3 trạng thái **loading (skeleton) / rỗng / lỗi** nên trang không bao giờ trắng trơn. Đã kiểm tra chạy thật: lấy về bài "THÔNG BÁO NGHỈ TẾT DƯƠNG LỊCH 2026".
+
+**⚠️ Cần bạn cung cấp:** toàn bộ thông tin trong `contact.content.ts` (hotline, email, địa chỉ văn phòng, giờ làm việc) hiện là **placeholder** — chưa có thông tin thật của MH. Thay trong đúng một file này là cả trang Liên hệ, Footer và Header cùng cập nhật.
+
+**Dead code còn lại:** `container/AboutForm` và `container/CustomerSupportForm` không còn nơi nào import — có thể xoá, tôi giữ lại vì nằm ngoài phạm vi yêu cầu.
+
+**Kiểm thử:** `yarn typecheck` sạch, `yarn lint` 0 lỗi/0 cảnh báo trên file mới, `yarn build` pass — `/about`, `/tin-tuc`, `/customer-supports` đều là SSG (●). Chạy thật trên bản production: cả 3 route trả 200, header hiển thị gạch chân đúng mục đang mở, footer đã đồng bộ thông tin liên hệ.
+
+**Ảnh hưởng fullstack:** Không đổi contract. Trang Tin tức **tiêu thụ** endpoint có sẵn `GET /posts?page=&pageSize=` (module `posts`) — không thêm endpoint mới.
+
+## [2026-09-11 23:51] — Chế độ demo: deploy FE độc lập, không cần backend
+
+**Yêu cầu:** Làm chế độ demo để deploy riêng phần web public, không cần BE chạy kèm.
+
+**Agent thực hiện:** claude
+
+**Bối cảnh — đã kiểm chứng trước khi làm:** build lại với `NEXT_PUBLIC_API_HOST` trỏ vào cổng chết (127.0.0.1:9) thì cả 6 trang public mới đều trả 200. Không trang nào dùng `getServerSideProps`; `getStaticProps` của trang dịch vụ chỉ đọc content local; `_app`/`PublicLayout` không fetch gì. Chỉ `/tin-tuc` gọi API. Rà toàn bộ href trong code public mới, chỉ còn 3 lối ra cần BE: `/login-home`, `/recruitment`, `/detail-post/[id]`.
+
+**Cách bật:** `yarn build:demo` rồi `yarn start:demo` (cờ `NEXT_PUBLIC_DEMO_MODE=true`). Không bật cờ thì hành vi giữ nguyên 100% như cũ.
+
+**Các file đã thêm:**
+- `src/lib/demoMode.ts`: cờ `IS_DEMO` đọc `NEXT_PUBLIC_DEMO_MODE` (Next nội suy lúc build nên hoạt động cả ở trang SSG).
+- `src/content/news.demo.content.ts`: 3 bài viết mẫu song ngữ (chuẩn bị chứng từ / mùa cao điểm / chặng nội địa) + nhãn "Nội dung mẫu".
+- `src/pages/tin-tuc/[slug].tsx`: trang chi tiết bài mẫu, SSG. `getStaticPaths` chỉ sinh đường dẫn khi `IS_DEMO` — ngoài chế độ demo route này trả 404.
+
+**Các file đã sửa:**
+- `src/pages/tin-tuc/index.tsx`: tách `PostCard` thành kiểu `CardData` dùng chung cho cả bài thật lẫn bài mẫu; ở chế độ demo tắt hẳn query (`enabled: !IS_DEMO`) và đọc `demoPosts`, trỏ sang `/tin-tuc/[slug]` thay vì `/detail-post/[id]`.
+- `src/components/public/Header.tsx` + `MobileNav.tsx`: ẩn nút "Đăng nhập" khi demo.
+- `src/components/public/Footer.tsx`: lọc bỏ link "Tuyển dụng" (`/recruitment`) khi demo.
+- `package.json`: thêm script `build:demo` và `start:demo`. Dùng cú pháp env thuần (`NEXT_PUBLIC_DEMO_MODE=true next build`) **không thêm dependency** — dự án chưa cài `cross-env` dù tài liệu có nhắc. Lưu ý: script này chạy trên macOS/Linux/CI; Windows cmd cần `cross-env`.
+
+**Chống hiểu nhầm nội dung:** 3 bài viết mẫu là nội dung dựng sẵn để trình diễn giao diện, không phải thông báo thật của MH. Vì vậy giao diện **luôn gắn nhãn "Nội dung mẫu"** trên cả thẻ bài viết lẫn trang chi tiết, và trang chi tiết đặt `<meta name="robots" content="noindex">`. Không gỡ nhãn này khi vẫn dùng dữ liệu mẫu.
+
+**Kiểm thử:**
+- Bản demo + **không có backend** (`NEXT_PUBLIC_API_HOST=http://127.0.0.1:9`): `/`, `/about`, `/tin-tuc`, `/tin-tuc/[slug]`, `/customer-supports`, `/dich-vu/*` đều 200. HTML trang chủ không còn chuỗi `login-home` và `recruitment` → không còn lối ra nào dẫn vào trang cần BE.
+- Bản thường (regression): `/tin-tuc/lich-lam-viec-...` trả **404** đúng như thiết kế, `login-home` và `recruitment` xuất hiện trở lại, trang Tin tức không có nhãn "Nội dung mẫu" (tức đã quay về gọi API thật).
+- `yarn typecheck` sạch, `yarn lint` 0 lỗi/0 cảnh báo, `yarn build` và `yarn build:demo` đều pass.
+
+**Ảnh hưởng fullstack:** Không có. Chế độ demo chỉ tắt bớt lời gọi API phía FE, không đổi endpoint hay DTO nào.
+
+## [2026-09-12 00:05] — Mục Đối tác: logo hãng tàu + carousel hai tầng tự chạy
+
+**Yêu cầu:** Phần đối tác thay vì chỉ là text thì thêm logo các hãng tìm được, làm dạng list nhiều tầng hoặc carousel tự chạy.
+
+**Agent thực hiện:** claude
+
+**Nguồn logo:** tải 8 logo hãng tàu từ **Wikimedia Commons**, đã kiểm tra từng file qua API MediaWiki — **cả 8 đều có license "Public domain"** (thuộc nhóm PD-textlogo: logo chữ đơn giản, dưới ngưỡng bảo hộ quyền tác giả). Lưu ở `public/images/partners/*.svg` (~1.5MB tổng, dạng vector nên nét ở mọi kích cỡ).
+
+| File | Nguồn Commons |
+|---|---|
+| maersk.svg | Maersk Group Logo.svg |
+| msc.svg | MSC Logo.svg |
+| cma-cgm.svg | CMA CGM logo.svg |
+| cosco.svg | COSCOCS-ver1.svg |
+| evergreen.svg | Evergreen Line Logo.svg |
+| one.svg | Ocean Network Express logo.svg |
+| hmm.svg | HMM Logo Basic Form.svg |
+| sitc.svg | SITC logo.svg |
+
+Ban đầu lấy nhầm `COSCO Shipping Logo.svg` — đó là logo **COSCO SHIPPING Ports** (công ty khai thác cảng), không phải hãng tàu. Đã đổi sang logo của COSCO SHIPPING Group.
+
+**Các file đã thay đổi:**
+- `src/content/home.content.ts`: gắn `logo: '/images/partners/*.svg'` cho 8 hãng tàu (trường `logo` đã có sẵn trong type `PartnerItem` từ trước).
+- `src/components/home/PartnersSection.tsx`: viết lại.
+  - **Hãng tàu** → băng logo **hai tầng chạy ngược chiều nhau**, lặp vô tận, dừng khi hover, hai mép mờ dần bằng mask. Mỗi ô có logo + tuyến khai thác.
+  - **Đối tác nội địa** → lưới 6 ô (2/3/6 cột theo breakpoint) vì đây là nhóm NGÀNH HÀNG chứ không phải doanh nghiệp cụ thể nên không có logo.
+  - Logo để **ngả xám, lên màu khi hover** — giữ dải logo yên tĩnh, không tranh chấp với nội dung.
+  - Ô nào chưa có logo thì tự hiện wordmark bằng chữ → thêm hãng mới không cần ảnh vẫn không vỡ layout.
+- `tailwind.config.js`: thêm keyframe + utility `marquee-reverse`.
+- `src/styles/globals.css`: bổ sung `.animate-marquee-reverse` vào danh sách tắt khi `prefers-reduced-motion: reduce`.
+
+**Một lỗi đáng ghi nhớ:** ban đầu làm tầng dưới chạy ngược bằng inline `style={{ animationDirection: 'reverse' }}`, nhưng **không ăn** — config có `important: true` nên utility `animate-marquee` là `!important` và luôn đè inline style. Phải tách thành keyframe riêng. Đã ghi chú ngay trong tailwind.config.js để người sau không lặp lại.
+
+**Kiểm thử:** `yarn typecheck` sạch, `yarn lint` sạch, `yarn build` pass. Đo trên bản production đang chạy: 2 track với `animation-name` lần lượt là `marquee` và `marquee-reverse`, dịch chuyển **−25.5px và +25.5px trong 1 giây** → đúng hai chiều ngược nhau. 8 logo render đúng, không file nào lỗi.
+
+**⚠️ Vẫn giữ nguyên cảnh báo cũ:** license Public domain chỉ giải quyết vấn đề **quyền tác giả** của file ảnh. Việc hiển thị logo hãng tàu dưới tiêu đề "Đối tác cảng biển" là tuyên bố về **quan hệ hợp tác** — chỉ MH xác nhận được. Rà lại danh sách theo quan hệ booking/hợp đồng thật trước khi lên production; hãng nào chưa phải đối tác thì xoá khỏi `partners.carriers.items`.
+
+**Ảnh hưởng fullstack:** Không có.

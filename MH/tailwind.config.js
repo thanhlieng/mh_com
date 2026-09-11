@@ -118,11 +118,14 @@ module.exports = {
         soft: '0 1px 2px rgba(10,42,69,.06), 0 12px 32px rgba(10,42,69,.08)',
         lift: '0 24px 48px -12px rgba(10,42,69,.28)',
       },
-      // Thang chữ display cho hero/tiêu đề mục — co giãn theo viewport, không nhảy bậc.
+      // Thang chữ display cho hero/tiêu đề mục — co giãn theo viewport, không
+      // nhảy bậc. Tỉ lệ học từ maersk.com: cỡ lớn nhưng nét NHẸ (font-light /
+      // font-normal ở nơi dùng) và letter-spacing bình thường, cho cảm giác
+      // điềm đạm thay vì đậm-siết kiểu quảng cáo.
       fontSize: {
-        'display-xl': ['clamp(2.75rem, 5vw, 4.5rem)', { lineHeight: '1.04', letterSpacing: '-0.02em' }],
-        'display-lg': ['clamp(2.1rem, 3.4vw, 3rem)', { lineHeight: '1.08', letterSpacing: '-0.015em' }],
-        'display-md': ['clamp(1.5rem, 2.2vw, 1.875rem)', { lineHeight: '1.2', letterSpacing: '-0.01em' }],
+        'display-xl': ['clamp(2.25rem, 4vw, 3.5rem)', { lineHeight: '1.12', letterSpacing: '0' }],
+        'display-lg': ['clamp(1.875rem, 3vw, 2.75rem)', { lineHeight: '1.16', letterSpacing: '0' }],
+        'display-md': ['clamp(1.5rem, 2.2vw, 2rem)', { lineHeight: '1.25', letterSpacing: '0' }],
       },
       keyframes: {
         flicker: {
@@ -148,6 +151,13 @@ module.exports = {
           '0%': { transform: 'translateX(0)' },
           '100%': { transform: 'translateX(-50%)' },
         },
+        // Hướng ngược phải là keyframe RIÊNG, không dùng inline
+        // `animation-direction: reverse` được: config có `important: true` nên
+        // utility `animate-marquee` là `!important` và luôn đè inline style.
+        'marquee-reverse': {
+          '0%': { transform: 'translateX(-50%)' },
+          '100%': { transform: 'translateX(0)' },
+        },
         'draw-line': {
           to: { strokeDashoffset: 0 },
         },
@@ -160,6 +170,7 @@ module.exports = {
         flicker: 'flicker 3s linear infinite',
         shimmer: 'shimmer 1.3s linear infinite',
         marquee: 'marquee 32s linear infinite',
+        'marquee-reverse': 'marquee-reverse 32s linear infinite',
         'draw-line': 'draw-line 1.8s ease-out forwards',
         'pulse-dot': 'pulse-dot 2.4s ease-in-out infinite',
       },

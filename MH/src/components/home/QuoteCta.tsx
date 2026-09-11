@@ -26,7 +26,7 @@ export function QuoteCta({ cta }: { cta: HomeContent['quoteCta'] }) {
   return (
     <section className='py-20 tab:py-28'>
       <Container>
-        <Reveal className='relative overflow-hidden rounded-3xl bg-gradient-to-br from-brand-green-600 via-brand-teal-600 to-brand-blue-600 px-6 py-14 text-center tab:px-16 tab:py-20'>
+        <Reveal className='relative overflow-hidden rounded-md bg-gradient-to-br from-brand-green-600 via-brand-teal-600 to-brand-blue-600 px-6 py-14 text-center tab:px-16 tab:py-20'>
           <div
             aria-hidden
             className='pointer-events-none absolute inset-0 opacity-25'
@@ -36,7 +36,7 @@ export function QuoteCta({ cta }: { cta: HomeContent['quoteCta'] }) {
             }}
           />
           <div className='relative'>
-            <h2 className='mx-auto max-w-2xl text-balance font-display text-display-md font-bold text-white'>
+            <h2 className='mx-auto max-w-2xl text-balance font-display text-display-md font-light text-white'>
               {pickLang(cta.heading, lang)}
             </h2>
             <p className='mx-auto mt-4 max-w-xl text-base leading-relaxed text-white/85'>

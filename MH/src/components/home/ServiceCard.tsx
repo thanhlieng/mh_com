@@ -16,7 +16,7 @@ export function ServiceCard({ service }: { service: ServiceSummary }) {
     <Link
       href={`/dich-vu/${service.slug}`}
       legacyBehavior={false}
-      className={`group relative flex flex-col overflow-hidden rounded-2xl border border-surface-line bg-white shadow-soft transition-all duration-300 hover:-translate-y-1.5 hover:shadow-lift ${accent.hoverBorder}`}
+      className={`group relative flex flex-col overflow-hidden rounded-md border border-surface-line bg-white shadow-soft transition-all duration-300 hover:-translate-y-1.5 hover:shadow-lift ${accent.hoverBorder}`}
     >
       <div className='relative h-44 w-full overflow-hidden'>
         <Image
@@ -30,7 +30,7 @@ export function ServiceCard({ service }: { service: ServiceSummary }) {
       </div>
 
       <span
-        className={`relative -mt-7 ml-6 flex h-14 w-14 items-center justify-center rounded-xl border-4 border-white ${accent.bg50} shadow-soft transition-colors duration-300 ${accent.groupHoverBg500}`}
+        className={`relative -mt-7 ml-6 flex h-14 w-14 items-center justify-center rounded border-4 border-white ${accent.bg50} shadow-soft transition-colors duration-300 ${accent.groupHoverBg500}`}
       >
         <ServiceIcon
           icon={service.icon}
@@ -39,7 +39,7 @@ export function ServiceCard({ service }: { service: ServiceSummary }) {
       </span>
 
       <div className='flex flex-1 flex-col px-6 pb-7 pt-4'>
-        <h3 className='font-display text-xl font-bold text-navy-600'>
+        <h3 className='font-display text-xl font-semibold text-navy-600'>
           {pickLang(service.title, lang)}
         </h3>
         <p className='mt-2 text-sm leading-relaxed text-ink-soft'>

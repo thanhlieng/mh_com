@@ -13,9 +13,9 @@ import { pickLang } from '@/utils/pickLang';
 // Gradient ngang (đặc trái → nhạt phải) để chữ luôn đọc được mà ảnh dịch vụ
 // thật phía sau vẫn hiện rõ, không bị phủ kín thành một khối màu phẳng.
 const ACCENT_GRADIENT: Record<ServiceDetail['accent'], string> = {
-  'brand-green': 'from-brand-green-900/95 via-brand-green-900/75 to-brand-green-900/25',
-  'brand-blue': 'from-brand-blue-900/95 via-brand-blue-900/75 to-brand-blue-900/25',
-  'brand-teal': 'from-brand-teal-900/95 via-brand-teal-900/75 to-brand-teal-900/25',
+  'brand-green': 'from-brand-green-900/95 via-brand-green-900/65 to-brand-green-900/10',
+  'brand-blue': 'from-brand-blue-900/95 via-brand-blue-900/65 to-brand-blue-900/10',
+  'brand-teal': 'from-brand-teal-900/95 via-brand-teal-900/65 to-brand-teal-900/10',
 };
 
 /**
@@ -33,7 +33,7 @@ export function ServiceHero({ service }: { service: ServiceDetail }) {
         aria-hidden
         className={`absolute inset-0 bg-gradient-to-r ${ACCENT_GRADIENT[service.accent]}`}
       />
-      <div aria-hidden className='absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/10' />
+      <div aria-hidden className='absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-black/5' />
 
       <Container className='relative'>
         <nav className='mb-6 flex items-center gap-1.5 text-xs text-white/60'>
@@ -45,11 +45,11 @@ export function ServiceHero({ service }: { service: ServiceDetail }) {
           <span className='text-white/85'>{pickLang(service.title, lang)}</span>
         </nav>
 
-        <span className='mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/15 backdrop-blur-sm'>
+        <span className='mb-6 flex h-14 w-14 items-center justify-center rounded bg-white/15 backdrop-blur-sm'>
           <ServiceIcon icon={service.icon} className='h-7 w-7 text-white' />
         </span>
 
-        <h1 className='max-w-2xl text-balance font-display text-display-lg font-extrabold text-white'>
+        <h1 className='max-w-2xl text-balance font-display text-display-lg font-light text-white'>
           {pickLang(service.heroHeadline, lang)}
         </h1>
         <p className='mt-5 max-w-xl text-base leading-relaxed text-white/80'>

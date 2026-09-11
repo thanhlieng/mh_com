@@ -4,6 +4,8 @@ import Link from 'next/link';
 import setLanguage from 'next-translate/setLanguage';
 import useTranslation from 'next-translate/useTranslation';
 
+import { IS_DEMO } from '@/lib/demoMode';
+
 import { CtaButton } from '@/components/ui/CtaButton';
 import { ACCENT_CLASSES, ServiceIcon } from '@/components/ui/ServiceIcon';
 
@@ -47,7 +49,7 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
             className='fixed inset-y-0 right-0 z-[70] flex w-[88%] max-w-sm flex-col bg-white shadow-lift lap:hidden'
           >
             <div className='flex items-center justify-between border-b border-surface-line px-5 py-5'>
-              <span className='font-display text-lg font-extrabold text-navy-600'>
+              <span className='font-display text-lg font-bold text-navy-600'>
                 MH<span className='text-brand-green-500'>.</span>
               </span>
               <button
@@ -73,9 +75,9 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
                         href={`/dich-vu/${s.slug}`}
                         onClick={onClose}
                         legacyBehavior={false}
-                        className='flex items-center gap-3 rounded-xl px-3 py-3 hover:bg-paper'
+                        className='flex items-center gap-3 rounded px-3 py-3 hover:bg-paper'
                       >
-                        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${accent.bg50}`}>
+                        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded ${accent.bg50}`}>
                           <ServiceIcon icon={s.icon} className={`h-4 w-4 ${accent.text}`} />
                         </span>
                         <span className='font-display text-sm font-medium text-navy-600'>
@@ -90,10 +92,10 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
               <ul className='flex flex-col gap-1 border-t border-surface-line pt-4'>
                 {NAV_LINKS.map((link) => (
                   <li key={link.href}>
-                    <Link
+                    <Link legacyBehavior={false}
                       href={link.href}
                       onClick={onClose}
-                      className='block rounded-xl px-3 py-3 font-display text-sm font-medium text-navy-600 hover:bg-paper'
+                      className='block rounded px-3 py-3 font-display text-sm font-medium text-navy-600 hover:bg-paper'
                     >
                       {pickLang(link.label, lang)}
                     </Link>
@@ -110,9 +112,18 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
               >
                 {lang === 'vi' ? 'English' : 'Tiếng Việt'}
               </button>
-              <CtaButton href='/login-home' size='md' showArrow={false} className='flex-1 justify-center'>
-                {lang === 'en' ? 'Sign in' : 'Đăng nhập'}
-              </CtaButton>
+              {/* Chế độ demo: ẩn nút Đăng nhập (`/login-home` cần API auth). */}
+              {!IS_DEMO && (
+                <CtaButton
+                  href='/login-home'
+                  size='md'
+                  variant='solid'
+                  showArrow={false}
+                  className='flex-1 justify-center'
+                >
+                  {lang === 'en' ? 'Sign in' : 'Đăng nhập'}
+                </CtaButton>
+              )}
             </div>
           </motion.div>
         </>

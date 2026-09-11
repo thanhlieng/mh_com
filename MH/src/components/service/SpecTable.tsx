@@ -17,7 +17,7 @@ export function SpecTable({ rows, accent = 'brand-blue' }: { rows: SpecRow[]; ac
   const bar = ACCENT_CLASSES[accent].bg500;
 
   return (
-    <Reveal className='relative overflow-hidden rounded-2xl border border-surface-line bg-white shadow-soft'>
+    <Reveal className='relative overflow-hidden rounded-md border border-surface-line bg-white shadow-soft'>
       <span aria-hidden className={`absolute inset-x-0 top-0 h-1 ${bar}`} />
       <table className='w-full min-w-[480px] border-collapse font-display text-sm'>
         <tbody>
