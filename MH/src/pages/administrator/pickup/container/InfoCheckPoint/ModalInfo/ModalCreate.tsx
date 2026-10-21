@@ -5,8 +5,8 @@ import React, { useEffect } from 'react';
 import VInputNumber from '@/components/common/VInputNumber';
 
 import { OpitionType } from '@/contants/types';
-import { ruleRequeid } from '@/utils/common-function';
 import { calculateBulkyWeight } from '@/services/booking.services';
+import { ruleRequeid } from '@/utils/common-function';
 
 type ModalCreatInfoProps = {
   isUpdate: boolean;

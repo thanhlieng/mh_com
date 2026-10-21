@@ -3,6 +3,7 @@ import { Check, LucideIcon, Mail, MapPin, Phone } from 'lucide-react';
 import Head from 'next/head';
 import useTranslation from 'next-translate/useTranslation';
 
+import { ContactForm } from '@/components/public/ContactForm';
 import { PageHero } from '@/components/public/PageHero';
 import { Container } from '@/components/ui/Container';
 import { CtaButton } from '@/components/ui/CtaButton';
@@ -120,8 +121,24 @@ function ContactPage() {
         </Container>
       </section>
 
-      {/* Cần gửi những gì để được báo giá nhanh */}
+      {/* Biểu mẫu liên hệ — spec mục 5 */}
       <section className='border-t border-surface-line bg-white py-16 tab:py-20'>
+        <Container className='grid grid-cols-1 gap-12 lap:grid-cols-[0.8fr_1.2fr]'>
+          <Reveal>
+            <SectionHeading
+              eyebrow={pickLang(hero.eyebrow, lang)}
+              title={pickLang(hero.description, lang)}
+            />
+          </Reveal>
+          <Reveal delay={0.1}>
+            <ContactForm />
+          </Reveal>
+        </Container>
+      </section>
+
+      {/* Cần gửi những gì để được báo giá nhanh */}
+      <section className='relative overflow-hidden border-t border-surface-line py-16 tab:py-20'>
+        <SectionGlow />
         <Container className='grid grid-cols-1 gap-12 lap:grid-cols-[1fr_1.2fr]'>
           <Reveal>
             <SectionHeading title={pickLang(checklist.heading, lang)} />

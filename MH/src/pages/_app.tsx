@@ -5,16 +5,17 @@ import dynamic from 'next/dynamic';
 import Head from 'next/head';
 import I18nProvider from 'next-translate/I18nProvider';
 import useTranslation from 'next-translate/useTranslation';
-import { Provider } from 'react-redux';
 import { QueryClientProvider } from 'react-query';
+import { Provider } from 'react-redux';
 import '@fontsource/roboto';
-
-import { queryClient } from '@/lib/queryClient';
-import { store } from '@/store/store';
 import '@/lib/fonts';
 
 import '@/styles/globals.css';
 import 'antd/dist/antd.css';
+
+import { queryClient } from '@/lib/queryClient';
+
+import { store } from '@/store/store';
 
 // import 'react-quill/dist/quill.snow.css';
 // import '~slick-carousel/slick/slick.css';

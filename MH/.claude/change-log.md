@@ -1278,3 +1278,59 @@ Ban đầu lấy nhầm `COSCO Shipping Logo.svg` — đó là logo **COSCO SHIP
 **⚠️ Vẫn giữ nguyên cảnh báo cũ:** license Public domain chỉ giải quyết vấn đề **quyền tác giả** của file ảnh. Việc hiển thị logo hãng tàu dưới tiêu đề "Đối tác cảng biển" là tuyên bố về **quan hệ hợp tác** — chỉ MH xác nhận được. Rà lại danh sách theo quan hệ booking/hợp đồng thật trước khi lên production; hãng nào chưa phải đối tác thì xoá khỏi `partners.carriers.items`.
 
 **Ảnh hưởng fullstack:** Không có.
+
+## [2026-10-21 22:05] — Áp nội dung chính thức theo spec PDF MHGS (3 dịch vụ → 5, toàn bộ nội dung thật)
+
+**Yêu cầu:** Dựa vào thiết kế và mô tả trong `Demo_noi_dung_website_MHGS_261015.pdf` để thay đổi web MH.
+
+**Agent thực hiện:** claude
+
+**Thay đổi lớn nhất: 3 dịch vụ → 5 dịch vụ** theo spec mục 1.2 & 3.
+
+| Slug mới | Dịch vụ | Màu |
+|---|---|---|
+| `van-chuyen-duong-bien-quoc-te` | Vận chuyển đường biển quốc tế | brand-blue |
+| `van-tai-hang-khong-quoc-te` | Vận tải hàng không quốc tế | brand-teal |
+| `van-chuyen-duong-bo-noi-dia` | Vận chuyển đường bộ nội địa | brand-green |
+| `van-tai-duong-bo-xuyen-bien-gioi` | Vận tải đường bộ xuyên biên giới | navy |
+| `dai-ly-hai-quan` | Đại lý hải quan | amber |
+
+**Nội dung THẬT thay cho nội dung tự viết trước đây** (toàn bộ lấy từ spec):
+- Slogan: **"VẬN TẢI TỐI ƯU - CHI PHÍ TỐI THIỂU"**
+- Hotline **024 3822 3355**, email **mh@mhgreatsun.vn** (thay placeholder cũ)
+- Số liệu năng lực: **4.000 container/tháng**, **100+ tấn air cargo/tháng**, **70 đầu kéo + 50 xe tải**
+- Hãng tàu (mục 3.1): Maersk, ONE, YangMing, Evergreen, COSCO, CMA, OOCL, Wanhai, KMTC, SITC, MSC
+- Hãng hàng không (mục 3.2): Vietnam Airlines, China Airlines, Cathay Pacific, Qatar Airways
+- Hiệp hội (mục 2.3): FIATA, IATA, WCA, FMC, VLA, Vietnam Customs
+- Thị trường (mục 3.1): Hoa Kỳ, Trung Quốc, Nhật Bản, Hàn Quốc, Thái Lan, Ấn Độ, Châu Âu
+- Tầm nhìn, Sứ mệnh, 3 Giá trị cốt lõi: nguyên văn mục 2.2
+
+**Trang chủ dựng lại theo đúng thứ tự spec 1.1 → 1.6:**
+Hero → IntroSection (1.1, có "Xem thêm") → ServiceGrid 5 dịch vụ (1.2) → StatBand → AssociationsSection (1.3) → PartnersSection (1.4) → MarketsSection (1.5) → NewsTeaser (1.6) → QuoteCta.
+Bỏ ProcessSection khỏi trang chủ vì spec không có (vẫn dùng ở trang dịch vụ).
+
+**File mới:**
+- `src/components/home/IntroSection.tsx` — mục 1.1.
+- `src/components/home/AssociationsSection.tsx` — mục 1.3 & 2.3.
+- `src/components/home/MarketsSection.tsx` — mục 1.5, bản đồ nền lưới chấm với 7 tuyến cong vẽ dần từ Việt Nam toả ra các thị trường.
+- `src/components/about/CoreValues.tsx` — mục 2.2, **3 vòng tròn giao nhau kiểu Venn** đúng yêu cầu "tượng hình 3 vòng tròn liên kết với nhau", kèm 3 thẻ diễn giải.
+- `src/components/public/ContactForm.tsx` — mục 5, đúng 5 trường spec.
+
+**File viết lại:** `services.content.ts` (5 dịch vụ đầy đủ specs/process/FAQ), `home.content.ts`, `about.content.ts`, `src/pages/about/index.tsx`, `src/pages/index.tsx`, `PartnersSection.tsx` (hãng tàu băng chạy + hãng bay lưới, thay nhóm "đối tác nội địa" tôi tự nghĩ ra trước đây — spec không có mục này).
+
+**Ảnh & logo bổ sung:** 4 ảnh cho 2 dịch vụ mới (air, xuyên biên giới); 5 logo Public domain từ Wikimedia (OOCL, Vietnam Airlines, China Airlines, Cathay Pacific, Qatar Airways). Gỡ `hmm.svg` vì **HMM không có trong danh sách hãng tàu của spec**. YangMing, Wanhai, KMTC chưa tìm được logo tự do → component tự hiển thị bằng chữ.
+Ảnh máy bay đầu tiên tải về có **logo FedEx rất rõ** — đã đổi sang ảnh khoang hàng máy bay không thương hiệu, vì FedEx không nằm trong danh sách hãng bay đối tác của MH.
+
+**Redirect:** thêm 3 redirect 301 trong `next.config.js` cho slug cũ (`van-chuyen-duong-bien` → `...-quoc-te`, `van-chuyen-duong-bo` → `...-noi-dia`, `khai-bao-hai-quan` → `dai-ly-hai-quan`) để link đã chia sẻ không 404.
+
+**Form liên hệ:** backend vẫn CHƯA có endpoint nhận liên hệ. Để không dựng form bấm xong không gửi đi đâu, nút gửi soạn sẵn email tới `mh@mhgreatsun.vn` qua `mailto:` với đủ 5 trường — hoạt động thật ngay. Khi có `POST /api/public/quote-requests`, chỉ cần thay thân `handleSubmit`, giao diện giữ nguyên.
+
+**⚠️ CẦN BỔ SUNG TRƯỚC KHI LÊN PRODUCTION:**
+1. **Địa chỉ trụ sở** — spec mục 5 chỉ ghi **"SH14"**, thiếu tên toà nhà/đường/phường/thành phố. Hiện hiển thị đúng những gì spec có, kèm ghi chú "đang cập nhật".
+2. **Logo hiệp hội** (FIATA, IATA, WCA, FMC, VLA, Vietnam Customs) — đang hiển thị bằng chữ viết tắt. Logo hiệp hội là nhãn hiệu chỉ thành viên được dùng theo quy định riêng từng tổ chức, khác với logo hãng tàu lấy được bản Public domain. Có bộ logo được phép dùng thì thả vào `public/images/associations/` và thêm `logo` vào từng mục.
+3. Phần `process` và `faqs` của 5 dịch vụ là diễn giải quy trình để đủ bố cục trang — spec không quy định, cần đội nghiệp vụ rà lại.
+
+**Kiểm thử:** `yarn typecheck` sạch, `yarn lint` **0 lỗi**, `yarn build` pass. Chạy thật: cả 5 trang dịch vụ + trang chủ + Về chúng tôi + Liên hệ đều 200; redirect slug cũ trả 308 đúng đích; HTML prerender có đủ nội dung spec (5 dịch vụ, FIATA, Qatar Airways, Hoa Kỳ, hotline); 26 ảnh/logo không cái nào lỗi; form đủ 5 trường đúng id.
+Đã sửa một lỗi phát hiện khi xem trực quan: nhãn trên bản đồ thị trường chồng nhau ("Trung Quốc" đè "Hàn Quốc", "Thái Lan" đè điểm Việt Nam) — giãn lại toạ độ.
+
+**Ảnh hưởng fullstack:** Không đổi API contract. Trang Tin tức vẫn dùng `GET /posts` như cũ.

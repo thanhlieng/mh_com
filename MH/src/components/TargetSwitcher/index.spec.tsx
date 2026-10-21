@@ -1,14 +1,16 @@
-import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
 import { configureStore } from '@reduxjs/toolkit';
+import { fireEvent,render, screen } from '@testing-library/react';
+import React from 'react';
 import { Provider } from 'react-redux';
 
-import TargetSwitcher from './index';
+import { queryClient } from '@/lib/queryClient';
+
 import activeTargetReducer, {
   ActiveTargetState,
   setActiveTarget,
 } from '@/store/slices/activeTargetSlice';
-import { queryClient } from '@/lib/queryClient';
+
+import TargetSwitcher from './index';
 
 /**
  * Component tests cho TargetSwitcher (segmented pills).
