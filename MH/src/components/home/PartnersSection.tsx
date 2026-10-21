@@ -11,15 +11,21 @@ import { SectionHeading } from '@/components/ui/SectionHeading';
 import { HomeContent, PartnerItem } from '@/content/types';
 import { pickLang } from '@/utils/pickLang';
 
+/** "Wan Hai" → "WH", "KMTC" → "KMTC": thay logo khi hãng chưa có ảnh. */
+function monogram(name: string) {
+  const words = name.trim().split(/\s+/);
+  return words.length > 1 ? words.map((w) => w[0]).join('') : name.slice(0, 4);
+}
+
 /**
- * Một ô logo hãng tàu. Có `logo` thì hiện ảnh (ngả xám, lên màu khi hover —
- * giữ dải logo yên tĩnh, không tranh chấp với nội dung); chưa có logo thì
- * hiện wordmark bằng chữ, nên thêm hãng mới không cần ảnh vẫn không vỡ layout.
+ * Một ô đối tác: logo + tên, không có dòng chú thích. Chưa có logo thì phần
+ * ảnh thay bằng wordmark viết tắt, nên thêm hãng mới không cần ảnh vẫn không
+ * vỡ layout.
  */
-function CarrierTile({ item, lang }: { item: PartnerItem; lang: string }) {
+function CarrierTile({ item }: { item: PartnerItem }) {
   return (
-    <div className='group flex w-full shrink-0 flex-col items-center justify-center gap-2 rounded-md border border-surface-line bg-white px-5 py-5 transition-colors hover:border-brand-blue-300 tab:w-[190px]'>
-      <div className='relative flex h-10 w-full items-center justify-center'>
+    <div className='group flex h-full w-full shrink-0 flex-col items-center justify-center gap-3 rounded-md border border-surface-line bg-white px-5 py-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-blue-300 hover:shadow-soft'>
+      <div className='relative flex h-11 w-full items-center justify-center'>
         {item.logo ? (
           <Image
             src={item.logo}
@@ -28,16 +34,18 @@ function CarrierTile({ item, lang }: { item: PartnerItem; lang: string }) {
             objectFit='contain'
             // SVG: bỏ qua image optimizer của Next (mặc định từ chối SVG).
             unoptimized
-            className='opacity-80 grayscale transition-all duration-300 group-hover:opacity-100 group-hover:grayscale-0'
           />
         ) : (
-          <span className='font-display text-base font-bold tracking-tight text-navy-600'>
-            {item.name}
+          <span
+            aria-hidden
+            className='flex h-11 min-w-[44px] items-center justify-center rounded-md bg-navy-600 px-2 font-display text-sm font-extrabold uppercase tracking-wide text-white'
+          >
+            {monogram(item.name)}
           </span>
         )}
       </div>
-      <span className='text-center text-[11px] leading-snug text-ink-soft'>
-        {pickLang(item.note, lang)}
+      <span className='text-center font-display text-sm font-semibold text-navy-600'>
+        {item.name}
       </span>
     </div>
   );
@@ -49,19 +57,13 @@ function CarrierTile({ item, lang }: { item: PartnerItem; lang: string }) {
  * — không thấy giật khi lặp. Dừng khi hover để người xem đọc được, và tự tắt
  * khi người dùng bật `prefers-reduced-motion` (xem globals.css).
  */
-function LogoMarquee({
-  items,
-  lang,
-  reverse,
-}: {
-  items: PartnerItem[];
-  lang: string;
-  reverse?: boolean;
-}) {
+function LogoMarquee({ items, reverse }: { items: PartnerItem[]; reverse?: boolean }) {
   const doubled = [...items, ...items];
 
   return (
-    <div className='group/marquee relative overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_6%,black_94%,transparent)]'>
+    // py-2: chừa chỗ cho thẻ nhích lên + bóng đổ khi hover — overflow-hidden
+    // (cần để cắt băng chạy theo chiều ngang) cắt cả theo chiều dọc.
+    <div className='group/marquee relative overflow-hidden py-2 [mask-image:linear-gradient(to_right,transparent,black_6%,black_94%,transparent)]'>
       {/* Hai class riêng thay vì `animation-direction: reverse` inline — xem
           ghi chú ở keyframes trong tailwind.config.js. */}
       <div
@@ -71,7 +73,7 @@ function LogoMarquee({
       >
         {doubled.map((item, i) => (
           <div key={`${item.name}-${i}`} className='w-[190px] shrink-0'>
-            <CarrierTile item={item} lang={lang} />
+            <CarrierTile item={item} />
           </div>
         ))}
       </div>
@@ -80,13 +82,8 @@ function LogoMarquee({
 }
 
 /**
- * Mục "Đối tác" — hai nhóm phản ánh hai đầu của một lô hàng: hãng tàu đưa
- * hàng cập cảng Việt Nam, và nhà máy nội địa gửi/nhận hàng.
- *
- * Hãng tàu hiển thị bằng băng logo tự chạy (logo tải từ Wikimedia Commons,
- * đều thuộc Public domain — xem change-log). Đối tác nội địa là nhóm NGÀNH
- * HÀNG chứ không phải doanh nghiệp cụ thể nên không có logo, trình bày dạng
- * lưới. Ghi chú về tính xác thực của danh sách: `content/home.content.ts`.
+ * Mục 1.4 "Mạng lưới đối tác" — hãng tàu (băng logo tự chạy hai tầng) và
+ * hãng hàng không (lưới tĩnh). Nguồn logo: `content/home.content.ts`.
  */
 export function PartnersSection({ partners }: { partners: HomeContent['partners'] }) {
   const { lang } = useTranslation('common');
@@ -117,9 +114,10 @@ export function PartnersSection({ partners }: { partners: HomeContent['partners'
             note={pickLang(partners.carriers.note, lang)}
             tone='bg-brand-blue-50 text-brand-blue-600'
           />
-          <div className='flex flex-col gap-4'>
-            <LogoMarquee items={rowTop} lang={lang} />
-            {rowBottom.length > 0 && <LogoMarquee items={rowBottom} lang={lang} reverse />}
+          {/* gap 0 vì mỗi băng đã có py-2 — giữ khoảng cách hai tầng như cũ. */}
+          <div className='-my-2 flex flex-col'>
+            <LogoMarquee items={rowTop} />
+            {rowBottom.length > 0 && <LogoMarquee items={rowBottom} reverse />}
           </div>
         </Reveal>
 
@@ -133,7 +131,7 @@ export function PartnersSection({ partners }: { partners: HomeContent['partners'
           />
           <div className='grid grid-cols-2 gap-4 tab:grid-cols-4'>
             {partners.airlines.items.map((item) => (
-              <CarrierTile key={item.name} item={item} lang={lang} />
+              <CarrierTile key={item.name} item={item} />
             ))}
           </div>
         </Reveal>

@@ -10,14 +10,9 @@ import { HomeContent } from '@/content/types';
 import { pickLang } from '@/utils/pickLang';
 
 /**
- * Mục 1.3 của spec — các hiệp hội và tổ chức logistics toàn cầu.
- *
- * Hiện hiển thị bằng chữ viết tắt + tên đầy đủ, vì logo của các hiệp hội
- * (FIATA, IATA, WCA, FMC…) là nhãn hiệu có bảo hộ và chỉ thành viên được phép
- * sử dụng theo quy định riêng của từng tổ chức — khác với logo hãng tàu lấy
- * được bản Public domain. Khi MH có bộ logo được phép dùng, thả file vào
- * `public/images/associations/` rồi thêm `logo` vào từng mục trong
- * `content/home.content.ts`; component tự chuyển sang hiển thị ảnh.
+ * Mục 1.3 (trang chủ) và 2.3 (Về chúng tôi) của spec — các hiệp hội và tổ
+ * chức logistics. Mỗi thẻ: logo, tên viết tắt, tên đầy đủ. Mục nào chưa có
+ * `logo` thì hiện chữ viết tắt thay ảnh. Nguồn logo: `content/about.content.ts`.
  */
 export function AssociationsSection({
   associations,
@@ -41,9 +36,9 @@ export function AssociationsSection({
             <motion.div
               key={item.abbr}
               variants={revealItemVariants}
-              className='flex flex-col items-center justify-start gap-3 rounded-md border border-surface-line bg-paper px-4 py-5 text-center transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-blue-300 hover:bg-white hover:shadow-soft'
+              className='flex flex-col items-center justify-start gap-3 rounded-md border border-surface-line bg-white px-4 py-6 text-center transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-blue-300 hover:shadow-soft'
             >
-              <div className='relative flex h-9 w-full items-center justify-center'>
+              <div className='relative flex h-16 w-full items-center justify-center'>
                 {item.logo ? (
                   <Image
                     src={item.logo}
@@ -51,7 +46,6 @@ export function AssociationsSection({
                     layout='fill'
                     objectFit='contain'
                     unoptimized
-                    className='opacity-80 grayscale transition-all duration-300 hover:opacity-100 hover:grayscale-0'
                   />
                 ) : (
                   <span className='font-display text-base font-bold tracking-tight text-navy-600'>
@@ -59,7 +53,8 @@ export function AssociationsSection({
                   </span>
                 )}
               </div>
-              <span className='text-[11px] leading-snug text-ink-soft'>
+              <span className='font-display text-sm font-semibold text-navy-600'>{item.abbr}</span>
+              <span className='-mt-2 text-[11px] leading-snug text-ink-soft'>
                 {pickLang(item.name, lang)}
               </span>
             </motion.div>

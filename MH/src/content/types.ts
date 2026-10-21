@@ -56,9 +56,11 @@ export interface AssociationItem {
 /** Thị trường chính MH khai thác (spec mục 1.5 & 3.1). */
 export interface MarketItem {
   name: Bilingual;
-  /** Toạ độ % trên khung bản đồ SVG (0–100), không phải toạ độ địa lý thật. */
-  x: number;
-  y: number;
+  /** Toạ độ địa lý thật của điểm đại diện (độ thập phân, Đông/Bắc dương). */
+  lon: number;
+  lat: number;
+  /** Phía đặt nhãn quanh điểm trên bản đồ — tách nhãn các thị trường nằm sát nhau. */
+  labelSide?: 'top' | 'bottom' | 'left' | 'right';
 }
 
 export interface SpecRow {
@@ -111,18 +113,12 @@ export interface StatItem {
 }
 
 /**
- * Một đối tác hiển thị ở mục "Đối tác". Hai nhóm:
- *  - `carrier`: hãng tàu có tuyến chạy đến cảng Việt Nam;
- *  - `domestic`: doanh nghiệp sản xuất trong nước.
- *
- * Hiện hiển thị bằng chữ (wordmark) chứ không dùng logo — tránh dùng nhãn hiệu
- * của bên thứ ba khi chưa có thoả thuận. Khi có logo được phép dùng, thêm
- * `logo` và render thay phần chữ.
+ * Một đối tác (hãng tàu / hãng hàng không) ở mục "Mạng lưới đối tác".
+ * Thẻ chỉ hiển thị logo + tên — không có dòng chú thích. Chưa có `logo` thì
+ * thẻ hiện tên dạng wordmark.
  */
 export interface PartnerItem {
   name: string;
-  /** Dòng phụ: tuyến/khu vực khai thác (carrier) hoặc ngành hàng (domestic). */
-  note: Bilingual;
   logo?: string;
 }
 

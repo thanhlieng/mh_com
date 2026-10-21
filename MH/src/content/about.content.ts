@@ -13,6 +13,20 @@ export interface AboutValue {
   detail: Bilingual;
 }
 
+/**
+ * Danh sách hiệp hội dùng chung cho trang chủ (mục 1.3) và trang Về chúng tôi
+ * (mục 2.3). Logo lấy từ website chính thức của từng tổ chức; riêng FMC là con
+ * dấu cơ quan liên bang Hoa Kỳ (Public domain, Wikimedia Commons).
+ */
+export const associationItems: AssociationItem[] = [
+  { abbr: 'FIATA', logo: '/images/associations/fiata.svg', name: { vi: 'Liên đoàn các Hiệp hội Giao nhận Quốc tế', en: 'International Federation of Freight Forwarders Associations' } },
+  { abbr: 'IATA', logo: '/images/associations/iata.svg', name: { vi: 'Hiệp hội Vận tải Hàng không Quốc tế', en: 'International Air Transport Association' } },
+  { abbr: 'WCA', logo: '/images/associations/wca.png', name: { vi: 'Mạng lưới hợp tác logistics toàn cầu', en: 'Leading the World in Logistics Partnering' } },
+  { abbr: 'FMC', logo: '/images/associations/fmc.svg', name: { vi: 'Ủy ban Hàng hải Liên bang Hoa Kỳ', en: 'Federal Maritime Commission' } },
+  { abbr: 'VLA', logo: '/images/associations/vla.svg', name: { vi: 'Hiệp hội Doanh nghiệp Dịch vụ Logistics Việt Nam', en: 'Vietnam Logistics Business Association' } },
+  { abbr: 'VIETNAM CUSTOMS', logo: '/images/associations/vietnam-customs.png', name: { vi: 'Tổng cục Hải quan Việt Nam', en: 'Vietnam Customs' } },
+];
+
 export const aboutContent = {
   hero: {
     eyebrow: { vi: 'Về chúng tôi', en: 'About us' },
@@ -102,13 +116,6 @@ export const aboutContent = {
   associations: {
     eyebrow: { vi: 'Liên kết', en: 'Affiliations' },
     heading: { vi: 'Các liên kết và Hiệp hội', en: 'Affiliations and associations' },
-    items: [
-      { abbr: 'FIATA', name: { vi: 'Liên đoàn các Hiệp hội Giao nhận Quốc tế', en: 'International Federation of Freight Forwarders Associations' } },
-      { abbr: 'IATA', name: { vi: 'Hiệp hội Vận tải Hàng không Quốc tế', en: 'International Air Transport Association' } },
-      { abbr: 'WCA', name: { vi: 'Mạng lưới hợp tác logistics toàn cầu', en: 'Leading the World in Logistics Partnering' } },
-      { abbr: 'FMC', name: { vi: 'Ủy ban Hàng hải Liên bang Hoa Kỳ', en: 'Federal Maritime Commission' } },
-      { abbr: 'VLA', name: { vi: 'Hiệp hội Doanh nghiệp Dịch vụ Logistics Việt Nam', en: 'Vietnam Logistics Business Association' } },
-      { abbr: 'VIETNAM CUSTOMS', name: { vi: 'Tổng cục Hải quan Việt Nam', en: 'Vietnam Customs' } },
-    ] as AssociationItem[],
+    items: associationItems,
   },
 };

@@ -1334,3 +1334,41 @@ Bỏ ProcessSection khỏi trang chủ vì spec không có (vẫn dùng ở tran
 Đã sửa một lỗi phát hiện khi xem trực quan: nhãn trên bản đồ thị trường chồng nhau ("Trung Quốc" đè "Hàn Quốc", "Thái Lan" đè điểm Việt Nam) — giãn lại toạ độ.
 
 **Ảnh hưởng fullstack:** Không đổi API contract. Trang Tin tức vẫn dùng `GET /posts` như cũ.
+
+## [2026-10-21 23:05] — Đối chiếu spec nội dung, thêm logo hiệp hội/hãng, bản đồ thị trường dạng map, sửa cỡ tiêu đề mục
+
+**Yêu cầu:** Đối chiếu web public với file `Demo noi dung website MHGS 261015.pdf`; bổ sung logo hiệp hội và hãng hàng không/hãng tàu (thẻ chỉ gồm logo + tên, không có chú thích); làm biểu đồ thị trường đẹp hơn dạng bản đồ.
+
+**Agent thực hiện:** frontend
+
+**Các file đã thay đổi:**
+- `src/content/about.content.ts`: thêm `associationItems` (6 hiệp hội kèm `logo`) dùng chung cho trang chủ mục 1.3 và Về chúng tôi mục 2.3.
+- `src/content/home.content.ts`: dùng `associationItems`; bỏ `note` của từng hãng tàu/hãng bay; thêm logo Yang Ming; đổi tên "YangMing"/"Wanhai" → "Yang Ming"/"Wan Hai"; thị trường chuyển sang kinh/vĩ độ thật (LA, Rotterdam, Thượng Hải, Busan, Tokyo, Mumbai, Laem Chabang) + `labelSide`.
+- `src/content/types.ts`: `PartnerItem` bỏ `note`; `MarketItem` đổi `x/y` (%) → `lon/lat` + `labelSide`.
+- `src/components/home/PartnersSection.tsx`: thẻ đối tác = logo + tên, logo giữ màu gốc (bỏ grayscale); hãng chưa có logo hiện monogram (WH, KMTC).
+- `src/components/home/AssociationsSection.tsx`: hiển thị logo thật (h-16) + tên viết tắt + tên đầy đủ.
+- `src/components/home/MarketsSection.tsx`: viết lại — nền tối navy, bản đồ thế giới dạng lưới chấm (Natural Earth, tâm 150°E), thị trường đặt theo toạ độ thật bằng phép chiếu Natural Earth I inline, tuyến cong phát sáng có dòng chảy + "gói hàng" chạy (SMIL, tắt khi prefers-reduced-motion), điểm Việt Nam (Hải Phòng) nhấp nháy, danh sách 7 thị trường bên dưới — hover làm nổi tuyến. Mobile ẩn nhãn trong bản đồ, dùng danh sách.
+- `src/components/home/NewsTeaser.tsx`: mục 1.6 trước đây bị ẩn (items rỗng) → giờ lấy 3 bài mới nhất từ `GET /posts` (demo mode dùng bài mẫu), thêm link "Xem tất cả tin tức".
+- `src/lib/utils.ts`: `cn()` dùng `extendTailwindMerge` khai báo `text-display-*` là font-size và `text-balance` là text-wrap. Trước đó tailwind-merge coi chúng là màu chữ và xoá mất khi gặp `text-navy-600` → mọi tiêu đề mục `SectionHeading` chỉ còn 14px.
+- `public/images/associations/*` (mới): fiata.svg, iata.svg (website chính thức), wca.png (wcaworld.com), vla.svg (vla.com.vn), vietnam-customs.png (customs.gov.vn), fmc.svg (con dấu FMC, Public domain, Wikimedia Commons).
+- `public/images/partners/yangming.png` (mới): logo từ yangming.com.
+- `public/images/markets/world-dots.svg` (mới): bản đồ chấm 1000×419, sinh từ world-atlas land-50m bằng d3-geo (geoNaturalEarth1, rotate [-150,0], fitWidth 1000, cắt 78°B–56°N). Đổi tham số phải sinh lại và cập nhật hằng `PROJ` trong MarketsSection.
+
+**Kết quả đối chiếu spec:** Nội dung chữ mục 1–5 đã khớp spec. Thiếu/sai đã sửa: mục 1.6 Tin tức không hiển thị trên trang chủ; mục 1.3/2.3 chưa có logo; mục 1.5 chưa phải bản đồ thật. Còn mở: địa chỉ trụ sở spec chỉ ghi "SH14"; Wan Hai và KMTC chưa có logo (site Wan Hai chặn CAPTCHA, KMTC chỉ có logo trắng).
+
+**Lý do / bối cảnh:** Yêu cầu hoàn thiện web public theo spec nội dung chính thức.
+
+**Ảnh hưởng fullstack:** Không đổi API contract. Trang chủ thêm một lời gọi `GET /posts?page=1&pageSize=3` (endpoint có sẵn).
+
+## [2026-10-22] — Sửa thẻ hãng tàu bị cắt mép trên khi hover
+
+**Yêu cầu:** Hover vào thẻ ở hàng trên của băng logo hãng tàu thì thẻ nhích lên và bị che mất phần trên.
+
+**Agent thực hiện:** frontend
+
+**Các file đã thay đổi:**
+- `src/components/home/PartnersSection.tsx` (`LogoMarquee`): thêm `py-2` cho khung băng chạy; khối chứa hai tầng đổi `gap-4` → `-my-2` (không gap) để khoảng cách giữa hai tầng và với phần trên/dưới giữ nguyên.
+
+**Lý do / bối cảnh:** Khung băng chạy cần `overflow-hidden` để cắt logo theo chiều ngang, nhưng nó cắt cả chiều dọc — thẻ `hover:-translate-y-0.5` và bóng đổ tràn ra ngoài khung bị cắt mất.
+
+**Ảnh hưởng fullstack:** Không.

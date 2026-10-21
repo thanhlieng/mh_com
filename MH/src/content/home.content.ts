@@ -1,3 +1,4 @@
+import { associationItems } from './about.content';
 import { serviceSummaries } from './services.content';
 import { HomeContent } from './types';
 
@@ -70,22 +71,16 @@ export const homeContent: HomeContent = {
       vi: 'Các hiệp hội và tổ chức Logistics toàn cầu',
       en: 'Global logistics associations and organisations',
     },
-    items: [
-      { abbr: 'FIATA', name: { vi: 'Liên đoàn các Hiệp hội Giao nhận Quốc tế', en: 'International Federation of Freight Forwarders Associations' } },
-      { abbr: 'IATA', name: { vi: 'Hiệp hội Vận tải Hàng không Quốc tế', en: 'International Air Transport Association' } },
-      { abbr: 'WCA', name: { vi: 'Mạng lưới hợp tác logistics toàn cầu', en: 'Leading the World in Logistics Partnering' } },
-      { abbr: 'FMC', name: { vi: 'Ủy ban Hàng hải Liên bang Hoa Kỳ', en: 'Federal Maritime Commission' } },
-      { abbr: 'VLA', name: { vi: 'Hiệp hội Doanh nghiệp Dịch vụ Logistics Việt Nam', en: 'Vietnam Logistics Business Association' } },
-      { abbr: 'VIETNAM CUSTOMS', name: { vi: 'Tổng cục Hải quan Việt Nam', en: 'Vietnam Customs' } },
-    ],
+    items: associationItems,
   },
 
   /**
    * Mục 1.4 — danh sách hãng tàu lấy nguyên văn từ spec mục 3.1, danh sách
-   * hãng hàng không từ mục 3.2.
+   * hãng hàng không từ mục 3.2. Mỗi thẻ chỉ gồm logo + tên.
    *
-   * Logo tải từ Wikimedia Commons (đều Public domain). YangMing, Wanhai và
-   * KMTC chưa tìm được logo tự do nên hiển thị bằng chữ — component tự xử lý.
+   * Logo tải từ Wikimedia Commons (Public domain); Yang Ming lấy từ website
+   * chính thức. Wan Hai và KMTC chưa có logo dùng được (site Wan Hai chặn
+   * CAPTCHA, KMTC chỉ có bản trắng trên nền tối) nên hiển thị bằng chữ.
    */
   partners: {
     eyebrow: { vi: 'Mạng lưới đối tác', en: 'Partner network' },
@@ -104,17 +99,17 @@ export const homeContent: HomeContent = {
         en: 'International ocean freight partners',
       },
       items: [
-        { name: 'Maersk', logo: '/images/partners/maersk.svg', note: { vi: 'Hãng tàu container', en: 'Container line' } },
-        { name: 'ONE', logo: '/images/partners/one.svg', note: { vi: 'Ocean Network Express', en: 'Ocean Network Express' } },
-        { name: 'YangMing', note: { vi: 'Hãng tàu container', en: 'Container line' } },
-        { name: 'Evergreen', logo: '/images/partners/evergreen.svg', note: { vi: 'Hãng tàu container', en: 'Container line' } },
-        { name: 'COSCO', logo: '/images/partners/cosco.svg', note: { vi: 'Hãng tàu container', en: 'Container line' } },
-        { name: 'CMA CGM', logo: '/images/partners/cma-cgm.svg', note: { vi: 'Hãng tàu container', en: 'Container line' } },
-        { name: 'OOCL', logo: '/images/partners/oocl.svg', note: { vi: 'Hãng tàu container', en: 'Container line' } },
-        { name: 'Wanhai', note: { vi: 'Chuyên tuyến nội Á', en: 'Intra-Asia specialist' } },
-        { name: 'KMTC', note: { vi: 'Chuyên tuyến nội Á', en: 'Intra-Asia specialist' } },
-        { name: 'SITC', logo: '/images/partners/sitc.svg', note: { vi: 'Chuyên tuyến nội Á', en: 'Intra-Asia specialist' } },
-        { name: 'MSC', logo: '/images/partners/msc.svg', note: { vi: 'Hãng tàu container', en: 'Container line' } },
+        { name: 'Maersk', logo: '/images/partners/maersk.svg' },
+        { name: 'ONE', logo: '/images/partners/one.svg' },
+        { name: 'Yang Ming', logo: '/images/partners/yangming.png' },
+        { name: 'Evergreen', logo: '/images/partners/evergreen.svg' },
+        { name: 'COSCO', logo: '/images/partners/cosco.svg' },
+        { name: 'CMA CGM', logo: '/images/partners/cma-cgm.svg' },
+        { name: 'OOCL', logo: '/images/partners/oocl.svg' },
+        { name: 'Wan Hai' },
+        { name: 'KMTC' },
+        { name: 'SITC', logo: '/images/partners/sitc.svg' },
+        { name: 'MSC', logo: '/images/partners/msc.svg' },
       ],
     },
     airlines: {
@@ -124,18 +119,19 @@ export const homeContent: HomeContent = {
         en: 'Air freight partners across Vietnam and Indochina',
       },
       items: [
-        { name: 'Vietnam Airlines', logo: '/images/partners/vietnam-airlines.svg', note: { vi: 'Hãng hàng không quốc gia', en: 'National flag carrier' } },
-        { name: 'China Airlines', logo: '/images/partners/china-airlines.svg', note: { vi: 'Tuyến Đông Á', en: 'East Asia routes' } },
-        { name: 'Cathay Pacific', logo: '/images/partners/cathay-pacific.svg', note: { vi: 'Trung chuyển Hong Kong', en: 'Hong Kong hub' } },
-        { name: 'Qatar Airways', logo: '/images/partners/qatar-airways.svg', note: { vi: 'Tuyến Trung Đông – Châu Âu', en: 'Middle East – Europe routes' } },
+        { name: 'Vietnam Airlines', logo: '/images/partners/vietnam-airlines.svg' },
+        { name: 'China Airlines', logo: '/images/partners/china-airlines.svg' },
+        { name: 'Cathay Pacific', logo: '/images/partners/cathay-pacific.svg' },
+        { name: 'Qatar Airways', logo: '/images/partners/qatar-airways.svg' },
       ],
     },
   },
 
   /**
    * Mục 1.5 — thị trường chính lấy từ spec mục 3.1: Hoa Kỳ, Trung Quốc,
-   * Nhật Bản, Hàn Quốc, Thái Lan, Ấn Độ, Châu Âu. Toạ độ là vị trí tương đối
-   * trên khung bản đồ thế giới phẳng, không phải toạ độ địa lý chính xác.
+   * Nhật Bản, Hàn Quốc, Thái Lan, Ấn Độ, Châu Âu. Toạ độ là kinh/vĩ độ thật
+   * của một điểm đại diện (thủ đô hoặc cảng chính), được chiếu lên bản đồ thế
+   * giới trong `MarketsSection`.
    */
   markets: {
     eyebrow: { vi: 'Thị trường', en: 'Markets' },
@@ -148,16 +144,14 @@ export const homeContent: HomeContent = {
       en: 'MH Great Sun’s core markets are the USA, China, Japan, South Korea, Thailand, India and Europe.',
     },
     origin: { vi: 'Việt Nam', en: 'Vietnam' },
-    // Toạ độ đã giãn để nhãn không chồng nhau: các thị trường Đông Á xếp so le
-    // theo trục dọc, Thái Lan tách khỏi điểm gốc Việt Nam.
     items: [
-      { name: { vi: 'Hoa Kỳ', en: 'USA' }, x: 17, y: 36 },
-      { name: { vi: 'Châu Âu', en: 'Europe' }, x: 45, y: 27 },
-      { name: { vi: 'Trung Quốc', en: 'China' }, x: 74, y: 31 },
-      { name: { vi: 'Hàn Quốc', en: 'South Korea' }, x: 88, y: 36 },
-      { name: { vi: 'Nhật Bản', en: 'Japan' }, x: 90, y: 45 },
-      { name: { vi: 'Ấn Độ', en: 'India' }, x: 60, y: 47 },
-      { name: { vi: 'Thái Lan', en: 'Thailand' }, x: 67, y: 57 },
+      { name: { vi: 'Hoa Kỳ', en: 'USA' }, lon: -118.2, lat: 34.0 }, // Los Angeles / Long Beach
+      { name: { vi: 'Châu Âu', en: 'Europe' }, lon: 4.5, lat: 51.9 }, // Rotterdam
+      { name: { vi: 'Trung Quốc', en: 'China' }, lon: 121.5, lat: 31.2, labelSide: 'left' }, // Thượng Hải
+      { name: { vi: 'Hàn Quốc', en: 'South Korea' }, lon: 129.0, lat: 35.1 }, // Busan
+      { name: { vi: 'Nhật Bản', en: 'Japan' }, lon: 139.7, lat: 35.6, labelSide: 'right' }, // Tokyo
+      { name: { vi: 'Ấn Độ', en: 'India' }, lon: 72.9, lat: 19.0 }, // Mumbai / Nhava Sheva
+      { name: { vi: 'Thái Lan', en: 'Thailand' }, lon: 100.9, lat: 13.1, labelSide: 'left' }, // Laem Chabang
     ],
   },
 
