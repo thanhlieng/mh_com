@@ -16,6 +16,8 @@ const ACCENT_GRADIENT: Record<ServiceDetail['accent'], string> = {
   'brand-green': 'from-brand-green-900/95 via-brand-green-900/65 to-brand-green-900/10',
   'brand-blue': 'from-brand-blue-900/95 via-brand-blue-900/65 to-brand-blue-900/10',
   'brand-teal': 'from-brand-teal-900/95 via-brand-teal-900/65 to-brand-teal-900/10',
+  navy: 'from-navy-900/95 via-navy-900/65 to-navy-900/10',
+  amber: 'from-navy-600/95 via-navy-600/70 to-navy-600/20',
 };
 
 /**

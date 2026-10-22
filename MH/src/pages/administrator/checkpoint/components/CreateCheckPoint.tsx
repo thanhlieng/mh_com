@@ -1,5 +1,6 @@
 import { CloseOutlined } from '@ant-design/icons';
 import { Button, Form, FormInstance, Modal, Select } from 'antd';
+import * as momentTimezone from 'moment-timezone';
 
 import VDatePicker from '@/components/common/VDatePicker';
 import VInput from '@/components/common/VInput';
@@ -8,7 +9,6 @@ import VTextArea from '@/components/common/VTextarea';
 
 import { EStatusDeliveryAcftership } from '@/contants/columns/check-point-columns';
 import { countries } from '@/contants/types/Country';
-import * as momentTimezone from 'moment-timezone';
 interface CreateCheckPointModal {
   onClose: (b: boolean) => void;
   form: FormInstance;
@@ -117,7 +117,7 @@ const CreateCheckPoint = ({
           </Form.Item>
           <Form.Item
             name='timezone'
-            initialValue={'Asia/Ho_Chi_Minh'}
+            initialValue="Asia/Ho_Chi_Minh"
             rules={[{ required: true, message: 'Vui lòng chọn múi giờ' }]}
           >
             <VSelect
@@ -125,7 +125,7 @@ const CreateCheckPoint = ({
               required
               isHorizal
               showSearch
-              defaultValue={'Asia/Ho_Chi_Minh'}
+              defaultValue="Asia/Ho_Chi_Minh"
             >
               {timezones.map((timezone) => (
                 <Option key={timezone} value={timezone}>

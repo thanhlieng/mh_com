@@ -1,47 +1,32 @@
-import { motion } from 'framer-motion';
-import { Clock, Eye, Handshake, LucideIcon, ShieldCheck } from 'lucide-react';
+import { Compass, Target } from 'lucide-react';
 import Head from 'next/head';
 import Image from 'next/image';
 import useTranslation from 'next-translate/useTranslation';
 
-import { ProcessSection } from '@/components/home/ProcessSection';
+import { CoreValues } from '@/components/about/CoreValues';
+import { AssociationsSection } from '@/components/home/AssociationsSection';
 import { QuoteCta } from '@/components/home/QuoteCta';
-import { ServiceCard } from '@/components/home/ServiceCard';
+import { ServiceGrid } from '@/components/home/ServiceGrid';
 import { StatBand } from '@/components/home/StatBand';
 import { PageHero } from '@/components/public/PageHero';
 import { Container } from '@/components/ui/Container';
-import { Reveal, RevealGroup, revealItemVariants } from '@/components/ui/Reveal';
+import { Reveal } from '@/components/ui/Reveal';
 import { SectionGlow } from '@/components/ui/SectionGlow';
 import { SectionHeading } from '@/components/ui/SectionHeading';
 
-import { aboutContent, AboutValue } from '@/content/about.content';
+import { aboutContent } from '@/content/about.content';
 import { homeContent } from '@/content/home.content';
-import { serviceSummaries } from '@/content/services.content';
 import { PublicLayout } from '@/layout/PublicLayout';
 import { pickLang } from '@/utils/pickLang';
 
-const VALUE_ICONS: Record<AboutValue['icon'], LucideIcon> = {
-  'shield-check': ShieldCheck,
-  clock: Clock,
-  eye: Eye,
-  handshake: Handshake,
-};
-
-const SERVICES_COPY = {
-  eyebrow: { vi: 'Dịch vụ', en: 'Services' },
-  heading: { vi: 'Ba mảng chúng tôi trực tiếp làm', en: 'Three legs we handle ourselves' },
-};
-
 /**
- * Trang "Về MH" — dựng lại theo design mới (`PublicLayout`, SSG).
- *
- * Thay hoàn toàn `container/AboutForm` cũ: nội dung cũ viết về thương hiệu
- * **ACF** và ghép từ các file `about*.svg` không tồn tại trong `public/images`
- * nên trang chỉ hiện ảnh vỡ.
+ * Trang "Về chúng tôi" — nội dung bám theo spec chính thức
+ * `Demo_noi_dung_website_MHGS_261015.pdf`, mục 2 (2.1 giới thiệu + slogan,
+ * 2.2 tầm nhìn / sứ mệnh / giá trị cốt lõi, 2.3 liên kết & hiệp hội).
  */
 function AboutPage() {
   const { lang } = useTranslation('common');
-  const { hero, intro, values } = aboutContent;
+  const { hero, intro, visionMission, values, associations } = aboutContent;
 
   return (
     <>
@@ -58,13 +43,18 @@ function AboutPage() {
         image={hero.image}
       />
 
-      {/* Giới thiệu: chữ bên trái, ảnh bên phải. */}
+      {/* 2.1 — Giới thiệu công ty */}
       <section className='relative overflow-hidden py-20 tab:py-24'>
         <SectionGlow variant='top' />
         <Container className='grid grid-cols-1 items-center gap-12 lap:grid-cols-2'>
           <Reveal>
             <SectionHeading title={pickLang(intro.heading, lang)} />
-            <div className='mt-6 flex flex-col gap-4'>
+
+            <p className='mt-5 font-display text-lg font-semibold tracking-tight text-brand-green-600'>
+              “{pickLang(intro.slogan, lang)}”
+            </p>
+
+            <div className='mt-5 flex flex-col gap-4'>
               {intro.paragraphs.map((p, i) => (
                 <p key={i} className='text-[15px] leading-relaxed text-ink-soft'>
                   {pickLang(p, lang)}
@@ -81,7 +71,40 @@ function AboutPage() {
 
       <StatBand stats={homeContent.stats} />
 
-      {/* Giá trị / cách làm việc. */}
+      {/* 2.2 — Tầm nhìn & Sứ mệnh */}
+      <section className='border-y border-surface-line bg-paper py-20 tab:py-24'>
+        <Container>
+          <Reveal>
+            <SectionHeading title={pickLang(visionMission.heading, lang)} />
+          </Reveal>
+
+          <div className='mt-10 grid grid-cols-1 gap-6 tab:grid-cols-2'>
+            {[
+              { ...visionMission.vision, Icon: Compass, bar: 'bg-brand-blue-500', chip: 'bg-brand-blue-50 text-brand-blue-600' },
+              { ...visionMission.mission, Icon: Target, bar: 'bg-brand-green-500', chip: 'bg-brand-green-50 text-brand-green-600' },
+            ].map(({ label, body, Icon, bar, chip }, i) => (
+              <Reveal
+                key={label.en}
+                delay={i * 0.1}
+                className='relative overflow-hidden rounded-md border border-surface-line bg-white p-7 shadow-soft'
+              >
+                <span aria-hidden className={`absolute inset-x-0 top-0 h-1 ${bar}`} />
+                <span className={`flex h-12 w-12 items-center justify-center rounded ${chip}`}>
+                  <Icon className='h-6 w-6' aria-hidden />
+                </span>
+                <h3 className='mt-4 font-display text-lg font-semibold text-navy-600'>
+                  {pickLang(label, lang)}
+                </h3>
+                <p className='mt-3 text-[15px] leading-relaxed text-ink-soft'>
+                  {pickLang(body, lang)}
+                </p>
+              </Reveal>
+            ))}
+          </div>
+        </Container>
+      </section>
+
+      {/* 2.2 — Giá trị cốt lõi (3 vòng tròn liên kết) */}
       <section className='relative overflow-hidden py-20 tab:py-24'>
         <SectionGlow />
         <Container>
@@ -89,54 +112,25 @@ function AboutPage() {
             <SectionHeading
               eyebrow={pickLang(values.eyebrow, lang)}
               title={pickLang(values.heading, lang)}
+              align='center'
             />
           </Reveal>
-
-          <RevealGroup className='mt-12 grid grid-cols-1 gap-6 tab:grid-cols-2 lap:grid-cols-4'>
-            {values.items.map((item) => {
-              const Icon = VALUE_ICONS[item.icon];
-              return (
-                <motion.div
-                  key={item.icon}
-                  variants={revealItemVariants}
-                  className='rounded-md border border-surface-line bg-white p-6 shadow-soft transition-shadow hover:shadow-lift'
-                >
-                  <span className='flex h-12 w-12 items-center justify-center rounded bg-brand-blue-50'>
-                    <Icon className='h-6 w-6 text-brand-blue-600' aria-hidden />
-                  </span>
-                  <h3 className='mt-4 font-display text-base font-semibold text-navy-600'>
-                    {pickLang(item.title, lang)}
-                  </h3>
-                  <p className='mt-2 text-sm leading-relaxed text-ink-soft'>
-                    {pickLang(item.detail, lang)}
-                  </p>
-                </motion.div>
-              );
-            })}
-          </RevealGroup>
+          <div className='mt-12'>
+            <CoreValues items={values.items} />
+          </div>
         </Container>
       </section>
 
-      {/* Ba dịch vụ — dùng lại thẻ của trang chủ. */}
-      <section className='border-t border-surface-line bg-white py-20 tab:py-24'>
-        <Container>
-          <Reveal>
-            <SectionHeading
-              eyebrow={pickLang(SERVICES_COPY.eyebrow, lang)}
-              title={pickLang(SERVICES_COPY.heading, lang)}
-            />
-          </Reveal>
-          <RevealGroup className='mt-12 grid grid-cols-1 gap-6 tab:grid-cols-3'>
-            {serviceSummaries.map((s) => (
-              <motion.div key={s.slug} variants={revealItemVariants}>
-                <ServiceCard service={s} />
-              </motion.div>
-            ))}
-          </RevealGroup>
-        </Container>
-      </section>
+      {/* 2.3 — Các liên kết và Hiệp hội */}
+      <AssociationsSection
+        associations={{
+          eyebrow: associations.eyebrow,
+          heading: associations.heading,
+          items: associations.items,
+        }}
+      />
 
-      <ProcessSection steps={homeContent.process} />
+      <ServiceGrid services={homeContent.services} />
       <QuoteCta cta={homeContent.quoteCta} />
     </>
   );

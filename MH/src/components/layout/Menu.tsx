@@ -27,12 +27,13 @@ import { useMutation, useQueryClient } from 'react-query';
 
 import ItemMenu from '@/container/banner/components/ItemMenu';
 
+import { useAppDispatch } from '@/store/hook';
+import { clearActiveTarget } from '@/store/slices/activeTargetSlice';
+
 import { ADMINISTATOR, ADMINISTATOR_LOGIN } from '@/contants/endpoint';
 import { USER } from '@/contants/Storage';
 import { routes } from '@/routes/routes';
 import { changePassword } from '@/services/booking.services';
-import { clearActiveTarget } from '@/store/slices/activeTargetSlice';
-import { useAppDispatch } from '@/store/hook';
 import storage from '@/utils/storage';
 
 import HeaderMenu from './header-menu';

@@ -1,5 +1,6 @@
 import { CloseOutlined } from '@ant-design/icons';
 import { Button, Form, Modal, notification, Select } from 'antd';
+import axios from 'axios';
 import dayjs from 'dayjs';
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from 'react-query';
@@ -8,8 +9,8 @@ import HeaderModal from '@/components/common/HeaderModal';
 import VDatePicker from '@/components/common/VDatePicker';
 import VInput from '@/components/common/VInput';
 import VSelect from '@/components/common/VSelect';
-
 import FileUpload from '@/components/FileUpLoad';
+
 import {
   BASE_URL,
   DEFAULT_DATE_FORMAT,
@@ -25,7 +26,6 @@ import {
 } from '@/contants/types';
 import { getUnit } from '@/services/customer.services';
 import { createStaffs } from '@/services/employee.services';
-import axios from 'axios';
 
 interface IProps {
   onClose: (value: boolean) => void;

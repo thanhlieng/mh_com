@@ -2,6 +2,12 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "mh-api",
+      "runtimeExecutable": "yarn",
+      "runtimeArgs": ["--cwd", "MH-api", "start:dev"],
+      "port": 3000
+    },
+    {
       "name": "mh-dev",
       "runtimeExecutable": "yarn",
       "runtimeArgs": ["--cwd", "MH", "start:dev"],

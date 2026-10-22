@@ -17,23 +17,50 @@ export interface Bilingual {
   en: string;
 }
 
-/** Ba dịch vụ lõi — mỗi dịch vụ có màu thương hiệu riêng chạy xuyên suốt UI. */
+/**
+ * Năm dịch vụ theo spec nội dung chính thức (Demo_noi_dung_website_MHGS, mục 1.2 & 3).
+ * Mỗi dịch vụ có màu thương hiệu riêng chạy xuyên suốt UI.
+ */
 export type ServiceSlug =
-  | 'van-chuyen-duong-bo'
-  | 'van-chuyen-duong-bien'
-  | 'khai-bao-hai-quan';
+  | 'van-chuyen-duong-bien-quoc-te'
+  | 'van-tai-hang-khong-quoc-te'
+  | 'van-chuyen-duong-bo-noi-dia'
+  | 'van-tai-duong-bo-xuyen-bien-gioi'
+  | 'dai-ly-hai-quan';
 
-export type ServiceAccent = 'brand-green' | 'brand-blue' | 'brand-teal';
+export type ServiceAccent =
+  | 'brand-green'
+  | 'brand-blue'
+  | 'brand-teal'
+  | 'navy'
+  | 'amber';
 
 export interface ServiceSummary {
   slug: ServiceSlug;
   accent: ServiceAccent;
   /** Tên icon trong bộ lucide-react, xem src/components/ui/ServiceIcon.tsx */
-  icon: 'truck' | 'ship' | 'file-check-2';
+  icon: 'truck' | 'ship' | 'file-check-2' | 'plane' | 'truck-cross-border';
   title: Bilingual;
   tagline: Bilingual;
   /** Ảnh thẻ dịch vụ ở trang chủ — 800×600, xem manifest ảnh trong change-log. */
   cardImage: string;
+}
+
+/** Hiệp hội / tổ chức logistics MH là thành viên hoặc liên kết (spec mục 1.3 & 2.3). */
+export interface AssociationItem {
+  abbr: string;
+  name: Bilingual;
+  logo?: string;
+}
+
+/** Thị trường chính MH khai thác (spec mục 1.5 & 3.1). */
+export interface MarketItem {
+  name: Bilingual;
+  /** Toạ độ địa lý thật của điểm đại diện (độ thập phân, Đông/Bắc dương). */
+  lon: number;
+  lat: number;
+  /** Phía đặt nhãn quanh điểm trên bản đồ — tách nhãn các thị trường nằm sát nhau. */
+  labelSide?: 'top' | 'bottom' | 'left' | 'right';
 }
 
 export interface SpecRow {
@@ -86,18 +113,12 @@ export interface StatItem {
 }
 
 /**
- * Một đối tác hiển thị ở mục "Đối tác". Hai nhóm:
- *  - `carrier`: hãng tàu có tuyến chạy đến cảng Việt Nam;
- *  - `domestic`: doanh nghiệp sản xuất trong nước.
- *
- * Hiện hiển thị bằng chữ (wordmark) chứ không dùng logo — tránh dùng nhãn hiệu
- * của bên thứ ba khi chưa có thoả thuận. Khi có logo được phép dùng, thêm
- * `logo` và render thay phần chữ.
+ * Một đối tác (hãng tàu / hãng hàng không) ở mục "Mạng lưới đối tác".
+ * Thẻ chỉ hiển thị logo + tên — không có dòng chú thích. Chưa có `logo` thì
+ * thẻ hiện tên dạng wordmark.
  */
 export interface PartnerItem {
   name: string;
-  /** Dòng phụ: tuyến/khu vực khai thác (carrier) hoặc ngành hàng (domestic). */
-  note: Bilingual;
   logo?: string;
 }
 
@@ -120,6 +141,20 @@ export interface HomeContent {
   services: ServiceSummary[];
   stats: StatItem[];
   process: ProcessStep[];
+  /** Mục 1.1 — giới thiệu ngắn trên trang chủ, có link "Xem thêm" sang /about. */
+  intro: {
+    heading: Bilingual;
+    paragraphs: Bilingual[];
+    moreLabel: Bilingual;
+    moreHref: string;
+  };
+  /** Mục 1.3 — các hiệp hội và tổ chức logistics toàn cầu. */
+  associations: {
+    eyebrow: Bilingual;
+    heading: Bilingual;
+    items: AssociationItem[];
+  };
+  /** Mục 1.4 — mạng lưới đối tác: hãng tàu và hãng hàng không. */
   partners: {
     eyebrow: Bilingual;
     heading: Bilingual;
@@ -129,11 +164,19 @@ export interface HomeContent {
       note: Bilingual;
       items: PartnerItem[];
     };
-    domestic: {
+    airlines: {
       title: Bilingual;
       note: Bilingual;
       items: PartnerItem[];
     };
+  };
+  /** Mục 1.5 — bản đồ thị trường, từ Việt Nam toả ra các thị trường chính. */
+  markets: {
+    eyebrow: Bilingual;
+    heading: Bilingual;
+    description: Bilingual;
+    origin: Bilingual;
+    items: MarketItem[];
   };
   news: {
     heading: Bilingual;

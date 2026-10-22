@@ -27,6 +27,9 @@ import {
   fetchServicesBooking,
 } from '@/services/booking.services';
 
+import CheckPoint from './Checkpoint';
+import InfoCheckpoint from './InfoCheckPoint';
+import ModalCreatInfo from './InfoCheckPoint/ModalInfo/ModalCreate';
 import { rendeColumsPickup } from '../../../../utils/contants/columns.contants';
 import { QUERY_KEY } from '../../../../utils/contants/query-key';
 import {
@@ -39,9 +42,6 @@ import {
   postPu,
   QUERY,
 } from '../../../../utils/contants/services';
-import CheckPoint from './Checkpoint';
-import InfoCheckpoint from './InfoCheckPoint';
-import ModalCreatInfo from './InfoCheckPoint/ModalInfo/ModalCreate';
 
 const QUERY_PARAMS: QUERY = {
   page: 1,

@@ -4,12 +4,12 @@ import { Bilingual } from './types';
  * Thông tin liên hệ — NGUỒN DUY NHẤT cho cả trang Liên hệ, Footer và tầng
  * tiện ích trên Header.
  *
- * ⚠️⚠️ TOÀN BỘ SỐ LIỆU DƯỚI ĐÂY LÀ PLACEHOLDER, PHẢI THAY BẰNG THÔNG TIN THẬT
- * TRƯỚC KHI LÊN PRODUCTION.
- * Trang liên hệ cũ (`container/CustomerSupportForm`) ghi thông tin của **ACF**
- * (Vinhomes Thăng Long, Hoài Đức, Hà Nội · 19008972 · acf@gmail.com) — là
- * thương hiệu khác, cố ý không mang sang. Chưa có thông tin thật của MH nên
- * để placeholder nhất quán theo định vị cảng Hải Phòng.
+ * Hotline và email lấy từ spec chính thức
+ * `Demo_noi_dung_website_MHGS_261015.pdf` (mục 5).
+ *
+ * ⚠️ ĐỊA CHỈ TRỤ SỞ CHƯA ĐẦY ĐỦ: spec chỉ ghi "SH14" — thiếu tên toà nhà,
+ * đường, phường và thành phố. Cần bổ sung địa chỉ đầy đủ trước khi lên
+ * production; hiện tạm hiển thị đúng những gì spec cung cấp.
  */
 
 export interface ContactChannel {
@@ -29,32 +29,33 @@ export const contactContent = {
       en: 'Send us your shipment details, get a plan today',
     },
     description: {
-      vi: 'Cho chúng tôi biết tuyến hàng, loại hàng và thời điểm dự kiến — đội kinh doanh sẽ phản hồi kèm báo giá cụ thể trong ngày làm việc.',
-      en: 'Tell us your lane, cargo type and timing — our team replies with a concrete quote within the business day.',
+      vi: 'Vui lòng để lại thông tin theo biểu mẫu bên dưới. Đội ngũ chuyên gia của chúng tôi sẽ sớm liên hệ để tư vấn và gửi báo giá phù hợp với nhu cầu của bạn.',
+      en: 'Please leave your details in the form below. Our specialists will contact you shortly with advice and a quote that fits your needs.',
     },
   },
   channels: [
     {
       kind: 'phone',
       label: { vi: 'Hotline', en: 'Hotline' },
-      value: '+84 28 7300 1234',
-      href: 'tel:+842873001234',
-      note: { vi: 'Thứ 2 – Thứ 7, 8:00 – 17:30', en: 'Mon – Sat, 8:00 – 17:30' },
+      value: '024 3822 3355',
+      href: 'tel:02438223355',
+      note: { vi: 'Giờ hành chính', en: 'Business hours' },
     },
     {
       kind: 'email',
       label: { vi: 'Email', en: 'Email' },
-      value: 'contact@mhgreatsun.com',
-      href: 'mailto:contact@mhgreatsun.com',
+      value: 'mh@mhgreatsun.vn',
+      href: 'mailto:mh@mhgreatsun.vn',
       note: { vi: 'Phản hồi trong ngày làm việc', en: 'Answered within the business day' },
     },
     {
       kind: 'address',
-      label: { vi: 'Văn phòng', en: 'Office' },
-      value: 'Hải Phòng, Việt Nam',
+      label: { vi: 'Trụ sở chính', en: 'Head office' },
+      // ⚠️ Spec chỉ ghi "SH14" — chờ địa chỉ đầy đủ.
+      value: 'SH14',
       note: {
-        vi: 'Gần khu vực cảng Hải Phòng',
-        en: 'Near the Hai Phong Port area',
+        vi: 'Đang cập nhật địa chỉ đầy đủ',
+        en: 'Full address to be confirmed',
       },
     },
   ] as ContactChannel[],

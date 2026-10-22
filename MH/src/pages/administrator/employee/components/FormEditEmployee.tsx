@@ -1,15 +1,16 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Button, Form, FormInstance, Modal, notification, Select } from 'antd';
 import { useForm } from 'antd/lib/form/Form';
-import { useEffect, useMemo, useState } from 'react';
+import axios from 'axios';
+import { useMemo, useState } from 'react';
 import { useMutation, useQuery } from 'react-query';
 
 import HeaderModal from '@/components/common/HeaderModal';
 import VDatePicker from '@/components/common/VDatePicker';
 import VInput from '@/components/common/VInput';
 import VSelect from '@/components/common/VSelect';
-
 import FileUpload from '@/components/FileUpLoad';
+
 import { BASE_URL, LevelStaff } from '@/contants/common.constants';
 import {
   EStatus,
@@ -21,7 +22,6 @@ import {
 import useGetPermission from '@/hook/getPermission';
 import { getUnit } from '@/services/customer.services';
 import { resetPass } from '@/services/post.service';
-import axios from 'axios';
 const { Option } = Select;
 
 const FormEditEmployee = ({

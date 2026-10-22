@@ -1,4 +1,4 @@
-import { FileCheck2, LucideIcon, Ship, Truck } from 'lucide-react';
+import { FileCheck2, LucideIcon, Plane, Route, Ship, Truck } from 'lucide-react';
 
 import { ServiceAccent, ServiceSummary } from '@/content/types';
 
@@ -6,6 +6,10 @@ const ICONS: Record<ServiceSummary['icon'], LucideIcon> = {
   truck: Truck,
   ship: Ship,
   'file-check-2': FileCheck2,
+  plane: Plane,
+  // Xuyên biên giới: dùng icon tuyến đường thay vì xe tải, để phân biệt rõ
+  // với dịch vụ đường bộ nội địa vốn đã dùng icon xe tải.
+  'truck-cross-border': Route,
 };
 
 /**
@@ -61,6 +65,28 @@ export const ACCENT_CLASSES: Record<
     hoverBorder: 'hover:border-brand-teal-500',
     groupHoverBg500: 'group-hover:bg-brand-teal-500',
     imageOverlay: 'from-brand-teal-900/70 via-brand-teal-900/10 to-transparent',
+  },
+  navy: {
+    bg50: 'bg-navy-50',
+    bg500: 'bg-navy-500',
+    bg600: 'bg-navy-600',
+    text: 'text-navy-500',
+    border: 'border-navy-500',
+    ring: 'ring-navy-300',
+    hoverBorder: 'hover:border-navy-500',
+    groupHoverBg500: 'group-hover:bg-navy-500',
+    imageOverlay: 'from-navy-900/70 via-navy-900/10 to-transparent',
+  },
+  amber: {
+    bg50: 'bg-amber-50',
+    bg500: 'bg-amber-400',
+    bg600: 'bg-amber-500',
+    text: 'text-amber-600',
+    border: 'border-amber-400',
+    ring: 'ring-amber-300',
+    hoverBorder: 'hover:border-amber-400',
+    groupHoverBg500: 'group-hover:bg-amber-400',
+    imageOverlay: 'from-amber-900/70 via-amber-900/10 to-transparent',
   },
 };
 
